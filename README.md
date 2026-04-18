@@ -1,173 +1,130 @@
-# DANGUN 금융플랫폼
+# DANGUN 금융플랫폼 (단군 투자 관리 시스템)
 
-Node.js + SQLite3 기반 풀스택 금융 플랫폼 (Railway 배포용)
-
----
-
-## 🔐 보안 수정 내역 (최신)
-
-| 항목 | 상태 | 설명 |
-|------|------|------|
-| 관리자 경로 무단 접근 차단 | ✅ 완료 | 모든 `admin/*.html`에 `requireAdminAuth()` 적용 – 토큰·관리자ID 없으면 `/index.html`로 강제 리다이렉트 |
-| 로그아웃 버그 수정 | ✅ 완료 | 단순 링크(`href="../index.html"`) → `Auth.clear()` 호출 후 리다이렉트로 변경 (localStorage 완전 삭제) |
-| 데모 버튼 제거 | ✅ 완료 | `index.html`의 「회원 데모」·「관리자 데모」 버튼 및 `demoLogin()` 함수 삭제 |
-| reset.html·simulate.html 인증 통일 | ✅ 완료 | `adminToken` → `dangun_token` + `dangun_admin` 체계로 통일 |
+## 프로젝트 개요
+단군 금융플랫폼은 투자 수익 분배, 직급 수당 시스템, 회원 추천 계보를 관리하는 관리자·회원 통합 플랫폼입니다.
 
 ---
 
-## ✅ 구현 완료 기능
+## ✅ 현재 구현 완료 기능
 
-### 인증
-- 회원/관리자 통합 로그인 (`POST /api/auth/login`, `POST /api/auth/admin/login`)
-- JWT 발급 및 검증 (7일 유효)
-- 페이지별 인증 가드 (`requireAdminAuth`, `requireMemberAuth`)
+### 인증 시스템
+- 관리자/일반 회원 JWT 기반 이중 로그인 (admin/login → member/login 폴백)
+- **관리자 대시보드 경로 보안**: `<head>` 내 즉시 실행 인증 가드 (모든 admin/*.html 적용)
+- 로그아웃: `doLogout()` 전역 함수 통일 (api.js), localStorage 완전 초기화 후 `/index.html` 리다이렉트
+- 인증 없이 admin/* 접근 시 자동 `/index.html` 리다이렉트
 
-### 관리자 대시보드
-- KPI 카드 (전체 회원, 총 투자금, 지급 예정, 수당, 출금 대기)
-- 월별 투자금 현황 차트 (Chart.js)
-- 수당 지급 구조 도넛 차트
-- 출금 대기 / 승인 대기 회원 위젯
-- 이번 주 금요일 지급 예정 테이블 + 일괄 승인
-- **퀵 액션 버튼** (회원 추가, 투자금 입금, 출금 관리, 시뮬레이션, 데이터 초기화, 새로고침)
+### 회원가입 / 추천인 시스템
+- **SuperAdmin 추천인 검색 지원**: `/api/auth/members/search` → members + admins 테이블 통합 검색
+- 추천인 검색 시 관리자(🛡관리자 뱃지) 표시
+- SuperAdmin을 추천인으로 선택하면 최상위 회원으로 등록 (rank='일반회원', recommender_id=null)
+- 회원가입 시 rank 명시적으로 '일반회원' 고정 (DB DEFAULT 의존 제거)
+- 추천 계보(referral_tree) 자동 구성
 
-### 회원 관리 (`admin/members.html`)
-- 회원 목록 조회 (검색, 직급·상태 필터, 페이지네이션)
-- **회원 직접 추가 모달** (아이디, 비밀번호, 이름, 전화번호, 은행, 계좌, 추천인 검색, 직급, 즉시 활성화 지원)
-- 직급 변경 (드롭다운 즉시 적용)
-- 회원 상세 조회 (투자 현황 포함)
-- 회원 활성화 / 정지
-- 비밀번호 강제 변경
+### 관리자 페이지
+- **대시보드** (`admin/dashboard.html`): DB 연동 KPI (전체 회원, 투자금, 수당, 출금 대기), 월별 투자 차트, 수당 구조 도넛 차트, 출금 대기·승인 대기 회원 목록, 최근 활동 로그, 주간 지급 예정 목록
+- **회원 관리** (`admin/members.html`): DB 회원 목록, 직급 변경, 활성화/정지, 비밀번호 변경, **관리자 회원 추가 모달** (SuperAdmin 추천인 지원)
+- **투자금 입금** (`admin/deposit.html`): KPI DB 연동, 회원 검색 후 투자 등록, 주간 지급 스케줄 자동 생성
+- **투자금 출금** (`admin/withdrawal.html`): 출금 신청 목록, 개별/일괄 승인·거절, KPI DB 연동
+- **직급 수당** (`admin/commission.html`): 수당 목록, 본부장·팀장 수당 KPI DB 연동
+- **지급 시뮬레이션** (`admin/simulate.html`): 날짜 기준 pending 지급건 미리보기 및 즉시 처리
+- **데이터 초기화** (`admin/reset.html`): 전체/선택 초기화 (투자, 출금, 수당, 회원, 로그)
 
-### 투자 관리
-- 투자금 입금 (`admin/deposit.html`) – 회원 검색 후 금액 입력
-- 출금 신청 승인/거절 (`admin/withdrawal.html`)
-
-### 직급 수당 (`admin/commission.html`)
-- 수당 내역 목록 (직급별 필터)
-
-### 데이터 초기화 (`admin/reset.html`)
-- 선택적 초기화: 회원정보 / 투자 / 주간지급 / 직급수당 / 출금 / 로그
-- 전체 초기화 (확인 문구 `RESET` 입력 필요)
-
-### 지급 시뮬레이션 (`admin/simulate.html`)
-- 특정 날짜 기준 지급 대기 건 미리보기
-- 드라이런(dry_run) 모드 지원
-- 실제 지급 실행
-
-### 회원 가입 (`index.html`)
-- 추천인 실시간 검색 (2자 이상 자동검색)
-- 가입 즉시 `active` 상태로 바로 로그인 가능
+### 회원 페이지
+- **대시보드** (`member/index.html`): DB 연동 투자 현황, 지갑 잔액, 수당 내역, 추천 계보 요약
+- **지급 내역** (`member/payouts.html`): 주간 지급 스케줄 목록
+- **추천 계보** (`member/referrals.html`): 하부 회원 목록, 추천 통계
 
 ---
 
-## 🌐 API 엔드포인트 요약
+## 🔧 주요 API 엔드포인트
 
-| Method | Path | 설명 |
-|--------|------|------|
-| GET | `/api/health` | 헬스체크 |
-| POST | `/api/auth/register` | 회원가입 |
-| POST | `/api/auth/login` | 회원 로그인 |
-| POST | `/api/auth/admin/login` | 관리자 로그인 |
-| GET | `/api/auth/me` | 내 정보 (회원) |
-| GET | `/api/auth/members/search?q=` | 추천인 검색 |
-| GET | `/api/members` | 회원 목록 (관리자) |
-| GET | `/api/members/:id` | 회원 상세 |
-| PATCH | `/api/members/:id` | 회원 정보 수정 |
-| PATCH | `/api/members/:id/password` | 비밀번호 변경 |
-| POST | `/api/investments` | 투자금 입금 |
-| GET | `/api/investments` | 투자 목록 |
-| GET | `/api/investments/payouts/pending` | 지급 대기 목록 |
-| PATCH | `/api/investments/payouts/:id/pay` | 개별 지급 확정 |
-| POST | `/api/investments/payouts/bulk-pay` | 일괄 지급 |
-| GET | `/api/withdrawals` | 출금 목록 |
-| PATCH | `/api/withdrawals/:id/approve` | 출금 승인 |
-| PATCH | `/api/withdrawals/:id/reject` | 출금 거절 |
-| GET | `/api/commissions` | 수당 목록 |
-| GET | `/api/dashboard/admin` | 관리자 대시보드 데이터 |
-| **POST** | **`/api/admin/members`** | **관리자: 회원 직접 추가** |
-| **POST** | **`/api/admin/reset`** | **데이터 초기화** |
-| **GET** | **`/api/admin/payout-preview`** | **지급 미리보기** |
-| **POST** | **`/api/admin/simulate-payout`** | **지급 시뮬레이션 실행** |
+| Method | Path | 설명 | Auth |
+|--------|------|------|------|
+| POST | `/api/auth/register` | 회원가입 (SuperAdmin 추천인 지원) | 불필요 |
+| POST | `/api/auth/login` | 회원 로그인 | 불필요 |
+| POST | `/api/auth/admin/login` | 관리자 로그인 | 불필요 |
+| GET | `/api/auth/members/search?q=` | 추천인 검색 (members + admins) | 불필요 |
+| GET | `/api/dashboard/admin` | 관리자 대시보드 DB 데이터 | adminToken |
+| GET | `/api/dashboard/member` | 회원 대시보드 DB 데이터 | memberToken |
+| GET | `/api/members` | 회원 목록 (페이지네이션, 필터) | admin |
+| POST | `/api/admin/members` | 관리자 회원 직접 추가 | admin |
+| POST | `/api/admin/reset` | 데이터 초기화 | admin |
+| POST | `/api/admin/simulate-payout` | 지급 시뮬레이션 | admin |
+| GET | `/api/investments` | 투자 목록 | admin |
+| POST | `/api/investments` | 투자 등록 | admin |
+| GET | `/api/withdrawals` | 출금 목록 | admin |
+| PATCH | `/api/withdrawals/:id/approve` | 출금 승인 | admin |
+| GET | `/api/commissions` | 수당 목록 | admin |
 
 ---
 
-## 🚀 Railway 배포 설정
-
-### 필수 환경변수
-
-| 변수명 | 설명 | 예시 |
-|--------|------|------|
-| `JWT_SECRET` | JWT 서명 키 (64자 이상 랜덤) | `openssl rand -hex 32` |
-| `ADMIN_ID` | 최초 관리자 아이디 | `superadmin` |
-| `ADMIN_PASSWORD` | 최초 관리자 비밀번호 | `MyPass123!` |
-| `ADMIN_NAME` | 관리자 이름 | `최고관리자` |
-| `ADMIN_EMAIL` | 관리자 이메일 | `admin@example.com` |
-| `DB_PATH` | SQLite 파일 경로 | `/app/database/dangun.db` |
-| `NODE_ENV` | 환경 | `production` |
-| `PORT` | 포트 (자동 설정) | `3000` |
-
-### 배포 명령
-```
-빌드: (없음 - 순수 Node.js)
-시작: node server.js
-```
-
-### railway.toml
-```toml
-[build]
-builder = "NIXPACKS"
-
-[deploy]
-startCommand = "node server.js"
-restartPolicyType = "ON_FAILURE"
-restartPolicyMaxRetries = 10
-```
-
----
-
-## 📁 프로젝트 구조
+## 📁 파일 구조
 
 ```
-├── server.js              # Express 메인 서버
-├── scheduler.js           # 주간 지급 스케줄러 (매주 금요일 09:00 KST)
-├── package.json
-├── railway.toml
-├── index.html             # 로그인/회원가입 페이지
-├── api/
-│   ├── middleware/auth.js # JWT 인증 미들웨어
-│   └── routes/
-│       ├── auth.js        # 인증 API
-│       ├── admin.js       # 관리자 전용 API (회원추가, 초기화, 시뮬레이션)
-│       ├── members.js     # 회원 관리 API
-│       ├── investments.js # 투자 API
-│       ├── withdrawals.js # 출금 API
-│       ├── commissions.js # 수당 API
-│       └── dashboard.js   # 대시보드 API
-├── database/
-│   ├── db.js              # SQLite 연결 (sqlite3 + Promise 래퍼)
-│   └── migrate.js         # 스키마 마이그레이션
+/
+├── index.html              # 로그인/회원가입 페이지
+├── js/
+│   ├── api.js              # Auth, API 클라이언트 (MembersAPI, etc.) 전역 노출
+│   └── app.js              # 공통 유틸 (showToast, formatMoney, etc.)
+├── css/
+│   └── theme.css           # 테마 스타일
 ├── admin/
-│   ├── dashboard.html     # 관리자 메인 대시보드
-│   ├── members.html       # 회원 관리 + 회원추가 모달
-│   ├── deposit.html       # 투자금 입금
-│   ├── withdrawal.html    # 출금 관리
-│   ├── commission.html    # 직급 수당
-│   ├── simulate.html      # 지급 시뮬레이션
-│   └── reset.html         # 데이터 초기화 / 회원추가
+│   ├── dashboard.html      # 관리자 대시보드 (DB 연동 KPI)
+│   ├── members.html        # 회원 관리 (추가/수정/조회)
+│   ├── deposit.html        # 투자금 입금 관리
+│   ├── withdrawal.html     # 투자금 출금 관리
+│   ├── commission.html     # 직급 수당 관리
+│   ├── simulate.html       # 지급 시뮬레이션
+│   └── reset.html          # 데이터 초기화/회원 추가
 ├── member/
-│   └── index.html         # 회원 대시보드
-├── css/theme.css          # 공통 스타일
-└── js/
-    ├── app.js             # UI 유틸리티 (테마, 토스트, 날짜포맷 등)
-    └── api.js             # API 클라이언트 (Auth, AuthAPI, AdminAPI 등)
+│   ├── index.html          # 회원 대시보드
+│   ├── payouts.html        # 지급 내역
+│   └── referrals.html      # 추천 계보
+├── api/
+│   ├── routes/
+│   │   ├── auth.js         # 인증 (login, register, search)
+│   │   ├── admin.js        # 관리자 전용 API
+│   │   ├── members.js      # 회원 CRUD
+│   │   ├── investments.js  # 투자 관리
+│   │   ├── withdrawals.js  # 출금 관리
+│   │   ├── commissions.js  # 수당 관리
+│   │   └── dashboard.js    # 대시보드 집계
+│   └── middleware/
+│       └── auth.js         # JWT 인증 미들웨어
+├── database/
+│   ├── db.js               # SQLite Promise 래퍼
+│   └── migrate.js          # DB 마이그레이션
+└── server.js               # Express 앱 진입점
 ```
 
 ---
 
-## ⚠️ 미구현 / 추후 개발 예정
+## 🐛 최근 수정 이력 (2026-04-18)
 
-- 이메일 기반 아이디/비밀번호 찾기
-- CSV 내보내기
-- 시스템 설정 UI (이율, 주차, 수당률 실시간 변경)
-- 2FA (관리자 이중 인증)
-- 감사 로그 UI
+### 버그 수정
+1. **"Auth is not defined" 오류** → api.js에서 `window.Auth = Auth` 즉시 전역 노출, `<head>` 인증 가드는 localStorage 직접 접근으로 변경
+2. **"MembersAPI is not defined" 오류** → api.js에서 `window.MembersAPI = MembersAPI` 전역 노출 확인
+3. **SuperAdmin 추천인 등록 실패** → `/api/auth/members/search`가 members + admins 테이블 통합 검색하도록 수정
+4. **관리자 회원 추가 시 Auth 오류** → admin/members.html의 searchAdminRecommender()가 Auth.getToken()을 안전하게 사용, SuperAdmin 타입 지원
+5. **로그아웃 먹통** → reset.html, simulate.html의 `logout()` 함수를 `doLogout()`으로 통일
+6. **관리자 대시보드 하드코딩 KPI** → `data-counter="128"` 등 하드코딩 제거, renderKPIs()가 DB 데이터로 업데이트
+7. **회원가입 시 SuperAdmin 등록 문제** → register API에 rank='일반회원' 명시 삽입, 로그인 로직 강화 (localStorage 초기화 후 저장)
+8. **인증 없이 admin/* 접근 가능** → 모든 admin HTML `<head>`에 즉시 실행 인증 가드 적용
+
+---
+
+## ⚠️ 미구현 / 추후 작업
+
+- 이메일 서비스 연동 (아이디/비밀번호 찾기)
+- CSV 내보내기 기능
+- SMS 알림 (출금 승인/거절 시)
+- 실시간 알림 (WebSocket)
+- 다중 관리자 계정 관리
+
+---
+
+## 🚀 배포
+
+Railway 배포: `nixpacks.toml` 설정에 따라 자동 빌드 및 시작
+- `Procfile`: `web: node server.js`
+- 환경변수: `JWT_SECRET`, `NODE_ENV`, `PORT`

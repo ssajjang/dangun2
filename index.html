@@ -712,44 +712,52 @@
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 로그인 중...';
 
       try {
-        // 1) 관리자 로그인 시도
-        let isAdmin = false;
-        let data = null;
+        let loginData = null;
+        let isAdminLogin = false;
+
+        // 1) 관리자 로그인 먼저 시도
         try {
-          data = await fetch('/api/auth/admin/login', {
+          const adminRes = await fetch('/api/auth/admin/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ admin_id: id, password: pw })
-          }).then(r => r.json());
-          if (data?.token) isAdmin = true;
-        } catch {}
+          });
+          const adminData = await adminRes.json();
+          if (adminRes.ok && adminData?.token) {
+            loginData = adminData;
+            isAdminLogin = true;
+          }
+        } catch(e) { /* 관리자 로그인 네트워크 오류 - 폴백 */ }
 
-        if (!isAdmin || !data?.token) {
-          // 2) 회원 로그인 시도
-          const res = await fetch('/api/auth/login', {
+        // 2) 관리자 로그인 실패 시 일반 회원 로그인 시도
+        if (!isAdminLogin) {
+          const memberRes = await fetch('/api/auth/login', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ user_id: id, password: pw })
           });
-          data = await res.json();
-          if (!res.ok) throw new Error(data.error || '로그인 실패');
+          loginData = await memberRes.json();
+          if (!memberRes.ok) throw new Error(loginData.error || '로그인에 실패했습니다.');
         }
 
-        if (data?.token) {
-          localStorage.setItem('dangun_token', data.token);
-          if (data.admin) {
-            localStorage.setItem('dangun_admin', JSON.stringify(data.admin));
-            localStorage.removeItem('dangun_user');
-            showToast('관리자 로그인 성공!', 'success');
-            setTimeout(() => window.location.href = 'admin/dashboard.html', 600);
-          } else {
-            localStorage.setItem('dangun_user', JSON.stringify(data.user));
-            localStorage.removeItem('dangun_admin');
-            showToast('로그인 성공!', 'success');
-            setTimeout(() => window.location.href = 'member/index.html', 600);
-          }
+        if (!loginData?.token) throw new Error('로그인에 실패했습니다.');
+
+        // localStorage 저장 (이전 데이터 완전 초기화)
+        localStorage.removeItem('dangun_token');
+        localStorage.removeItem('dangun_admin');
+        localStorage.removeItem('dangun_user');
+        localStorage.setItem('dangun_token', loginData.token);
+
+        if (isAdminLogin && loginData.admin) {
+          localStorage.setItem('dangun_admin', JSON.stringify(loginData.admin));
+          showToast('관리자 로그인 성공!', 'success');
+          setTimeout(() => window.location.replace('admin/dashboard.html'), 600);
+        } else if (loginData.user) {
+          localStorage.setItem('dangun_user', JSON.stringify(loginData.user));
+          showToast('로그인 성공!', 'success');
+          setTimeout(() => window.location.replace('member/index.html'), 600);
         } else {
-          throw new Error(data?.error || '로그인에 실패했습니다.');
+          throw new Error('로그인 데이터가 올바르지 않습니다.');
         }
       } catch(err) {
         showToast(err.message, 'error');
@@ -801,7 +809,7 @@
       }
     }
 
-    // ── Recommender Search ── 실시간 자동검색 (2자 이상)
+    // ── Recommender Search ── 실시간 자동검색 (2자 이상, SuperAdmin 포함)
     let searchTimer = null;
     async function searchRecommender() {
       const q = document.getElementById('recommend-input').value.trim();
@@ -811,21 +819,29 @@
       clearTimeout(searchTimer);
       searchTimer = setTimeout(async () => {
         try {
+          // 토큰 불필요 - 가입 전 단계
           const res  = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`);
           const found = await res.json();
 
           if (!Array.isArray(found) || found.length === 0) {
-            resultEl.innerHTML = `<div class="recommend-item"><span class="uname">검색 결과 없음</span></div>`;
+            resultEl.innerHTML = `<div class="recommend-item"><span class="uname" style="color:var(--text-muted);">검색 결과 없음</span></div>`;
           } else {
-            resultEl.innerHTML = found.map(m => `
-              <div class="recommend-item" onclick="selectRecommender('${m.id}', '${m.user_id}', '${m.name}', '${m.rank}')">
-                <span class="uid">${m.user_id}</span>
-                <span class="uname">${m.name} · ${m.rank}</span>
-              </div>
-            `).join('');
+            resultEl.innerHTML = found.map(m => {
+              const isAdmin = m.type === 'admin';
+              const badge = isAdmin
+                ? `<span style="font-size:9px;padding:2px 6px;background:rgba(231,76,60,0.2);color:#e74c3c;border-radius:4px;font-weight:700;">관리자</span>`
+                : '';
+              return `
+                <div class="recommend-item" onclick="selectRecommender('${m.user_id}', '${m.user_id}', '${m.name}', '${m.rank}', ${isAdmin})">
+                  <span class="uid">${m.user_id} ${badge}</span>
+                  <span class="uname">${m.name} · ${m.rank}</span>
+                </div>
+              `;
+            }).join('');
           }
           resultEl.classList.add('open');
-        } catch {
+        } catch(err) {
+          console.error('추천인 검색 오류:', err);
           resultEl.classList.remove('open');
         }
       }, 300);
@@ -834,13 +850,15 @@
     // 입력할 때마다 자동검색 실행
     document.getElementById('recommend-input').addEventListener('input', searchRecommender);
 
-    // id = DB의 숫자 id, userId = 표시용 아이디
-    function selectRecommender(id, userId, name, rank) {
-      document.getElementById('reg-recommender-id').value = id;   // DB id 저장
+    // recommenderKey: admin의 경우 admin_id(문자열), member의 경우 user_id(문자열)
+    // register API가 recommender_id로 user_id 문자열을 받음
+    function selectRecommender(recommenderKey, userId, name, rank, isAdmin) {
+      document.getElementById('reg-recommender-id').value = recommenderKey; // user_id 문자열로 저장
       document.getElementById('recommend-result').classList.remove('open');
       document.getElementById('recommend-input').value = userId;
       const selEl = document.getElementById('selected-recommender');
-      document.getElementById('selected-recommender-text').textContent = `✓ ${userId} (${name}) · ${rank}`;
+      const adminBadge = isAdmin ? ' 🛡관리자' : '';
+      document.getElementById('selected-recommender-text').textContent = `✓ ${userId} (${name}) · ${rank}${adminBadge}`;
       if (selEl) selEl.classList.add('show');
     }
 

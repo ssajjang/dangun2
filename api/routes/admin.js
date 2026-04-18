@@ -33,12 +33,22 @@ router.post('/members', authAdmin, async (req, res) => {
     );
     if (dup) return res.status(409).json({ error: '이미 사용 중인 아이디 또는 전화번호입니다.' });
 
-    // 추천인 조회
+    // 추천인 조회 (일반회원 + SuperAdmin 포함)
     let resolvedRecommenderId = null;
     if (recommender_user_id) {
+      // 먼저 일반 회원에서 검색
       const rec = await db.get('SELECT id FROM members WHERE user_id=?', [recommender_user_id]);
-      if (!rec) return res.status(404).json({ error: `추천인 '${recommender_user_id}'를 찾을 수 없습니다.` });
-      resolvedRecommenderId = rec.id;
+      if (rec) {
+        resolvedRecommenderId = rec.id;
+      } else {
+        // 관리자(admins) 테이블에서 검색 (SuperAdmin이 추천인인 경우)
+        const adminRec = await db.get('SELECT id FROM admins WHERE admin_id=? AND status=?', [recommender_user_id, 'active']);
+        if (!adminRec) {
+          return res.status(404).json({ error: `추천인 '${recommender_user_id}'를 찾을 수 없습니다. (회원 또는 관리자 아이디를 확인하세요)` });
+        }
+        // SuperAdmin이 추천인인 경우: recommender_id=null (최상위로 등록)
+        resolvedRecommenderId = null;
+      }
     }
 
     const hashed     = bcrypt.hashSync(password, 10);

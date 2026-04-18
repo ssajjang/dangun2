@@ -507,6 +507,7 @@
       _amSearchTimer = setTimeout(async () => {
         try {
           const token = Auth.getToken();
+          // /api/auth/members/search 는 admins(SuperAdmin) + members 모두 반환
           const res = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
           });
@@ -514,25 +515,31 @@
           if (!Array.isArray(found) || found.length === 0) {
             resultEl.innerHTML = `<div style="padding:10px;font-size:13px;color:var(--text-muted);">검색 결과 없음</div>`;
           } else {
-            resultEl.innerHTML = found.map(m => `
-              <div onclick="selectAdminRecommender('${m.id}','${m.user_id}','${m.name}','${m.rank}')"
-                style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:13px;display:flex;justify-content:space-between;"
+            resultEl.innerHTML = found.map(m => {
+              const isAdmin = m.type === 'admin';
+              const badge = isAdmin
+                ? `<span style="font-size:9px;padding:2px 5px;background:rgba(231,76,60,0.2);color:#e74c3c;border-radius:4px;font-weight:700;margin-left:4px;">관리자</span>`
+                : '';
+              return `
+              <div onclick="selectAdminRecommender('${m.user_id}','${m.user_id}','${m.name}','${m.rank}',${isAdmin})"
+                style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:13px;display:flex;justify-content:space-between;align-items:center;"
                 onmouseover="this.style.background='rgba(212,160,23,0.1)'" onmouseout="this.style.background=''">
-                <span style="font-weight:700;">${m.user_id}</span>
+                <span style="font-weight:700;">${m.user_id}${badge}</span>
                 <span style="color:var(--text-muted);">${m.name} · ${m.rank}</span>
               </div>
-            `).join('');
+            `}).join('');
           }
           resultEl.style.display = 'block';
-        } catch { resultEl.style.display = 'none'; }
+        } catch(err) { console.error('추천인 검색 오류:', err); resultEl.style.display = 'none'; }
       }, 300);
     }
 
-    function selectAdminRecommender(id, userId, name, rank) {
-      document.getElementById('am-recommender-id').value = userId; // user_id로 API 전달
+    function selectAdminRecommender(recommenderKey, userId, name, rank, isAdmin) {
+      document.getElementById('am-recommender-id').value = recommenderKey; // user_id(문자열)로 API 전달
       document.getElementById('am-recommender-input').value = userId;
       document.getElementById('am-recommender-result').style.display = 'none';
-      document.getElementById('am-recommender-text').textContent = `${userId} (${name}) · ${rank}`;
+      const adminBadge = isAdmin ? ' 🛡관리자' : '';
+      document.getElementById('am-recommender-text').textContent = `${userId} (${name}) · ${rank}${adminBadge}`;
       document.getElementById('am-recommender-selected').style.display = 'block';
     }
 

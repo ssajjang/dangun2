@@ -107,7 +107,7 @@
     <a href="reset.html"      class="nav-item"><i class="fas fa-trash-alt"></i><span>초기화/회원추가</span></a>
   </nav>
   <div class="sidebar-footer">
-    <button class="btn btn-outline btn-sm w-full" onclick="logout()"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
+    <button class="btn btn-outline btn-sm w-full" onclick="doLogout()"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
   </div>
 </div>
 
@@ -224,7 +224,7 @@
 <script>
 const token = localStorage.getItem('dangun_token');
 function authHeader() { return { 'Content-Type':'application/json','Authorization':'Bearer '+token }; }
-function logout() { if(window.Auth) window.Auth.clear(); else { localStorage.removeItem('dangun_token'); localStorage.removeItem('dangun_user'); localStorage.removeItem('dangun_admin'); } location.replace('/index.html'); }
+// doLogout()은 api.js에서 전역으로 등록됨
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
 
 function showToast(msg, type='info', dur=3500) {

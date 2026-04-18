@@ -28,30 +28,39 @@ router.post('/register', async (req, res) => {
     if (dup) return res.status(409).json({ error: '이미 사용 중인 아이디/이메일/전화번호입니다.' });
 
     // ── 추천인 조회 ──
-    // 숫자 → members.id로 조회
-    // 문자열 → members.user_id로 조회
-    // SuperAdmin 같은 admins 계정을 입력해도 graceful하게 무시 (추천인 없이 가입)
+    // 1) members.user_id 로 먼저 검색
+    // 2) admins.admin_id 로 검색 (SuperAdmin 지원)
+    // → admins 계정인 경우 recommender_id = null로 처리하되
+    //   나중에 referral_tree에 admin_anchor를 0번으로 연결
+    // 찾지 못해도 graceful하게 추천인 없이 가입
     let resolvedRecommenderId = null;
+    let resolvedRecommenderIsAdmin = false;
     if (recommender_id) {
       const rid = String(recommender_id).trim();
-      let recRow = null;
-      if (/^\d+$/.test(rid)) {
+      // 일반 회원에서 먼저 검색
+      let recRow = await db.get('SELECT id FROM members WHERE user_id=?', [rid]);
+      if (!recRow && /^\d+$/.test(rid)) {
         recRow = await db.get('SELECT id FROM members WHERE id=?', [parseInt(rid)]);
-      }
-      if (!recRow) {
-        recRow = await db.get('SELECT id FROM members WHERE user_id=?', [rid]);
       }
       if (recRow) {
         resolvedRecommenderId = recRow.id;
+      } else {
+        // 관리자(admins) 테이블에서 검색 (SuperAdmin)
+        const adminRow = await db.get('SELECT id FROM admins WHERE admin_id=? AND status=?', [rid, 'active']);
+        if (adminRow) {
+          // SuperAdmin을 추천인으로 선택한 경우: members에 없으므로 recommender_id=null로 저장
+          // 하지만 가입 자체는 정상 처리 (추천인 없는 최상위 회원으로 등록)
+          resolvedRecommenderIsAdmin = true;
+        }
+        // 찾지 못해도 에러 없이 계속 진행
       }
-      // 추천인을 찾지 못해도 에러 없이 계속 진행 (추천인 없이 가입)
     }
 
     const hashed = bcrypt.hashSync(password, 10);
     const result = await db.run(
       `INSERT INTO members
-         (user_id, password, name, email, phone, bank_name, account_number, account_holder, recommender_id, status)
-       VALUES (?,?,?,?,?,?,?,?,?,'active')`,
+         (user_id, password, name, email, phone, bank_name, account_number, account_holder, recommender_id, rank, status)
+       VALUES (?,?,?,?,?,?,?,?,?,'일반회원','active')`,
       [user_id, hashed, name, email, phone,
        bank_name||'', account_number||'', account_holder||name,
        resolvedRecommenderId]
@@ -173,8 +182,8 @@ router.get('/me', authMember, async (req, res) => {
 });
 
 /* ── 회원 검색 (추천인 찾기용) ──
-   members 테이블에서 검색하며, 결과에 SuperAdmin 항목을 별도 추가하지 않음
-   (SuperAdmin은 관리자이므로 members에 없음 – 추천인으로 등록해도 시스템이 graceful 처리)
+   members 테이블 + admins 테이블 (SuperAdmin 포함) 모두 검색
+   토큰 불필요 (회원가입 폼에서 호출)
 */
 router.get('/members/search', async (req, res) => {
   try {
@@ -182,16 +191,36 @@ router.get('/members/search', async (req, res) => {
     if (!q) return res.json([]);
 
     const db = await getDb();
-    const rows = await db.all(
-      `SELECT id, user_id, name, rank
+
+    // 일반 회원 검색
+    const memberRows = await db.all(
+      `SELECT id, user_id, name, rank, 'member' as type
        FROM members
        WHERE status != 'suspended'
          AND (user_id LIKE ? OR name LIKE ?)
        ORDER BY created_at DESC
-       LIMIT 20`,
+       LIMIT 15`,
       [`%${q}%`, `%${q}%`]
     );
-    return res.json(rows);
+
+    // 관리자(SuperAdmin 포함) 검색 - 추천인으로 선택 가능
+    const adminRows = await db.all(
+      `SELECT id, admin_id as user_id, name, role as rank, 'admin' as type
+       FROM admins
+       WHERE status = 'active'
+         AND (admin_id LIKE ? OR name LIKE ?)
+       ORDER BY created_at DESC
+       LIMIT 5`,
+      [`%${q}%`, `%${q}%`]
+    );
+
+    // 합쳐서 반환 (관리자를 앞에 배치)
+    const combined = [
+      ...adminRows.map(a => ({ ...a, rank: a.rank === 'superadmin' ? 'SuperAdmin' : '관리자' })),
+      ...memberRows,
+    ].slice(0, 20);
+
+    return res.json(combined);
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

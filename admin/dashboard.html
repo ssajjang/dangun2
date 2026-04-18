@@ -165,9 +165,9 @@
         <div class="kpi-row">
           <div class="stat-card anim-fadeInUp delay-1">
             <div class="stat-icon"><i class="fas fa-users"></i></div>
-            <div class="stat-value" data-counter="128">0</div>
+            <div class="stat-value" id="kpi-total-members">-</div>
             <div class="stat-label">전체 회원</div>
-            <div class="stat-change up"><i class="fas fa-arrow-up"></i> +12 이번 달</div>
+            <div class="stat-change up" id="kpi-active-badge"><i class="fas fa-user-check"></i> 활성 0명</div>
           </div>
           <div class="stat-card blue anim-fadeInUp delay-2">
             <div class="stat-icon"><i class="fas fa-coins"></i></div>
@@ -189,7 +189,7 @@
           </div>
           <div class="stat-card red anim-fadeInUp delay-5">
             <div class="stat-icon"><i class="fas fa-clock"></i></div>
-            <div class="stat-value" id="kpi-pending" data-counter="5">0</div>
+            <div class="stat-value" id="kpi-pending">-</div>
             <div class="stat-label">출금 대기 건수</div>
             <div class="stat-change down"><i class="fas fa-exclamation-circle"></i> 승인 필요</div>
           </div>
@@ -330,7 +330,6 @@
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
       setCurrentDate();
-      initCounters();
       await loadDashboard();
     });
 
@@ -357,10 +356,23 @@
     }
 
     function renderKPIs(d) {
-      const totalInvest  = d.invest_stats?.total_amount  || 0;
-      const weeklyPaid   = d.payout_stats?.paid_amount   || 0;
-      const commission   = d.comm_stats?.total           || 0;
-      const pendingCount = d.payout_stats?.pending_count || 0;
+      const totalInvest    = d.invest_stats?.total_amount   || 0;
+      const weeklyPaid     = d.payout_stats?.paid_amount    || 0;
+      const commission     = d.comm_stats?.total_amount     || d.comm_stats?.total || 0;
+      const pendingCount   = d.withdraw_stats?.pending_count || d.payout_stats?.pending_count || 0;
+      const totalMembers   = d.member_stats?.total          || 0;
+      const activeMembers  = d.member_stats?.active_count   || 0;
+      const inactiveMembers= d.member_stats?.inactive_count || 0;
+
+      // 전체 회원
+      const totalEl = document.getElementById('kpi-total-members');
+      if (totalEl) totalEl.textContent = totalMembers;
+      const activeBadge = document.getElementById('kpi-active-badge');
+      if (activeBadge) activeBadge.innerHTML = `<i class="fas fa-user-check"></i> 활성 ${activeMembers}명`;
+
+      // 출금 대기
+      const pendingEl = document.getElementById('kpi-pending');
+      if (pendingEl) pendingEl.textContent = pendingCount;
 
       document.getElementById('kpi-invest').textContent     = totalInvest >= 100000000
         ? '₩' + (totalInvest / 100000000).toFixed(1) + '억'
@@ -370,9 +382,12 @@
         ? '₩' + (commission / 10000).toFixed(0) + '만'
         : formatMoney(commission);
 
-      // 대기 중 회원 배지
-      const badge = document.getElementById('pending-count-badge');
-      if (badge) badge.textContent = d.member_stats?.inactive || 0;
+      // 사이드바 맹원자 회원 배지
+      const mBadge = document.getElementById('badge-pending-members');
+      if (mBadge) mBadge.textContent = inactiveMembers || 0;
+      // 출금 대기 배지
+      const wBadge = document.getElementById('badge-pending-withdraw');
+      if (wBadge) wBadge.textContent = pendingCount || 0;
     }
 
     function renderCharts(d) {
