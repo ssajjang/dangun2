@@ -144,36 +144,63 @@ router.post('/', authAdmin, async (req, res) => {
       );
     };
 
-    // 라인 상위 탐색: 최초 팀장, 최초 본부장 탐색
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 라인 상위 탐색: 최초(가장 가까운) 팀장 1명, 최초 본부장 1명 탐색
+     *
+     * ✅ 검증 규칙:
+     *  - 같은 라인에 본부장이 2명 이상 있어도 가장 가까운 1명만 수당 받음
+     *  - 같은 라인에 팀장이 2명 이상 있어도 가장 가까운 1명만 수당 받음
+     *  - foundTeamjang.id !== foundBonbujang.id 보장 (다른 사람)
+     *  - 탐색 방향: 투자자 추천인 → 상위 → 상위 (단방향 위쪽만)
+     *  - 최대 탐색 깊이: MAX_DEPTH=20
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     let foundTeamjang  = null; // 가장 가까운 팀장
     let foundBonbujang = null; // 가장 가까운 본부장
     let cursor = member.recommender_id;
     let depth  = 0;
     const MAX_DEPTH = 20;
+    const visitedIds = new Set(); // 무한루프 방지
 
     while (cursor && depth < MAX_DEPTH) {
+      if (visitedIds.has(cursor)) break; // 순환 참조 방지
+      visitedIds.add(cursor);
+
       const ancestor = await db.get(
-        'SELECT id, rank, recommender_id FROM members WHERE id = ?',
+        'SELECT id, rank, recommender_id FROM members WHERE id = ? AND status = "active"',
         [cursor]
       );
       if (!ancestor) break;
 
+      // 팀장: 최초 1명만 (아직 찾지 못한 경우에만)
       if (ancestor.rank === '팀장' && !foundTeamjang) {
         foundTeamjang = ancestor;
+        console.log(`[commission] 팀장 발견: id=${ancestor.id} depth=${depth}`);
       }
+      // 본부장: 최초 1명만 (아직 찾지 못한 경우에만)
+      // ✅ 동일 라인 중복 본부장 → 두 번째 이후 본부장은 수당 없음
       if (ancestor.rank === '본부장' && !foundBonbujang) {
         foundBonbujang = ancestor;
+        console.log(`[commission] 본부장 발견: id=${ancestor.id} depth=${depth}`);
       }
-      // 둘 다 찾으면 조기 종료
+
+      // 팀장+본부장 모두 찾으면 더 이상 탐색 불필요
       if (foundTeamjang && foundBonbujang) break;
 
       cursor = ancestor.recommender_id;
       depth++;
     }
 
+    // ✅ 안전 검증: 팀장과 본부장이 같은 사람이면 안 됨 (직급 변경 엣지케이스)
+    if (foundTeamjang && foundBonbujang && foundTeamjang.id === foundBonbujang.id) {
+      console.warn(`[commission] 경고: 팀장과 본부장이 동일인(${foundTeamjang.id}) - 본부장 우선 처리`);
+      foundTeamjang = null; // 본부장 우선, 팀장 무효화
+    }
+
+    console.log(`[commission] 투자자=${member.user_id} 팀장=${foundTeamjang?.id||'없음'} 본부장=${foundBonbujang?.id||'없음'}`);
+
     // 수당 지급 결정
     if (foundBonbujang && foundTeamjang) {
-      // 팀장 + 본부장 둘 다 존재 → 각 10%
+      // ✅ 팀장 + 본부장 둘 다 존재 → 각 10%
       const commAmt1   = Math.round(amt * 0.10);
       const walBefore1 = await getWalletBal(foundTeamjang.id);
       await insertComm(foundTeamjang.id, '팀장', 10.0, commAmt1, walBefore1);
@@ -187,7 +214,7 @@ router.post('/', authAdmin, async (req, res) => {
       commissions.push({ receiver_id: foundBonbujang.id, rank: '본부장', amount: commAmt2 });
 
     } else if (foundBonbujang && !foundTeamjang) {
-      // 본부장만 존재 → 20%
+      // ✅ 본부장만 존재 → 20% (팀장 없음, 또는 동일 라인에 팀장 없음)
       const commAmt   = Math.round(amt * 0.20);
       const walBefore = await getWalletBal(foundBonbujang.id);
       await insertComm(foundBonbujang.id, '본부장', 20.0, commAmt, walBefore);
@@ -195,14 +222,14 @@ router.post('/', authAdmin, async (req, res) => {
       commissions.push({ receiver_id: foundBonbujang.id, rank: '본부장', amount: commAmt });
 
     } else if (foundTeamjang && !foundBonbujang) {
-      // 팀장만 존재 → 10% 지급, 나머지 10%는 flush (미지급)
+      // ✅ 팀장만 존재 → 10%, 나머지 10%는 flush (본부장 없음)
       const commAmt   = Math.round(amt * 0.10);
       const walBefore = await getWalletBal(foundTeamjang.id);
       await insertComm(foundTeamjang.id, '팀장', 10.0, commAmt, walBefore);
       await updWallet(commAmt, foundTeamjang.id);
       commissions.push({ receiver_id: foundTeamjang.id, rank: '팀장', amount: commAmt });
     }
-    // 직급자 없음 → 미지급 (flush)
+    // ✅ 직급자 없음 → 미지급 (flush)
 
     /* ⑥ 활동 로그 */
     await db.run(

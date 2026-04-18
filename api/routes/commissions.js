@@ -17,9 +17,10 @@ router.get('/', authAdmin, async (req, res) => {
     const page   = parseInt(req.query.page  || 1);
     const limit  = parseInt(req.query.limit || 20);
     const offset = (page - 1) * limit;
-    const q      = req.query.search || '';
-    const rank   = req.query.rank   || '';
-    const status = req.query.status || '';
+    const q               = req.query.search         || '';
+    const rank            = req.query.rank           || '';
+    const status          = req.query.status         || '';
+    const withdraw_status = req.query.withdraw_status || '';
 
     const conds = ['1=1'];
     const params = [];
@@ -27,8 +28,9 @@ router.get('/', authAdmin, async (req, res) => {
       conds.push(`(rcv.user_id LIKE ? OR rcv.name LIKE ? OR inv_m.user_id LIKE ?)`);
       params.push(`%${q}%`, `%${q}%`, `%${q}%`);
     }
-    if (rank)   { conds.push(`rc.receiver_rank = ?`); params.push(rank); }
-    if (status) { conds.push(`rc.status = ?`);        params.push(status); }
+    if (rank)            { conds.push(`rc.receiver_rank = ?`);    params.push(rank); }
+    if (status)          { conds.push(`rc.status = ?`);           params.push(status); }
+    if (withdraw_status) { conds.push(`rc.withdraw_status = ?`);  params.push(withdraw_status); }
 
     const where = conds.join(' AND ');
 

@@ -207,7 +207,7 @@
                 <span class="value" id="calc-principal">-</span>
               </div>
               <div class="calc-row">
-                <span class="label">총 수익금 (원금 × 10%)</span>
+                <span class="label">이자금 (원금 × 50%)</span>
                 <span class="value" style="color:var(--accent-green);" id="calc-profit">-</span>
               </div>
               <div class="calc-row">
@@ -396,16 +396,17 @@
       if (!amount || amount < 100000) { preview.classList.remove('show'); return; }
       preview.classList.add('show');
 
-      const profit  = Math.round(amount * 0.1);
-      const total   = amount + profit;
-      const weekly  = Math.round(total / 15);
-      const commAmt = Math.round(amount * 0.2);
+      // 50% 이자: 원금 N → 이자 0.5N → 총지급 1.5N → 주당 (1.5N ÷ 15)
+      const profit  = Math.round(amount * 0.5);
+      const total   = amount + profit;          // = amount * 1.5
+      const weekly  = Math.round(total / 15);   // 주당 지급액
+      const commAmt = Math.round(amount * 0.2); // 최대 수당 (20%)
 
       document.getElementById('calc-principal').textContent  = formatMoney(amount);
-      document.getElementById('calc-profit').textContent     = `+${formatMoney(profit)}`;
+      document.getElementById('calc-profit').textContent     = `+${formatMoney(profit)} (50% 이자)`;
       document.getElementById('calc-total').textContent      = formatMoney(total);
       document.getElementById('calc-weekly').textContent     = `${formatMoney(weekly)} × 15주`;
-      document.getElementById('calc-commission').textContent = `₩${commAmt.toLocaleString()} (상위 계보 지급)`;
+      document.getElementById('calc-commission').textContent = `최대 ₩${commAmt.toLocaleString()} (상위 계보 지급)`;
 
       if (dateStr) {
         const nextFri = getNextFriday(new Date(dateStr));

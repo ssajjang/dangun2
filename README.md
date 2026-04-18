@@ -208,4 +208,48 @@ ADMIN_EMAIL=admin@dangun.com
 
 ---
 
-*최종 업데이트: 2026-04-18*
+## 🔍 직급수당 검증 규칙 (2026-04-18 재검증 완료)
+
+### 같은 라인에 동일 직급 2명 이상 시
+```
+시나리오 1: 투자자 → 팀장A → 본부장B → 본부장C(상위)
+  → 팀장A 10% + 본부장B 10% 지급 / 본부장C 수당 없음 ✅
+
+시나리오 2: 투자자 → 본부장A → 팀장B → 본부장C(상위)
+  → 본부장A 10% + 팀장B 10% 지급 / 본부장C 수당 없음 ✅
+
+시나리오 3: 투자자 → 팀장A → 팀장B(상위)
+  → 팀장A 10%만 지급 (나머지 10% flush) / 팀장B 수당 없음 ✅
+
+시나리오 4: 투자자 → 본부장A → 본부장B(상위)
+  → 본부장A 20%만 지급 / 본부장B 수당 없음 ✅
+```
+
+### 구현 메커니즘
+- 상위 탐색 시 `!foundTeamjang` / `!foundBonbujang` 조건으로 **최초 1명만** 저장
+- 팀장+본부장 둘 다 발견 즉시 `break` → 상위 탐색 즉시 중단
+- `visitedIds Set` → 순환 참조 방지
+- 동일인 방지: `foundTeamjang.id === foundBonbujang.id` 체크 → 본부장 우선
+
+---
+
+## 💡 UI 수당 표시 규칙
+
+### 회원 대시보드 (member/index.html)
+- **대기중 수당**: `⏳ 출금대기` 상태일 때 → 금액 + "대기중" 표시 (빨간색)
+- **완료 후**: 대기중 수당이 0이면 → `₩0` + "대기중 수당 없음" 표시 (녹색 테두리)
+- **소개수당 테이블**: `withdraw_status = 'done'` → `✓ 출금완료` / `pending` → `⏳ 출금대기`
+
+### 관리자 대시보드 (admin/dashboard.html)
+- 투자금 입금 즉시 `rank_commissions.withdraw_status = 'pending'` 자동 삽입
+- `CommissionsAPI.pending()` → `GET /api/commissions?withdraw_status=pending` 즉시 조회
+- 관리자 승인 → `withdraw_status = 'done'` → 회원 UI에 즉시 반영
+
+### 금액 표시 규칙
+- 모든 금액: `Math.round()` 후 `toLocaleString('ko-KR')` → **소수점 없는 정수**
+- `formatMoney()`: `₩1,000,000원` 형식
+- `formatMoneyK()`: `100만원` / `1.5억원` 형식 (정수 반올림)
+
+---
+
+*최종 업데이트: 2026-04-18 (직급수당 중복 검증 완료)*

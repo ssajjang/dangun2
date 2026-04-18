@@ -748,9 +748,9 @@
       const tbody = document.getElementById('comm-pending-tbody');
       const badge = document.getElementById('comm-pending-badge');
       try {
-        const data = await CommissionsAPI.list({ limit: 50, status: 'paid' });
-        // withdraw_status = 'pending' 인 것만 필터
-        const rows = (data.data || []).filter(c => (c.withdraw_status || 'pending') === 'pending');
+        // withdraw_status='pending' 인 수당만 직접 조회 (limit 100으로 충분히)
+        const data = await CommissionsAPI.pending(100);
+        const rows = data.data || [];
 
         if (badge) badge.textContent = rows.length + '건';
 
