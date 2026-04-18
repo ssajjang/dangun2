@@ -1,0 +1,48 @@
+# ════════════════════════════════════════════
+#  DANGUN 금융플랫폼 - Render.com 배포 설정
+#  render.yaml (Infrastructure as Code)
+#  https://render.com
+# ════════════════════════════════════════════
+
+services:
+  # ── Node.js 웹 서비스 ─────────────────────
+  - type: web
+    name: dangun-platform
+    runtime: node
+    plan: free          # free / starter / standard
+    region: singapore   # 한국과 가까운 리전
+    buildCommand: npm install --omit=dev
+    startCommand: node server.js
+    healthCheckPath: /api/health
+    
+    # 환경변수
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000       # Render 기본 포트
+      - key: DB_PATH
+        value: /opt/render/project/src/database/dangun.db
+      - key: JWT_SECRET
+        generateValue: true   # Render가 자동 생성
+      - key: JWT_EXPIRES_IN
+        value: 7d
+      - key: ADMIN_ID
+        value: superadmin
+      - key: ADMIN_PASSWORD
+        sync: false           # 배포 시 수동 입력 (보안)
+      - key: ADMIN_NAME
+        value: 최고관리자
+      - key: ADMIN_EMAIL
+        value: admin@dangun.com
+      - key: SCHEDULER_ENABLED
+        value: "true"
+      - key: LOG_LEVEL
+        value: info
+    
+    # 디스크 (SQLite 파일 영구 저장)
+    # ※ Render 유료 플랜에서만 Persistent Disk 사용 가능
+    disk:
+      name: dangun-db
+      mountPath: /opt/render/project/src/database
+      sizeGB: 1

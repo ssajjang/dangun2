@@ -1,0 +1,63 @@
+version: '3.9'
+
+# ════════════════════════════════════════════════
+#  DANGUN 금융플랫폼 - Docker Compose
+#  서비스: app (Node.js) + nginx (리버스 프록시)
+#  DB: SQLite3 (로컬 파일, /app/database 볼륨)
+# ════════════════════════════════════════════════
+
+services:
+
+  # ── Node.js 애플리케이션 ──────────────────────
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: dangun-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      DB_PATH: /app/database/dangun.db
+    volumes:
+      - dangun-db:/app/database      # DB 파일 영구 보존
+      - dangun-logs:/app/logs        # 로그 영구 보존
+    expose:
+      - "3000"
+    networks:
+      - dangun-net
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── Nginx 리버스 프록시 ───────────────────────
+  nginx:
+    image: nginx:alpine
+    container_name: dangun-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/ssl:/etc/nginx/ssl:ro          # SSL 인증서 (선택)
+      - dangun-logs:/var/log/nginx
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - dangun-net
+
+volumes:
+  dangun-db:
+    driver: local
+  dangun-logs:
+    driver: local
+
+networks:
+  dangun-net:
+    driver: bridge

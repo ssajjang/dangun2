@@ -1,0 +1,630 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - 관리자 대시보드</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .admin-sidebar { background: linear-gradient(180deg, #0d0d1a 0%, #12122a 60%, #0f1535 100%); }
+
+    .kpi-row { display: grid; grid-template-columns: repeat(5, 1fr); gap: 16px; margin-bottom: 24px; }
+
+    /* Activity Feed */
+    .activity-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 1px solid var(--border-color);
+      transition: var(--transition);
+    }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-item:hover { background: rgba(212,160,23,0.03); }
+    .activity-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      margin-top: 5px;
+      flex-shrink: 0;
+    }
+    .activity-time { font-size: 10px; color: var(--text-muted); white-space: nowrap; margin-top: 3px; }
+
+    /* Pending Widgets */
+    .pending-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px;
+      background: var(--bg-primary);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      border: 1px solid var(--border-color);
+      transition: var(--transition);
+    }
+    .pending-item:hover { border-color: rgba(212,160,23,0.3); }
+
+    /* Chart height */
+    .chart-container { position: relative; height: 260px; }
+    .chart-container-sm { position: relative; height: 220px; }
+
+    @media (max-width: 1400px) { .kpi-row { grid-template-columns: repeat(3, 1fr); } }
+    @media (max-width: 900px) { .kpi-row { grid-template-columns: repeat(2, 1fr); } }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <div class="app-wrapper">
+    <!-- Admin Sidebar -->
+    <aside class="sidebar admin-sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a class="sidebar-logo" href="dashboard.html">
+          <div class="logo-icon">D</div>
+          <div class="logo-text">
+            <span class="logo-name">DANGUN</span>
+            <span class="logo-sub">Admin Panel</span>
+          </div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">메인</div>
+        <a class="nav-item active" href="dashboard.html">
+          <span class="nav-icon"><i class="fas fa-chart-pie"></i></span> 대시보드
+        </a>
+
+        <div class="nav-section">회원 관리</div>
+        <a class="nav-item" href="members.html">
+          <span class="nav-icon"><i class="fas fa-users"></i></span> 회원 정보
+          <span class="nav-badge" id="badge-pending-members">3</span>
+        </a>
+
+        <div class="nav-section">투자 관리</div>
+        <a class="nav-item" href="deposit.html">
+          <span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금
+        </a>
+        <a class="nav-item" href="withdrawal.html">
+          <span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금
+          <span class="nav-badge" id="badge-pending-withdraw">5</span>
+        </a>
+        <a class="nav-item" href="commission.html">
+          <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당
+        </a>
+
+        <div class="nav-section" style="margin-top:16px;">설정</div>
+        <a class="nav-item" href="#" onclick="showToast('시스템 설정 (PHP 연동 후 활성화)','info')">
+          <span class="nav-icon"><i class="fas fa-cog"></i></span> 시스템 설정
+        </a>
+        <a class="nav-item" href="../index.html">
+          <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" style="background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;">A</div>
+          <div class="user-info">
+            <div class="user-name">최고관리자</div>
+            <div class="user-rank" style="color:var(--accent-red);">🛡 SuperAdmin</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <button id="sidebar-toggle" class="btn btn-outline btn-sm"><i class="fas fa-bars"></i></button>
+        <span class="topbar-title">
+          <i class="fas fa-chart-pie" style="color:var(--accent-gold);margin-right:8px;"></i>
+          관리자 대시보드
+        </span>
+        <div class="topbar-actions">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+            <i class="fas fa-moon" id="theme-icon"></i>
+            <span id="theme-label">라이트</span>
+          </button>
+          <span style="font-size:12px;color:var(--text-muted);" id="current-date-el"></span>
+        </div>
+      </header>
+
+      <div class="page-content">
+
+        <!-- ── KPI Cards ── -->
+        <div class="kpi-row">
+          <div class="stat-card anim-fadeInUp delay-1">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-value" data-counter="128">0</div>
+            <div class="stat-label">전체 회원</div>
+            <div class="stat-change up"><i class="fas fa-arrow-up"></i> +12 이번 달</div>
+          </div>
+          <div class="stat-card blue anim-fadeInUp delay-2">
+            <div class="stat-icon"><i class="fas fa-coins"></i></div>
+            <div class="stat-value" id="kpi-invest">₩0</div>
+            <div class="stat-label">총 투자금 운용</div>
+            <div class="stat-change up"><i class="fas fa-arrow-up"></i> +₩3,200만</div>
+          </div>
+          <div class="stat-card green anim-fadeInUp delay-3">
+            <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
+            <div class="stat-value" id="kpi-paid">₩0</div>
+            <div class="stat-label">이번 주 지급 예정</div>
+            <div class="stat-change" style="color:var(--text-muted);">다음 금요일</div>
+          </div>
+          <div class="stat-card anim-fadeInUp delay-4">
+            <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-percentage"></i></div>
+            <div class="stat-value" id="kpi-commission" style="font-size:22px;">₩0</div>
+            <div class="stat-label">총 직급수당 지급</div>
+            <div class="stat-change up"><i class="fas fa-arrow-up"></i> 이번 달 +₩480만</div>
+          </div>
+          <div class="stat-card red anim-fadeInUp delay-5">
+            <div class="stat-icon"><i class="fas fa-clock"></i></div>
+            <div class="stat-value" id="kpi-pending" data-counter="5">0</div>
+            <div class="stat-label">출금 대기 건수</div>
+            <div class="stat-change down"><i class="fas fa-exclamation-circle"></i> 승인 필요</div>
+          </div>
+        </div>
+
+        <!-- ── Row 1: Charts ── -->
+        <div class="grid grid-2 mb-24" style="gap:20px;">
+          <!-- Monthly Revenue Chart -->
+          <div class="card anim-fadeInUp delay-1">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-chart-bar icon"></i> 월별 투자금 현황</span>
+              <select class="form-control" style="width:100px;padding:6px 10px;font-size:11px;" id="chart-year">
+                <option>2025</option><option>2026</option>
+              </select>
+            </div>
+            <div class="card-body">
+              <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Distribution Pie -->
+          <div class="card anim-fadeInUp delay-2">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-chart-pie icon"></i> 수당 지급 구조</span>
+            </div>
+            <div class="card-body">
+              <div class="chart-container-sm">
+                <canvas id="commissionChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Row 2: Pending + Activity ── -->
+        <div class="grid grid-3 mb-24" style="gap:20px;">
+
+          <!-- Pending Withdrawals -->
+          <div class="card anim-fadeInUp delay-1">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-clock icon"></i> 출금 대기</span>
+              <a href="withdrawal.html" class="btn btn-outline btn-sm">전체보기</a>
+            </div>
+            <div class="card-body">
+              <div id="pending-withdraw-list"></div>
+            </div>
+          </div>
+
+          <!-- Pending Members -->
+          <div class="card anim-fadeInUp delay-2">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-user-clock icon"></i> 승인 대기 회원</span>
+              <a href="members.html" class="btn btn-outline btn-sm">전체보기</a>
+            </div>
+            <div class="card-body">
+              <div id="pending-member-list"></div>
+            </div>
+          </div>
+
+          <!-- Activity Log -->
+          <div class="card anim-fadeInUp delay-3">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-history icon"></i> 최근 활동</span>
+            </div>
+            <div class="card-body">
+              <div id="activity-log"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Weekly Payout Preview ── -->
+        <div class="card anim-fadeInUp delay-2">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-calendar-week icon"></i> 이번 주 금요일 지급 예정 내역</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <span class="badge badge-orange anim-pulse">승인 대기 5건</span>
+              <button class="btn btn-success btn-sm" onclick="bulkApprove()">
+                <i class="fas fa-check-double"></i> 일괄 승인
+              </button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="check-all" onchange="toggleAll(this)" style="accent-color:var(--accent-gold);"></th>
+                    <th>회원 아이디</th>
+                    <th>이름</th>
+                    <th>계좌 정보</th>
+                    <th>주차</th>
+                    <th>지급액</th>
+                    <th>상태</th>
+                    <th>처리</th>
+                  </tr>
+                </thead>
+                <tbody id="weekly-payout-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Confirm Modal -->
+  <div class="modal-overlay" id="modal-confirm">
+    <div class="modal" style="max-width:400px;">
+      <div class="modal-header">
+        <span class="modal-title" id="confirm-title">확인</span>
+        <button class="modal-close" onclick="closeModal('modal-confirm')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <p id="confirm-message" style="font-size:14px;color:var(--text-secondary);"></p>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-confirm')">취소</button>
+        <button class="btn btn-success" id="confirm-btn" onclick="executeConfirm()">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    // ── 관리자 인증 가드 ──
+    if (!requireAdminAuth()) { /* 리다이렉트됨 */ }
+
+    let confirmCallback = null;
+    let _dashData = null;
+    let _revenueChart = null;
+    let _commissionChart = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      applyTheme(getTheme());
+      setCurrentDate();
+      initCounters();
+      await loadDashboard();
+    });
+
+    function setCurrentDate() {
+      const now = new Date();
+      const days = ['일','월','화','수','목','금','토'];
+      document.getElementById('current-date-el').textContent =
+        `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} (${days[now.getDay()]})`;
+    }
+
+    async function loadDashboard() {
+      try {
+        const data = await DashboardAPI.admin();
+        _dashData = data;
+        renderKPIs(data);
+        renderCharts(data);
+        renderPendingLists(data);
+        renderActivityLog(data);
+        renderWeeklyPayouts(data);
+      } catch(err) {
+        showToast('대시보드 데이터 로드 오류: ' + err.message, 'error');
+        console.error(err);
+      }
+    }
+
+    function renderKPIs(d) {
+      const totalInvest  = d.invest_stats?.total_amount  || 0;
+      const weeklyPaid   = d.payout_stats?.paid_amount   || 0;
+      const commission   = d.comm_stats?.total           || 0;
+      const pendingCount = d.payout_stats?.pending_count || 0;
+
+      document.getElementById('kpi-invest').textContent     = totalInvest >= 100000000
+        ? '₩' + (totalInvest / 100000000).toFixed(1) + '억'
+        : formatMoney(totalInvest);
+      document.getElementById('kpi-paid').textContent       = formatMoney(weeklyPaid);
+      document.getElementById('kpi-commission').textContent = commission >= 10000000
+        ? '₩' + (commission / 10000).toFixed(0) + '만'
+        : formatMoney(commission);
+
+      // 대기 중 회원 배지
+      const badge = document.getElementById('pending-count-badge');
+      if (badge) badge.textContent = d.member_stats?.inactive || 0;
+    }
+
+    function renderCharts(d) {
+      const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+      const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+      const textColor = isDark ? 'rgba(200,200,230,0.7)'  : 'rgba(50,50,80,0.7)';
+
+      // 월별 투자 데이터 구성
+      const monthlyRaw = d.monthly_invest || [];
+      const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+      const now = new Date();
+      const monthData = months.map((_, idx) => {
+        const key = `${now.getFullYear()}-${String(idx+1).padStart(2,'0')}`;
+        const found = monthlyRaw.find(r => r.month === key);
+        return found ? found.amount : 0;
+      });
+
+      // Revenue Bar Chart
+      if (_revenueChart) _revenueChart.destroy();
+      _revenueChart = new Chart(document.getElementById('revenueChart'), {
+        type: 'bar',
+        data: {
+          labels: months,
+          datasets: [{
+            label: '월별 투자금 (만원)',
+            data: monthData.map(v => Math.round(v / 10000)),
+            backgroundColor: monthData.map((_, i) =>
+              i === now.getMonth() ? 'rgba(212,160,23,0.85)' : 'rgba(90,123,255,0.7)'
+            ),
+            borderColor: monthData.map((_, i) =>
+              i === now.getMonth() ? 'rgba(212,160,23,1)' : 'rgba(90,123,255,1)'
+            ),
+            borderWidth: 1,
+            borderRadius: 6,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: { callbacks: { label: c => ` ₩${Number(c.raw * 10000).toLocaleString()}` } }
+          },
+          scales: {
+            x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 11 } } },
+            y: { grid: { color: gridColor }, ticks: { color: textColor, callback: v => v + '만' } }
+          }
+        }
+      });
+
+      // Commission Doughnut
+      const cs   = d.comm_stats || {};
+      const teamT = cs.teamjang  || 0;
+      const bonbT = cs.bonbujang || 0;
+      const payT  = d.payout_stats?.paid_amount || 0;
+      const total = teamT + bonbT + payT || 1;
+
+      if (_commissionChart) _commissionChart.destroy();
+      _commissionChart = new Chart(document.getElementById('commissionChart'), {
+        type: 'doughnut',
+        data: {
+          labels: ['주간 수익 지급', '팀장 수당', '본부장 수당'],
+          datasets: [{
+            data: [
+              Math.round(payT / total * 100),
+              Math.round(teamT / total * 100),
+              Math.round(bonbT / total * 100)
+            ],
+            backgroundColor: ['rgba(90,123,255,0.8)', 'rgba(212,160,23,0.8)', 'rgba(142,68,173,0.8)'],
+            borderColor: isDark ? '#12122a' : '#fff',
+            borderWidth: 3,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position: 'bottom', labels: { color: textColor, font: { size: 11 }, padding: 12 } },
+            tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw}%` } }
+          },
+          cutout: '60%'
+        }
+      });
+    }
+
+    function renderPendingLists(d) {
+      // 대기 출금
+      const wList = d.withdraw_pending || [];
+      const wEl   = document.getElementById('pending-withdraw-list');
+      if (wList.length === 0) {
+        wEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">대기 중인 출금 없음</div>`;
+      } else {
+        wEl.innerHTML = wList.map(w => `
+          <div class="pending-item" id="pw-${w.id}">
+            <div>
+              <div style="font-weight:700;font-size:13px;">${w.user_id} · ${w.name}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${w.bank_name} ${w.account_number}</div>
+            </div>
+            <div style="text-align:right;">
+              <div style="font-weight:700;color:var(--accent-gold);">${formatMoney(w.amount)}</div>
+              <div style="display:flex;gap:4px;margin-top:4px;">
+                <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:10px;" onclick="approveWithdraw(${w.id})">승인</button>
+                <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:10px;" onclick="rejectWithdraw(${w.id})">거절</button>
+              </div>
+            </div>
+          </div>
+        `).join('');
+      }
+
+      // 대기 회원 승인
+      const mList = d.pending_members || [];
+      const mEl   = document.getElementById('pending-member-list');
+      if (mList.length === 0) {
+        mEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">대기 중인 회원 없음</div>`;
+      } else {
+        mEl.innerHTML = mList.map(m => `
+          <div class="pending-item" id="pm-${m.id}">
+            <div>
+              <div style="font-weight:700;font-size:13px;">${m.user_id} · ${m.name}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${m.phone} · ${formatDate(m.created_at)}</div>
+            </div>
+            <button class="btn btn-primary btn-sm" style="font-size:10px;" onclick="approveMember(${m.id})">
+              <i class="fas fa-check"></i> 승인
+            </button>
+          </div>
+        `).join('');
+      }
+    }
+
+    // 활동 아이콘 매핑
+    const ACTION_ICON = {
+      'investment_deposit':    { color:'var(--accent-green)',  icon:'💰' },
+      'withdrawal_approve':    { color:'var(--accent-gold)',   icon:'💸' },
+      'withdrawal_bulk_approve':{ color:'var(--accent-gold)', icon:'💸' },
+      'withdrawal_reject':     { color:'var(--accent-red)',    icon:'❌' },
+      'register':              { color:'var(--accent-blue)',   icon:'👤' },
+      'member_update':         { color:'var(--accent-purple)', icon:'🏆' },
+      'auto_payout':           { color:'var(--accent-green)',  icon:'🤖' },
+      'payout_paid':           { color:'var(--accent-green)',  icon:'✅' },
+      'login':                 { color:'var(--text-muted)',    icon:'🔑' },
+      'admin_login':           { color:'var(--text-muted)',    icon:'🔑' },
+    };
+
+    function renderActivityLog(d) {
+      const acts = d.recent_activities || [];
+      const el   = document.getElementById('activity-log');
+      if (acts.length === 0) {
+        el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">활동 내역 없음</div>`;
+        return;
+      }
+      el.innerHTML = acts.map(a => {
+        const cfg = ACTION_ICON[a.action] || { color:'var(--text-muted)', icon:'📋' };
+        const relTime = timeAgo(a.created_at);
+        return `
+          <div class="activity-item">
+            <div class="activity-dot" style="background:${cfg.color};box-shadow:0 0 6px ${cfg.color};"></div>
+            <div style="flex:1;">
+              <div style="font-size:12px;color:var(--text-secondary);">${cfg.icon} ${a.description || a.action} (${a.actor_name || ''})</div>
+              <div class="activity-time">${relTime}</div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderWeeklyPayouts(d) {
+      const list  = (d && d.weekly_pending) || [];
+      const tbody = document.getElementById('weekly-payout-tbody');
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">이번 주 지급 대기 없음</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = list.map(w => `
+        <tr id="row-${w.id}">
+          <td><input type="checkbox" class="row-check" data-id="${w.id}" style="accent-color:var(--accent-gold);"></td>
+          <td style="font-weight:700;">${w.user_id}</td>
+          <td>${w.name}</td>
+          <td style="font-size:12px;">${w.bank_name} · ${w.account_number}</td>
+          <td><span class="badge badge-blue">${w.week_number}주차</span></td>
+          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${formatMoney(w.total_payout)}</td>
+          <td>${statusBadge(w.status)}</td>
+          <td>
+            <div style="display:flex;gap:6px;">
+              <button class="btn btn-success btn-sm" onclick="approvePayoutItem(${w.id})">
+                <i class="fas fa-check"></i> 지급
+              </button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    // ── 출금 승인 (실제 API) ──
+    async function approveWithdraw(id) {
+      confirmCallback = async () => {
+        try {
+          await WithdrawalsAPI.approve(id);
+          const el = document.getElementById(`pw-${id}`);
+          if (el) el.remove();
+          showToast('출금 승인 처리 완료', 'success');
+          await loadDashboard();
+        } catch(err) { showToast(err.message, 'error'); }
+      };
+      document.getElementById('confirm-title').textContent = '출금 승인';
+      document.getElementById('confirm-message').textContent = `ID ${id} 출금 요청을 승인하시겠습니까?`;
+      openModal('modal-confirm');
+    }
+
+    async function rejectWithdraw(id) {
+      const reason = prompt('거절 사유를 입력하세요:');
+      if (!reason) return;
+      try {
+        await WithdrawalsAPI.reject(id, reason);
+        const el = document.getElementById(`pw-${id}`);
+        if (el) el.remove();
+        showToast('출금 거절 처리 완료', 'warning');
+        await loadDashboard();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    // ── 회원 승인 (실제 API) ──
+    async function approveMember(id) {
+      try {
+        await MembersAPI.update(id, { status: 'active' });
+        const el = document.getElementById(`pm-${id}`);
+        if (el) el.remove();
+        showToast('회원 승인 완료', 'success');
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    // ── 주간 지급 개별 처리 ──
+    async function approvePayoutItem(payoutId) {
+      try {
+        await InvestmentsAPI.payOne(payoutId);
+        const row = document.getElementById(`row-${payoutId}`);
+        if (row) {
+          row.cells[6].innerHTML = statusBadge('paid');
+          row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 지급완료</span>`;
+        }
+        showToast('지급 처리 완료', 'success');
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    // ── 일괄 지급 승인 ──
+    async function bulkApprove() {
+      const checked = document.querySelectorAll('.row-check:checked');
+      if (checked.length === 0) { showToast('선택된 항목이 없습니다.', 'warning'); return; }
+      confirmCallback = async () => {
+        const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id));
+        try {
+          await InvestmentsAPI.bulkPay(ids);
+          checked.forEach(cb => {
+            const row = document.getElementById(`row-${cb.dataset.id}`);
+            if (row) {
+              row.cells[6].innerHTML = statusBadge('paid');
+              row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 처리완료</span>`;
+            }
+          });
+          showToast(`${checked.length}건 일괄 지급 완료`, 'success');
+          document.getElementById('check-all').checked = false;
+        } catch(err) { showToast(err.message, 'error'); }
+      };
+      document.getElementById('confirm-title').textContent = '일괄 지급';
+      document.getElementById('confirm-message').textContent = `${checked.length}건을 일괄 지급 처리하시겠습니까?`;
+      openModal('modal-confirm');
+    }
+
+    function toggleAll(el) {
+      document.querySelectorAll('.row-check').forEach(cb => cb.checked = el.checked);
+    }
+
+    function executeConfirm() {
+      if (confirmCallback) { confirmCallback(); confirmCallback = null; }
+      closeModal('modal-confirm');
+    }
+
+    // ── 시간 경과 표시 ──
+    function timeAgo(dateStr) {
+      if (!dateStr) return '-';
+      const diff = Date.now() - new Date(dateStr).getTime();
+      const m = Math.floor(diff / 60000);
+      if (m < 1)   return '방금 전';
+      if (m < 60)  return `${m}분 전`;
+      const h = Math.floor(m / 60);
+      if (h < 24)  return `${h}시간 전`;
+      return `${Math.floor(h/24)}일 전`;
+    }
+  </script>
+</body>
+</html>

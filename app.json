@@ -1,0 +1,63 @@
+{
+  "name": "DANGUN 금융플랫폼",
+  "description": "Node.js + SQLite3 금융투자 플랫폼 | 주 10% 고정수익 | 직급 수당 자동화",
+  "repository": "https://github.com/your-username/dangun-platform",
+  "keywords": ["node", "sqlite", "finance", "investment"],
+  "image": "heroku/nodejs",
+  "stack": "heroku-22",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "env": {
+    "NODE_ENV": {
+      "description": "실행 환경",
+      "value": "production"
+    },
+    "JWT_SECRET": {
+      "description": "JWT 서명 비밀키 (32자 이상 무작위 문자열)",
+      "generator": "secret",
+      "required": true
+    },
+    "JWT_EXPIRES_IN": {
+      "description": "JWT 만료 시간",
+      "value": "7d"
+    },
+    "ADMIN_ID": {
+      "description": "관리자 로그인 ID",
+      "value": "superadmin",
+      "required": true
+    },
+    "ADMIN_PASSWORD": {
+      "description": "관리자 초기 비밀번호 (영문+숫자+특수문자 포함)",
+      "required": true
+    },
+    "ADMIN_NAME": {
+      "description": "관리자 표시 이름",
+      "value": "최고관리자"
+    },
+    "ADMIN_EMAIL": {
+      "description": "관리자 이메일",
+      "required": true
+    },
+    "SCHEDULER_ENABLED": {
+      "description": "주간 자동 지급 스케줄러 활성화",
+      "value": "true"
+    },
+    "LOG_LEVEL": {
+      "description": "로그 레벨",
+      "value": "info"
+    }
+  },
+  "formation": {
+    "web": {
+      "quantity": 1,
+      "size": "basic"
+    }
+  },
+  "addons": [],
+  "scripts": {
+    "postdeploy": "echo '✅ DANGUN 플랫폼 배포 완료'"
+  }
+}

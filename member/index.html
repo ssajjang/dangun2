@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - 회원 대시보드</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    /* ── Hero Investment Card ── */
+    .invest-hero {
+      background: var(--gradient-dark);
+      border: 1px solid rgba(212,160,23,0.3);
+      border-radius: var(--radius-xl);
+      padding: 36px 40px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 24px;
+      animation: borderGlow 4s ease-in-out infinite;
+    }
+
+    .invest-hero::before {
+      content: '';
+      position: absolute;
+      top: -60px; right: -60px;
+      width: 240px; height: 240px;
+      background: radial-gradient(circle, rgba(212,160,23,0.12) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    .invest-hero::after {
+      content: '';
+      position: absolute;
+      bottom: -40px; left: -40px;
+      width: 160px; height: 160px;
+      background: radial-gradient(circle, rgba(90,123,255,0.1) 0%, transparent 70%);
+      border-radius: 50%;
+    }
+
+    .hero-amount {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 48px;
+      font-weight: 900;
+      background: var(--gradient-gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      line-height: 1;
+      margin-bottom: 8px;
+    }
+
+    .hero-label {
+      font-size: 13px;
+      color: rgba(200,204,232,0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+    }
+
+    .rank-badge-hero {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 20px;
+      background: rgba(212,160,23,0.15);
+      border: 1px solid rgba(212,160,23,0.4);
+      border-radius: 30px;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--accent-gold-light);
+    }
+
+    .hero-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 28px;
+    }
+
+    .hero-stat {
+      text-align: center;
+      padding: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(212,160,23,0.1);
+      border-radius: var(--radius-md);
+    }
+
+    .hero-stat .val {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 20px;
+      font-weight: 700;
+      color: var(--accent-gold-light);
+    }
+
+    .hero-stat .lbl {
+      font-size: 11px;
+      color: rgba(200,204,232,0.5);
+      margin-top: 4px;
+    }
+
+    /* ── Platform Description ── */
+    .platform-desc-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .platform-desc-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--gradient-gold);
+    }
+
+    .desc-section {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    .desc-item {
+      padding: 20px;
+      background: var(--bg-primary);
+      border-radius: var(--radius-md);
+      text-align: center;
+      border: 1px solid var(--border-color);
+      transition: var(--transition);
+    }
+
+    .desc-item:hover {
+      border-color: rgba(212,160,23,0.3);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-gold);
+    }
+
+    .desc-item .icon {
+      width: 52px; height: 52px;
+      border-radius: 50%;
+      background: rgba(212,160,23,0.1);
+      color: var(--accent-gold);
+      font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      margin: 0 auto 12px;
+    }
+
+    .desc-item .title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+    }
+
+    .desc-item .desc {
+      font-size: 12px;
+      color: var(--text-muted);
+      line-height: 1.5;
+    }
+
+    /* ── Commission Structure ── */
+    .commission-flow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+
+    .comm-node {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 16px 20px;
+      background: var(--bg-primary);
+      border: 2px solid var(--border-color);
+      border-radius: var(--radius-md);
+      min-width: 110px;
+      text-align: center;
+      transition: var(--transition);
+      position: relative;
+    }
+
+    .comm-node.highlight {
+      border-color: rgba(212,160,23,0.5);
+      background: rgba(212,160,23,0.05);
+    }
+
+    .comm-node .role {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .comm-node .pct {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 22px;
+      font-weight: 900;
+      color: var(--accent-gold);
+    }
+
+    .comm-arrow {
+      font-size: 22px;
+      color: var(--accent-gold);
+      padding: 0 4px;
+    }
+
+    /* ── Quick Actions ── */
+    .quick-actions {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 14px;
+    }
+
+    .qa-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 8px;
+      padding: 20px 12px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      cursor: pointer;
+      transition: var(--transition);
+      text-decoration: none;
+    }
+
+    .qa-btn:hover {
+      border-color: rgba(212,160,23,0.4);
+      background: rgba(212,160,23,0.05);
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-gold);
+    }
+
+    .qa-icon {
+      width: 44px; height: 44px;
+      border-radius: var(--radius-md);
+      background: rgba(212,160,23,0.1);
+      color: var(--accent-gold);
+      font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .qa-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      text-align: center;
+    }
+
+    /* ── Recent Payouts ── */
+    .payout-row td:first-child { font-weight: 700; color: var(--accent-gold); font-family: 'Orbitron', sans-serif; }
+
+    @media (max-width: 900px) {
+      .hero-amount { font-size: 32px; }
+      .hero-stats { grid-template-columns: repeat(2, 1fr); }
+      .desc-section { grid-template-columns: 1fr 1fr; }
+      .quick-actions { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 600px) {
+      .invest-hero { padding: 24px 20px; }
+      .desc-section { grid-template-columns: 1fr; }
+      .commission-flow { flex-direction: column; }
+      .comm-arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <div class="app-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <a class="sidebar-logo" href="index.html">
+          <div class="logo-icon">D</div>
+          <div class="logo-text">
+            <span class="logo-name">DANGUN</span>
+            <span class="logo-sub">Financial Platform</span>
+          </div>
+        </a>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section">회원 메뉴</div>
+        <a class="nav-item active" href="index.html">
+          <span class="nav-icon"><i class="fas fa-home"></i></span> 대시보드
+        </a>
+        <a class="nav-item" href="payouts.html">
+          <span class="nav-icon"><i class="fas fa-coins"></i></span> 투자금 지급내역
+        </a>
+        <a class="nav-item" href="referrals.html">
+          <span class="nav-icon"><i class="fas fa-sitemap"></i></span> 회원 추천 트리
+        </a>
+
+        <div class="nav-section" style="margin-top:16px;">계정</div>
+        <a class="nav-item" href="#" onclick="openModal('modal-profile')">
+          <span class="nav-icon"><i class="fas fa-user-circle"></i></span> 내 정보
+        </a>
+        <a class="nav-item" href="#" onclick="logout()">
+          <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃
+        </a>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" id="sidebar-avatar">K</div>
+          <div class="user-info">
+            <div class="user-name" id="sidebar-name">김철수</div>
+            <div class="user-rank" id="sidebar-rank">⭐ 팀장</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="main-content">
+      <header class="topbar">
+        <button id="sidebar-toggle" class="btn btn-outline btn-sm" style="display:none;">
+          <i class="fas fa-bars"></i>
+        </button>
+        <span class="topbar-title">
+          <i class="fas fa-home" style="color:var(--accent-gold);margin-right:8px;"></i>
+          회원 대시보드
+        </span>
+        <div class="topbar-actions">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+            <i class="fas fa-moon" id="theme-icon"></i>
+            <span id="theme-label">라이트</span>
+          </button>
+          <div style="font-size:12px;color:var(--text-muted);" id="current-date-el"></div>
+        </div>
+      </header>
+
+      <div class="page-content">
+
+        <!-- ── Hero Investment Card ── -->
+        <div class="invest-hero anim-fadeInDown">
+          <div class="flex-between" style="flex-wrap:wrap;gap:16px;">
+            <div style="position:relative;z-index:1;">
+              <div class="hero-label" style="margin-bottom:12px;">총 투자금액</div>
+              <div class="hero-amount" id="hero-invest-amount">0</div>
+              <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <div class="rank-badge-hero">
+                  <i class="fas fa-star"></i>
+                  <span id="hero-rank">팀장</span>
+                </div>
+                <div style="font-size:12px;color:rgba(200,204,232,0.5);">
+                  투자일: <span id="hero-invest-date" style="color:rgba(200,204,232,0.8);">-</span>
+                </div>
+              </div>
+            </div>
+            <div style="position:relative;z-index:1;text-align:right;">
+              <div style="font-size:12px;color:rgba(200,204,232,0.5);margin-bottom:6px;">진행 현황</div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:32px;font-weight:900;color:var(--accent-gold-light);">
+                <span id="hero-week">8</span><span style="font-size:14px;color:rgba(200,204,232,0.5);"> / 15주</span>
+              </div>
+              <div id="week-progress" style="margin-top:10px;min-width:180px;"></div>
+            </div>
+          </div>
+
+          <div class="hero-stats">
+            <div class="hero-stat">
+              <div class="val" id="stat-weekly">0</div>
+              <div class="lbl">주당 지급액</div>
+            </div>
+            <div class="hero-stat">
+              <div class="val" id="stat-paid">0</div>
+              <div class="lbl">누적 지급액</div>
+            </div>
+            <div class="hero-stat">
+              <div class="val" id="stat-remain">0</div>
+              <div class="lbl">잔여 지급액</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="grid grid-3 mb-24" style="gap:16px;">
+          <!-- Quick Actions -->
+          <div class="card anim-fadeInUp delay-1">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-bolt icon"></i> 빠른 메뉴</span>
+            </div>
+            <div class="card-body" style="padding:16px;">
+              <div class="quick-actions">
+                <a class="qa-btn" href="payouts.html">
+                  <div class="qa-icon"><i class="fas fa-receipt"></i></div>
+                  <span class="qa-label">지급내역</span>
+                </a>
+                <a class="qa-btn" href="referrals.html">
+                  <div class="qa-icon"><i class="fas fa-sitemap"></i></div>
+                  <span class="qa-label">추천트리</span>
+                </a>
+                <a class="qa-btn" href="#" onclick="openModal('modal-profile')">
+                  <div class="qa-icon"><i class="fas fa-user-edit"></i></div>
+                  <span class="qa-label">내정보</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          <!-- Next Payout -->
+          <div class="card anim-fadeInUp delay-2">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-calendar-check icon"></i> 다음 지급 예정</span>
+            </div>
+            <div class="card-body" style="text-align:center;padding:20px;">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">다음 금요일 지급</div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--accent-gold);" id="next-pay-date">-</div>
+              <div style="font-size:24px;font-weight:900;margin-top:12px;color:var(--text-primary);" id="next-pay-amount">-</div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">원금 + 수익 합산</div>
+              <div style="margin-top:16px;">
+                <span class="badge badge-orange anim-pulse" id="next-pay-badge">9주차 지급 대기</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Referral Count -->
+          <div class="card anim-fadeInUp delay-3">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-users icon"></i> 하부 회원 현황</span>
+            </div>
+            <div class="card-body" style="text-align:center;padding:20px;">
+              <div style="font-family:'Orbitron',sans-serif;font-size:48px;font-weight:900;color:var(--accent-gold);line-height:1;" id="referral-count">0</div>
+              <div style="font-size:13px;color:var(--text-muted);margin-top:8px;">명의 하부 회원</div>
+              <div style="margin-top:16px;display:flex;justify-content:center;gap:12px;">
+                <div>
+                  <div style="font-size:18px;font-weight:900;color:var(--accent-blue);" id="referral-direct">0</div>
+                  <div style="font-size:11px;color:var(--text-muted);">직계</div>
+                </div>
+                <div style="width:1px;background:var(--border-color);"></div>
+                <div>
+                  <div style="font-size:18px;font-weight:900;color:var(--accent-purple);" id="referral-total">0</div>
+                  <div style="font-size:11px;color:var(--text-muted);">전체</div>
+                </div>
+              </div>
+              <a href="referrals.html" class="btn btn-outline btn-sm w-full mt-16" style="font-size:11px;">
+                <i class="fas fa-sitemap"></i> 계보 보기
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 최근 지급내역 -->
+        <div class="card mb-24 anim-fadeInUp delay-2">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-history icon"></i> 최근 지급 내역</span>
+            <a href="payouts.html" class="btn btn-outline btn-sm"><i class="fas fa-arrow-right"></i> 전체보기</a>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>주차</th>
+                    <th>지급 예정일</th>
+                    <th>원금 분할</th>
+                    <th>수익금</th>
+                    <th>합계 지급액</th>
+                    <th>잔고</th>
+                    <th>상태</th>
+                  </tr>
+                </thead>
+                <tbody id="recent-payout-tbody">
+                  <tr><td colspan="7" style="text-align:center;padding:40px;color:var(--text-muted);">
+                    <div class="spinner" style="margin:0 auto 12px;"></div> 불러오는 중...
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- Platform Description -->
+        <div class="platform-desc-card anim-fadeInUp delay-3">
+          <div class="flex-between">
+            <div>
+              <div style="font-size:20px;font-weight:900;color:var(--text-primary);margin-bottom:4px;">
+                <span class="gold-text">DANGUN</span> 금융플랫폼이란?
+              </div>
+              <div style="font-size:13px;color:var(--text-muted);">
+                안전하고 투명한 고정 수익 투자 플랫폼
+              </div>
+            </div>
+          </div>
+
+          <div class="desc-section">
+            <div class="desc-item">
+              <div class="icon"><i class="fas fa-percent"></i></div>
+              <div class="title">주 10% 고정 수익</div>
+              <div class="desc">투자금 대비 매주 10%의 고정 수익을 안정적으로 지급합니다</div>
+            </div>
+            <div class="desc-item">
+              <div class="icon"><i class="fas fa-calendar-alt"></i></div>
+              <div class="title">15주 분할 지급</div>
+              <div class="desc">원금과 수익을 합산하여 15주에 걸쳐 매주 금요일 지급됩니다</div>
+            </div>
+            <div class="desc-item">
+              <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
+              <div class="title">계좌 직접 입금</div>
+              <div class="desc">매주 금요일 등록된 본인 계좌로 직접 입금 처리됩니다</div>
+            </div>
+            <div class="desc-item">
+              <div class="icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-sitemap"></i></div>
+              <div class="title">직급 수당 시스템</div>
+              <div class="desc">팀장·본부장 직급으로 하부 투자금의 최대 20% 수당을 받습니다</div>
+            </div>
+            <div class="desc-item">
+              <div class="icon" style="background:rgba(39,174,96,0.1);color:var(--accent-green);"><i class="fas fa-bolt"></i></div>
+              <div class="title">즉시 지급</div>
+              <div class="desc">투자금 입금과 동시에 직급 수당이 즉시 계좌로 지급됩니다</div>
+            </div>
+            <div class="desc-item">
+              <div class="icon" style="background:rgba(90,123,255,0.1);color:var(--accent-blue);"><i class="fas fa-shield-alt"></i></div>
+              <div class="title">투명한 운영</div>
+              <div class="desc">실시간 대시보드를 통해 투자 현황과 수익을 언제든 확인</div>
+            </div>
+          </div>
+
+          <!-- Commission Flow Diagram -->
+          <div style="margin-top:32px;">
+            <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:16px;text-align:center;">
+              📊 직급 수당 지급 구조
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
+              <div style="background:var(--bg-primary);border-radius:var(--radius-md);padding:20px;border:1px solid var(--border-color);">
+                <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-align:center;margin-bottom:12px;">CASE 1 · 팀장 없을 때</div>
+                <div class="commission-flow" style="flex-direction:row;">
+                  <div class="comm-node">
+                    <span class="role">투자자</span>
+                    <span style="font-size:18px;">💰</span>
+                  </div>
+                  <div class="comm-arrow">→</div>
+                  <div class="comm-node highlight">
+                    <span class="role">본부장</span>
+                    <span class="pct">20%</span>
+                  </div>
+                </div>
+              </div>
+              <div style="background:var(--bg-primary);border-radius:var(--radius-md);padding:20px;border:1px solid var(--border-color);">
+                <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-align:center;margin-bottom:12px;">CASE 2 · 팀장 있을 때</div>
+                <div class="commission-flow" style="flex-direction:row;">
+                  <div class="comm-node">
+                    <span class="role">투자자</span>
+                    <span style="font-size:18px;">💰</span>
+                  </div>
+                  <div class="comm-arrow">→</div>
+                  <div class="comm-node highlight">
+                    <span class="role">팀장</span>
+                    <span class="pct">10%</span>
+                  </div>
+                  <div class="comm-arrow">+</div>
+                  <div class="comm-node highlight">
+                    <span class="role">본부장</span>
+                    <span class="pct">10%</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Profile Modal -->
+  <div class="modal-overlay" id="modal-profile">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title"><i class="fas fa-user-circle" style="color:var(--accent-gold);margin-right:8px;"></i> 내 정보</span>
+        <button class="modal-close" onclick="closeModal('modal-profile')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div style="display:grid;gap:12px;" id="profile-content">
+          <div class="flex-between" style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+            <span style="font-size:12px;color:var(--text-muted);">아이디</span>
+            <span style="font-weight:700;" id="pi-userid">-</span>
+          </div>
+          <div class="flex-between" style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+            <span style="font-size:12px;color:var(--text-muted);">이름</span>
+            <span style="font-weight:700;" id="pi-name">-</span>
+          </div>
+          <div class="flex-between" style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+            <span style="font-size:12px;color:var(--text-muted);">핸드폰</span>
+            <span style="font-weight:700;" id="pi-phone">-</span>
+          </div>
+          <div class="flex-between" style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+            <span style="font-size:12px;color:var(--text-muted);">이메일</span>
+            <span style="font-weight:700;" id="pi-email">-</span>
+          </div>
+          <div class="flex-between" style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+            <span style="font-size:12px;color:var(--text-muted);">은행 / 계좌</span>
+            <span style="font-weight:700;" id="pi-bank">-</span>
+          </div>
+          <div class="flex-between" style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+            <span style="font-size:12px;color:var(--text-muted);">직급</span>
+            <span id="pi-rank">-</span>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-profile')">닫기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    // ── 인증 가드 ──
+    if (!requireMemberAuth()) { /* 리다이렉트됨 */ }
+
+    let _memberData = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      applyTheme(getTheme());
+      setCurrentDate();
+      await loadMemberData();
+    });
+
+    function setCurrentDate() {
+      const now = new Date();
+      const days = ['일','월','화','수','목','금','토'];
+      document.getElementById('current-date-el').textContent =
+        `${now.getFullYear()}.${String(now.getMonth()+1).padStart(2,'0')}.${String(now.getDate()).padStart(2,'0')} (${days[now.getDay()]})`;
+    }
+
+    // ── API 데이터 로드 ──
+    async function loadMemberData() {
+      try {
+        const data = await DashboardAPI.member();
+        _memberData = data;
+        renderDashboard(data);
+      } catch(err) {
+        showToast('데이터를 불러오는 중 오류가 발생했습니다.', 'error');
+        console.error(err);
+      }
+    }
+
+    function renderDashboard(data) {
+      const member     = data.member    || {};
+      const investment = data.investment || {};
+      const payouts    = data.payouts   || [];
+      const nextPayout = data.next_payout;
+      const refStats   = data.referral_stats || {};
+
+      // Hero
+      animateCounter(document.getElementById('hero-invest-amount'), member.total_invested || member.investment_total || 0, 1500, '₩');
+      document.getElementById('hero-rank').textContent = member.rank || '-';
+      document.getElementById('hero-invest-date').textContent = investment.investment_date ? formatDate(investment.investment_date) : '-';
+      document.getElementById('hero-week').textContent = investment.current_week || 0;
+      document.getElementById('week-progress').innerHTML = renderWeekProgress(investment.current_week || 0, investment.total_weeks || 15);
+
+      // Stats
+      animateCounter(document.getElementById('stat-weekly'), investment.weekly_profit || 0, 1200, '₩');
+      animateCounter(document.getElementById('stat-paid'), investment.paid_amount || 0, 1400, '₩');
+      animateCounter(document.getElementById('stat-remain'), investment.remaining_amount || 0, 1600, '₩');
+
+      // Next Payout
+      if (nextPayout) {
+        document.getElementById('next-pay-date').textContent = formatDate(nextPayout.scheduled_date);
+        document.getElementById('next-pay-amount').textContent = formatMoney(nextPayout.total_payout);
+        document.getElementById('next-pay-badge').textContent = `${nextPayout.week_number}주차 지급 대기`;
+      }
+
+      // Referral counts
+      const totalRefs  = refStats.total  || 0;
+      const directRefs = refStats.direct || 0;
+      document.getElementById('referral-count').textContent = totalRefs;
+      document.getElementById('referral-direct').textContent = directRefs;
+      document.getElementById('referral-total').textContent = totalRefs;
+
+      // Recent Payouts (last 5)
+      renderRecentPayouts(payouts.slice(0, 5));
+
+      // Profile modal
+      document.getElementById('pi-userid').textContent = member.user_id  || '-';
+      document.getElementById('pi-name').textContent   = member.name     || '-';
+      document.getElementById('pi-phone').textContent  = member.phone    || '-';
+      document.getElementById('pi-email').textContent  = member.email    || '-';
+      document.getElementById('pi-bank').textContent   = `${member.bank_name || ''} ${member.account_number || ''}`.trim() || '-';
+      document.getElementById('pi-rank').innerHTML     = rankBadge(member.rank || '일반회원');
+
+      // Sidebar
+      document.getElementById('sidebar-name').textContent   = member.name   || '회원';
+      document.getElementById('sidebar-rank').textContent   = `⭐ ${member.rank || '일반회원'}`;
+      document.getElementById('sidebar-avatar').textContent = (member.name || 'U')[0];
+    }
+
+    function countAllReferrals(arr) {
+      if (!arr || arr.length === 0) return 0;
+      return arr.reduce((acc, m) => acc + 1 + countAllReferrals(m.children), 0);
+    }
+
+    function renderRecentPayouts(data) {
+      const tbody = document.getElementById('recent-payout-tbody');
+      if (!data || data.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px;">투자 지급 내역이 없습니다.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = data.map(p => `
+        <tr class="payout-row">
+          <td>${p.week_number}주차</td>
+          <td>${formatDate(p.scheduled_date)}</td>
+          <td>${formatMoney(p.principal_portion)}</td>
+          <td style="color:var(--accent-green);">${formatMoney(p.profit_portion)}</td>
+          <td style="font-weight:700;color:var(--text-primary);">${formatMoney(p.total_payout)}</td>
+          <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${formatMoney(p.balance_after)}</td>
+          <td>${statusBadge(p.status)}</td>
+        </tr>
+      `).join('');
+    }
+
+    // 출금 신청 모달
+    window.openWithdrawModal = function() {
+      if (!_memberData) return;
+      const balance = _memberData.member?.available_balance || 0;
+      const member  = _memberData.member || {};
+      document.getElementById('modal-withdraw-balance').textContent = formatMoney(balance);
+      document.getElementById('wd-bank').value    = member.bank_name || '';
+      document.getElementById('wd-account').value = member.account_number || '';
+      document.getElementById('wd-holder').value  = member.name || '';
+      openModal('modal-withdraw');
+    };
+
+    window.submitWithdraw = async function() {
+      const amount = parseInt(document.getElementById('wd-amount').value.replace(/,/g, '') || '0');
+      const bank   = document.getElementById('wd-bank').value;
+      const acct   = document.getElementById('wd-account').value;
+      const holder = document.getElementById('wd-holder').value;
+      if (!amount || amount <= 0) { showToast('출금 금액을 입력하세요.', 'error'); return; }
+      if (!bank || !acct || !holder) { showToast('계좌 정보를 입력하세요.', 'error'); return; }
+
+      try {
+        await WithdrawalsAPI.request({ amount, bank_name: bank, account_number: acct, account_holder: holder });
+        showToast('출금 신청이 완료되었습니다.', 'success');
+        closeModal('modal-withdraw');
+        await loadMemberData();
+      } catch(err) {
+        showToast(err.message, 'error');
+      }
+    };
+  </script>
+</body>
+</html>

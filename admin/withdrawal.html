@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - 투자금 출금 관리</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    .filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:20px; }
+    .filter-bar .form-control { width:auto; min-width:120px; }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+  <div class="app-wrapper">
+    <aside class="sidebar" style="background:linear-gradient(180deg,#0d0d1a 0%,#12122a 60%,#0f1535 100%);">
+      <div class="sidebar-header">
+        <a class="sidebar-logo" href="dashboard.html">
+          <div class="logo-icon">D</div>
+          <div class="logo-text"><span class="logo-name">DANGUN</span><span class="logo-sub">Admin Panel</span></div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">메인</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon"><i class="fas fa-chart-pie"></i></span> 대시보드</a>
+        <div class="nav-section">회원 관리</div>
+        <a class="nav-item" href="members.html"><span class="nav-icon"><i class="fas fa-users"></i></span> 회원 정보</a>
+        <div class="nav-section">투자 관리</div>
+        <a class="nav-item" href="deposit.html"><span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금</a>
+        <a class="nav-item active" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
+        <a class="nav-item" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
+        <div class="nav-section" style="margin-top:16px;">설정</div>
+        <a class="nav-item" href="../index.html"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" style="background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;">A</div>
+          <div class="user-info"><div class="user-name">최고관리자</div><div class="user-rank" style="color:var(--accent-red);">🛡 SuperAdmin</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <span class="topbar-title"><i class="fas fa-arrow-circle-up" style="color:var(--accent-gold);margin-right:8px;"></i> 투자금 출금 관리</span>
+        <div class="topbar-actions">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+            <i class="fas fa-moon" id="theme-icon"></i><span id="theme-label">라이트</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <!-- KPIs -->
+        <div class="grid grid-4 mb-24" style="gap:14px;">
+          <div class="stat-card anim-fadeInUp delay-1">
+            <div class="stat-icon"><i class="fas fa-list"></i></div>
+            <div class="stat-value">24</div><div class="stat-label">전체 출금 건수</div>
+          </div>
+          <div class="stat-card red anim-fadeInUp delay-2">
+            <div class="stat-icon"><i class="fas fa-clock"></i></div>
+            <div class="stat-value" id="kpi-pending-w">5</div><div class="stat-label">대기 건수</div>
+          </div>
+          <div class="stat-card green anim-fadeInUp delay-3">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-value">18</div><div class="stat-label">처리 완료</div>
+          </div>
+          <div class="stat-card blue anim-fadeInUp delay-4">
+            <div class="stat-icon"><i class="fas fa-coins"></i></div>
+            <div class="stat-value" style="font-size:18px;">₩38.5만</div><div class="stat-label">이번 주 출금 합계</div>
+          </div>
+        </div>
+
+        <!-- Bulk Actions + Table -->
+        <div class="card anim-fadeInUp">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-table icon"></i> 출금 내역</span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-success btn-sm" onclick="bulkApprove()">
+                <i class="fas fa-check-double"></i> 선택 일괄 승인
+              </button>
+              <button class="btn btn-danger btn-sm" onclick="bulkReject()">
+                <i class="fas fa-times-circle"></i> 선택 일괄 거절
+              </button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:16px 20px 0;">
+            <div class="filter-bar">
+              <div class="input-icon-wrap" style="min-width:200px;">
+                <i class="fas fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i>
+                <input type="text" class="form-control" id="search-w" placeholder="아이디, 이름 검색" oninput="filterWithdrawals()" style="padding-left:40px;">
+              </div>
+              <select class="form-control" id="filter-status-w" onchange="filterWithdrawals()">
+                <option value="">전체 상태</option>
+                <option value="pending">대기</option>
+                <option value="paid">지급완료</option>
+                <option value="rejected">거절</option>
+              </select>
+              <input type="date" class="form-control" id="filter-date-w" onchange="filterWithdrawals()">
+              <button class="btn btn-outline btn-sm" onclick="clearFiltersW()"><i class="fas fa-redo"></i></button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0 0 16px;">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th><input type="checkbox" id="check-all-w" onchange="toggleAllW(this)" style="accent-color:var(--accent-gold);"></th>
+                    <th>아이디</th>
+                    <th>이름</th>
+                    <th>은행 / 계좌</th>
+                    <th>투자금</th>
+                    <th>주차</th>
+                    <th>지급 이자</th>
+                    <th>출금 금액</th>
+                    <th>신청일</th>
+                    <th>출금일</th>
+                    <th>상태</th>
+                    <th>처리</th>
+                  </tr>
+                </thead>
+                <tbody id="withdrawal-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="withdrawal-pagination"></div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Reject Modal -->
+  <div class="modal-overlay" id="modal-reject">
+    <div class="modal" style="max-width:420px;">
+      <div class="modal-header">
+        <span class="modal-title">출금 거절</span>
+        <button class="modal-close" onclick="closeModal('modal-reject')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">거절 사유 <span style="color:var(--accent-red)">*</span></label>
+          <textarea class="form-control" id="reject-reason" rows="3" placeholder="거절 사유를 입력하세요..." style="resize:vertical;"></textarea>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-reject')">취소</button>
+        <button class="btn btn-danger" onclick="executeReject()"><i class="fas fa-ban"></i> 거절 처리</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    if (!requireAdminAuth()) { /* redirect */ }
+
+    let currentPageW  = 1;
+    let totalCountW   = 0;
+    const PAGE_LIMIT_W = 10;
+    let rejectTargetId = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      applyTheme(getTheme());
+      loadWithdrawals();
+    });
+
+    async function loadWithdrawals() {
+      const q      = document.getElementById('search-w').value.trim();
+      const status = document.getElementById('filter-status-w').value;
+      const params = { page: currentPageW, limit: PAGE_LIMIT_W };
+      if (q)      params.search = q;
+      if (status) params.status = status;
+
+      try {
+        const data = await WithdrawalsAPI.list(params);
+        totalCountW = data.total || 0;
+        renderWithdrawalTable(data.data || []);
+
+        // 통계 카드 업데이트
+        const s = data.stats || {};
+        const pendingEl = document.getElementById('stat-pending-count');
+        const pendingAmtEl = document.getElementById('stat-pending-amount');
+        const paidAmtEl = document.getElementById('stat-paid-amount');
+        if (pendingEl)    pendingEl.textContent    = s.pending_count || 0;
+        if (pendingAmtEl) pendingAmtEl.textContent = formatMoney(s.pending_amount || 0);
+        if (paidAmtEl)    paidAmtEl.textContent    = formatMoney(s.paid_amount    || 0);
+      } catch(err) {
+        showToast('출금 목록 로드 실패: ' + err.message, 'error');
+      }
+    }
+
+    function filterWithdrawals() {
+      currentPageW = 1;
+      loadWithdrawals();
+    }
+
+    function clearFiltersW() {
+      document.getElementById('search-w').value = '';
+      document.getElementById('filter-status-w').value = '';
+      currentPageW = 1;
+      loadWithdrawals();
+    }
+
+    function renderWithdrawalTable(rows) {
+      if (!rows.length) {
+        document.getElementById('withdrawal-tbody').innerHTML =
+          `<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text-muted);">출금 내역이 없습니다.</td></tr>`;
+      } else {
+        document.getElementById('withdrawal-tbody').innerHTML = rows.map(w => `
+          <tr id="wrow-${w.id}">
+            <td><input type="checkbox" class="wrow-check" data-id="${w.id}" style="accent-color:var(--accent-gold);" ${w.status !== 'pending' ? 'disabled' : ''}></td>
+            <td style="font-weight:700;">${w.user_id}</td>
+            <td>${w.name}</td>
+            <td style="font-size:12px;">${w.bank_name}<br><span style="color:var(--text-muted);">${w.account_number}</span></td>
+            <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${formatMoney(w.investment_amount||0)}</td>
+            <td><span class="badge badge-blue">${w.week_number||'-'}주차</span></td>
+            <td style="color:var(--accent-green);">-</td>
+            <td style="font-weight:700;color:var(--accent-gold);">${formatMoney(w.amount)}</td>
+            <td style="font-size:12px;">${formatDate(w.request_date||w.created_at)}</td>
+            <td style="font-size:12px;">${w.withdraw_date ? formatDate(w.withdraw_date) : '<span style="color:var(--text-muted);">-</span>'}</td>
+            <td id="wstatus-${w.id}">${statusBadge(w.status)}</td>
+            <td id="waction-${w.id}">
+              ${w.status === 'pending' ? `
+                <div style="display:flex;gap:4px;">
+                  <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="approveOne(${w.id})">
+                    <i class="fas fa-check"></i> 승인
+                  </button>
+                  <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:11px;" onclick="openReject(${w.id})">
+                    <i class="fas fa-times"></i>
+                  </button>
+                </div>` : `<span style="font-size:11px;color:var(--text-muted);">처리완료</span>`}
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      renderPagination('withdrawal-pagination', totalCountW, currentPageW, PAGE_LIMIT_W,
+        `function(p){ currentPageW=p; loadWithdrawals(); }`);
+    }
+
+    async function approveOne(id) {
+      try {
+        await WithdrawalsAPI.approve(id);
+        showToast('출금 승인 처리 완료', 'success');
+        await loadWithdrawals();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    function openReject(id) {
+      rejectTargetId = id;
+      document.getElementById('reject-reason').value = '';
+      openModal('modal-reject');
+    }
+
+    async function executeReject() {
+      const reason = document.getElementById('reject-reason').value.trim();
+      if (!reason) { showToast('거절 사유를 입력하세요.', 'warning'); return; }
+      try {
+        await WithdrawalsAPI.reject(rejectTargetId, reason);
+        showToast('출금 거절 처리 완료', 'warning');
+        closeModal('modal-reject');
+        await loadWithdrawals();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    async function bulkApprove() {
+      const checked = document.querySelectorAll('.wrow-check:checked:not(:disabled)');
+      if (checked.length === 0) { showToast('선택된 대기 항목이 없습니다.', 'warning'); return; }
+      const ids = [...checked].map(cb => parseInt(cb.dataset.id));
+      try {
+        await WithdrawalsAPI.bulkApprove(ids);
+        showToast(`${ids.length}건 일괄 승인 처리되었습니다.`, 'success');
+        document.getElementById('check-all-w').checked = false;
+        await loadWithdrawals();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    async function bulkReject() {
+      const checked = document.querySelectorAll('.wrow-check:checked:not(:disabled)');
+      if (checked.length === 0) { showToast('선택된 대기 항목이 없습니다.', 'warning'); return; }
+      const reason = prompt('일괄 거절 사유를 입력하세요:');
+      if (!reason) return;
+      const ids = [...checked].map(cb => parseInt(cb.dataset.id));
+      let cnt = 0;
+      for (const id of ids) {
+        try { await WithdrawalsAPI.reject(id, reason); cnt++; } catch {}
+      }
+      showToast(`${cnt}건 거절 처리 완료`, 'warning');
+      await loadWithdrawals();
+    }
+
+    function toggleAllW(el) {
+      document.querySelectorAll('.wrow-check:not(:disabled)').forEach(cb => cb.checked = el.checked);
+    }
+  </script>
+</body>
+</html>

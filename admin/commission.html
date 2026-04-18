@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - 직급 수당 관리</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    .filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:20px; }
+    .filter-bar .form-control { width:auto; min-width:120px; }
+    .flow-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+  <div class="app-wrapper">
+    <aside class="sidebar" style="background:linear-gradient(180deg,#0d0d1a 0%,#12122a 60%,#0f1535 100%);">
+      <div class="sidebar-header">
+        <a class="sidebar-logo" href="dashboard.html">
+          <div class="logo-icon">D</div>
+          <div class="logo-text"><span class="logo-name">DANGUN</span><span class="logo-sub">Admin Panel</span></div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">메인</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon"><i class="fas fa-chart-pie"></i></span> 대시보드</a>
+        <div class="nav-section">회원 관리</div>
+        <a class="nav-item" href="members.html"><span class="nav-icon"><i class="fas fa-users"></i></span> 회원 정보</a>
+        <div class="nav-section">투자 관리</div>
+        <a class="nav-item" href="deposit.html"><span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금</a>
+        <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
+        <a class="nav-item active" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
+        <div class="nav-section" style="margin-top:16px;">설정</div>
+        <a class="nav-item" href="../index.html"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" style="background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;">A</div>
+          <div class="user-info"><div class="user-name">최고관리자</div><div class="user-rank" style="color:var(--accent-red);">🛡 SuperAdmin</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <span class="topbar-title"><i class="fas fa-hand-holding-usd" style="color:var(--accent-gold);margin-right:8px;"></i> 직급 수당 관리</span>
+        <div class="topbar-actions">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+            <i class="fas fa-moon" id="theme-icon"></i><span id="theme-label">라이트</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="page-content">
+        <!-- KPIs -->
+        <div class="grid grid-4 mb-24" style="gap:14px;">
+          <div class="stat-card anim-fadeInUp delay-1">
+            <div class="stat-icon"><i class="fas fa-receipt"></i></div>
+            <div class="stat-value">47</div><div class="stat-label">전체 수당 건수</div>
+          </div>
+          <div class="stat-card anim-fadeInUp delay-2">
+            <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:#9b59b6;"><i class="fas fa-crown"></i></div>
+            <div class="stat-value" style="font-size:20px;">₩2,960만</div><div class="stat-label">본부장 수당 누계</div>
+          </div>
+          <div class="stat-card blue anim-fadeInUp delay-3">
+            <div class="stat-icon"><i class="fas fa-star"></i></div>
+            <div class="stat-value" style="font-size:20px;">₩1,525만</div><div class="stat-label">팀장 수당 누계</div>
+          </div>
+          <div class="stat-card green anim-fadeInUp delay-4">
+            <div class="stat-icon"><i class="fas fa-coins"></i></div>
+            <div class="stat-value" style="font-size:20px;">₩4,850만</div><div class="stat-label">전체 수당 누계</div>
+          </div>
+        </div>
+
+        <div class="grid grid-2 mb-24" style="gap:20px;">
+          <!-- Chart: 수당 지급 추이 -->
+          <div class="card anim-fadeInUp delay-1">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-chart-line icon"></i> 월별 수당 지급 추이</span>
+            </div>
+            <div class="card-body">
+              <div style="position:relative;height:240px;">
+                <canvas id="commTrendChart"></canvas>
+              </div>
+            </div>
+          </div>
+          <!-- Chart: 직급별 비율 -->
+          <div class="card anim-fadeInUp delay-2">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-chart-pie icon"></i> 직급별 수당 비율</span>
+            </div>
+            <div class="card-body">
+              <div style="position:relative;height:240px;">
+                <canvas id="commPieChart"></canvas>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Commission Table -->
+        <div class="card anim-fadeInUp">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-table icon"></i> 직급 수당 내역</span>
+          </div>
+          <div class="card-body" style="padding:16px 20px 0;">
+            <div class="filter-bar">
+              <div class="input-icon-wrap" style="min-width:200px;">
+                <i class="fas fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i>
+                <input type="text" class="form-control" id="search-c" placeholder="아이디, 이름 검색" oninput="filterComm()" style="padding-left:40px;">
+              </div>
+              <select class="form-control" id="filter-rank-c" onchange="filterComm()">
+                <option value="">전체 직급</option>
+                <option value="팀장">팀장</option>
+                <option value="본부장">본부장</option>
+              </select>
+              <select class="form-control" id="filter-status-c" onchange="filterComm()">
+                <option value="">전체 상태</option>
+                <option value="paid">지급완료</option>
+                <option value="pending">대기</option>
+              </select>
+              <button class="btn btn-outline btn-sm" onclick="clearFiltersC()"><i class="fas fa-redo"></i></button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0 0 16px;">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>ID</th>
+                    <th>수당 수령자</th>
+                    <th>직급</th>
+                    <th>투자자 (제공)</th>
+                    <th>투자금액</th>
+                    <th>수당 요율</th>
+                    <th>지급 수당</th>
+                    <th>지급 전 잔고</th>
+                    <th>지급 후 잔고</th>
+                    <th>지급일자</th>
+                    <th>상태</th>
+                    <th>관리</th>
+                  </tr>
+                </thead>
+                <tbody id="commission-tbody"></tbody>
+              </table>
+            </div>
+            <div class="pagination" id="commission-pagination"></div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    if (!requireAdminAuth()) { /* redirect */ }
+
+    let currentPageC = 1;
+    let totalCountC  = 0;
+    const PAGE_LIMIT_C = 10;
+
+    document.addEventListener('DOMContentLoaded', async () => {
+      applyTheme(getTheme());
+      renderCharts();
+      await loadCommissions();
+    });
+
+    async function loadCommissions() {
+      const q      = document.getElementById('search-c').value.trim();
+      const rank   = document.getElementById('filter-rank-c').value;
+      const status = document.getElementById('filter-status-c').value;
+      const params = { page: currentPageC, limit: PAGE_LIMIT_C };
+      if (q)      params.search = q;
+      if (rank)   params.rank   = rank;
+      if (status) params.status = status;
+
+      try {
+        const data = await CommissionsAPI.list(params);
+        totalCountC = data.total || 0;
+        renderCommTable(data.data || []);
+
+        // 통계 업데이트
+        const s = data.stats || {};
+        const tEl = document.getElementById('stat-total-comm');
+        const bEl = document.getElementById('stat-bonbu-comm');
+        const tjEl = document.getElementById('stat-team-comm');
+        if (tEl)  tEl.textContent  = formatMoney(s.total_amount   || 0);
+        if (bEl)  bEl.textContent  = formatMoney(s.bonbujang_total || 0);
+        if (tjEl) tjEl.textContent = formatMoney(s.teamjang_total  || 0);
+      } catch(err) {
+        showToast('수당 목록 로드 실패: ' + err.message, 'error');
+      }
+    }
+
+    function filterComm()  { currentPageC = 1; loadCommissions(); }
+    function clearFiltersC() {
+      document.getElementById('search-c').value = '';
+      document.getElementById('filter-rank-c').value = '';
+      document.getElementById('filter-status-c').value = '';
+      currentPageC = 1;
+      loadCommissions();
+    }
+
+    function renderCommTable(rows) {
+      if (!rows.length) {
+        document.getElementById('commission-tbody').innerHTML =
+          `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text-muted);">수당 내역이 없습니다.</td></tr>`;
+      } else {
+        document.getElementById('commission-tbody').innerHTML = rows.map(c => {
+          const rate    = c.commission_rate || 0;
+          const rateTag = rate >= 20
+            ? `<span class="flow-tag" style="background:rgba(142,68,173,0.15);color:#9b59b6;">20% 단독</span>`
+            : `<span class="flow-tag" style="background:rgba(212,160,23,0.15);color:var(--accent-gold);">10% 분배</span>`;
+          return `
+            <tr>
+              <td style="color:var(--text-muted);font-size:11px;">#${c.id}</td>
+              <td>
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="width:28px;height:28px;border-radius:50%;background:var(--gradient-gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:11px;color:#1a1a2e;flex-shrink:0;">${(c.receiver_name||'?')[0]}</div>
+                  <div>
+                    <div style="font-weight:700;font-size:13px;">${c.receiver_user_id}</div>
+                    <div style="font-size:11px;color:var(--text-muted);">${c.receiver_name}</div>
+                  </div>
+                </div>
+              </td>
+              <td>${rankBadge(c.receiver_rank)}</td>
+              <td>
+                <div style="font-size:12px;font-weight:600;">${c.investor_user_id}</div>
+                <div style="font-size:11px;color:var(--text-muted);">${c.investor_name}</div>
+              </td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${formatMoney(c.investment_amount)}</td>
+              <td>${rateTag}</td>
+              <td style="font-weight:900;color:var(--accent-gold);font-family:'Orbitron',sans-serif;">${formatMoney(c.commission_amount)}</td>
+              <td style="font-size:12px;color:var(--text-muted);">${formatMoney(c.balance_before)}</td>
+              <td style="font-size:12px;font-weight:700;">${formatMoney(c.balance_after)}</td>
+              <td style="font-size:12px;">${c.paid_at ? formatDateTime(c.paid_at) : '<span style="color:var(--text-muted);">-</span>'}</td>
+              <td>${statusBadge(c.status)}</td>
+              <td>
+                <button onclick="deleteCommission(${c.id}, '${c.receiver_name}', ${c.commission_amount})"
+                  style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
+                  🗑️ 삭제
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      renderPagination('commission-pagination', totalCountC, currentPageC, PAGE_LIMIT_C,
+        `function(p){ currentPageC=p; loadCommissions(); }`);
+    }
+
+    // ── 수당 삭제 ──────────────────────────────────────────────
+    async function deleteCommission(id, name, amount) {
+      const fmt = Number(amount).toLocaleString('ko-KR');
+      if (!confirm(`⚠️ 직급수당을 삭제하시겠습니까?\n\n수령자: ${name}\n금액: ₩${fmt}\n\n※ 수령자 지갑 잔고가 복원됩니다.`)) return;
+      try {
+        const token = localStorage.getItem('dangun_token');
+        const res = await fetch(`/api/commissions/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '삭제 실패');
+        showToast(data.message || '수당이 삭제되었습니다.', 'success');
+        await loadCommissions();
+      } catch (err) {
+        showToast('삭제 실패: ' + err.message, 'error');
+      }
+    }
+
+    function renderCharts() {
+      const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
+      const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
+      const textColor = isDark ? 'rgba(200,200,230,0.7)'  : 'rgba(50,50,80,0.7)';
+
+      new Chart(document.getElementById('commTrendChart'), {
+        type: 'line',
+        data: {
+          labels: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
+          datasets: [
+            { label: '본부장 수당', data: [0,0,0,0,0,0,0,0,0,0,0,0], borderColor:'rgba(142,68,173,0.9)', backgroundColor:'rgba(142,68,173,0.05)', fill:true, tension:0.4, pointRadius:3 },
+            { label: '팀장 수당',   data: [0,0,0,0,0,0,0,0,0,0,0,0], borderColor:'rgba(212,160,23,0.9)', backgroundColor:'rgba(212,160,23,0.05)', fill:true, tension:0.4, pointRadius:3 }
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position:'top', labels:{color:textColor,font:{size:11}} },
+            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ₩${(c.raw*10000).toLocaleString()}` } }
+          },
+          scales: {
+            x: { grid:{color:gridColor}, ticks:{color:textColor,font:{size:10}} },
+            y: { grid:{color:gridColor}, ticks:{color:textColor, callback: v => v+'만'} }
+          }
+        }
+      });
+
+      new Chart(document.getElementById('commPieChart'), {
+        type: 'pie',
+        data: {
+          labels: ['본부장 20% 단독', '본부장 10% (팀장포함)', '팀장 10%'],
+          datasets: [{
+            data: [35, 26, 39],
+            backgroundColor: ['rgba(142,68,173,0.8)','rgba(212,160,23,0.8)','rgba(90,123,255,0.8)'],
+            borderColor: isDark ? '#12122a' : '#fff',
+            borderWidth: 3,
+          }]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { position:'bottom', labels:{color:textColor,font:{size:10},padding:10} },
+            tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw}%` } }
+          }
+        }
+      });
+    }
+  </script>
+</body>
+</html>

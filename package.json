@@ -1,0 +1,32 @@
+{
+  "name": "dangun-platform",
+  "version": "1.0.0",
+  "description": "DANGUN 금융플랫폼 - Full Stack (Node.js + SQLite)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "db:seed": "node database/seed.js",
+    "db:reset": "node database/reset.js",
+    "scheduler": "node scheduler.js --now"
+  },
+  "engines": {
+    "node": "20.x"
+  },
+  "dependencies": {
+    "sqlite3": "^5.1.7",
+    "sqlite": "^5.1.1",
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.18.3",
+    "express-rate-limit": "^7.2.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2",
+    "morgan": "^1.10.0",
+    "uuid": "^9.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0"
+  }
+}

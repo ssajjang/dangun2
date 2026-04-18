@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN 금융플랫폼 - 로그인</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="css/theme.css">
+  <style>
+    /* ── Auth Page Layout ── */
+    body { overflow: hidden; }
+
+    .auth-container {
+      min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    /* Left Panel – Branding */
+    .auth-left {
+      background: var(--gradient-dark);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px 48px;
+      overflow: hidden;
+    }
+
+    .auth-left::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 20% 80%, rgba(212,160,23,0.12) 0%, transparent 50%),
+        radial-gradient(circle at 80% 20%, rgba(90,123,255,0.1) 0%, transparent 50%);
+    }
+
+    .auth-grid {
+      position: absolute;
+      inset: 0;
+      background-image:
+        linear-gradient(rgba(212,160,23,0.05) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(212,160,23,0.05) 1px, transparent 1px);
+      background-size: 40px 40px;
+      animation: gridPan 20s linear infinite;
+    }
+
+    @keyframes gridPan {
+      0% { transform: translateY(0); }
+      100% { transform: translateY(40px); }
+    }
+
+    .auth-brand {
+      position: relative;
+      z-index: 2;
+      text-align: center;
+    }
+
+    .auth-logo {
+      width: 90px;
+      height: 90px;
+      background: var(--gradient-gold);
+      border-radius: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Orbitron', sans-serif;
+      font-size: 32px;
+      font-weight: 900;
+      color: #1a1a2e;
+      margin: 0 auto 24px;
+      box-shadow: 0 0 40px rgba(212,160,23,0.5), 0 0 80px rgba(212,160,23,0.15);
+      animation: logoGlow 3s ease-in-out infinite;
+    }
+
+    .auth-brand-name {
+      font-family: 'Orbitron', sans-serif;
+      font-size: 42px;
+      font-weight: 900;
+      background: var(--gradient-gold);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: 0.15em;
+      margin-bottom: 8px;
+    }
+
+    .auth-brand-sub {
+      font-size: 13px;
+      color: rgba(200,204,232,0.6);
+      letter-spacing: 0.3em;
+      text-transform: uppercase;
+      margin-bottom: 48px;
+    }
+
+    .auth-features {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      width: 100%;
+      max-width: 380px;
+    }
+
+    .feature-item {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(212,160,23,0.15);
+      border-radius: 14px;
+      backdrop-filter: blur(8px);
+      transition: var(--transition);
+      animation: fadeInUp 0.6s ease forwards;
+      opacity: 0;
+    }
+
+    .feature-item:hover {
+      background: rgba(212,160,23,0.08);
+      border-color: rgba(212,160,23,0.4);
+      transform: translateX(4px);
+    }
+
+    .feature-icon {
+      width: 40px; height: 40px;
+      background: rgba(212,160,23,0.15);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--accent-gold);
+      font-size: 16px;
+      flex-shrink: 0;
+    }
+
+    .feature-text .title {
+      font-size: 13px;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .feature-text .desc {
+      font-size: 11px;
+      color: rgba(200,204,232,0.5);
+      margin-top: 2px;
+    }
+
+    /* Right Panel – Form */
+    .auth-right {
+      background: var(--bg-primary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 48px;
+      overflow-y: auto;
+    }
+
+    .auth-form-box {
+      width: 100%;
+      max-width: 420px;
+    }
+
+    .auth-tabs {
+      display: flex;
+      gap: 0;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 4px;
+      margin-bottom: 32px;
+    }
+
+    .auth-tab {
+      flex: 1;
+      padding: 10px;
+      text-align: center;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      border-radius: calc(var(--radius-lg) - 4px);
+      color: var(--text-muted);
+      transition: var(--transition);
+      border: none;
+      background: transparent;
+    }
+
+    .auth-tab.active {
+      background: var(--gradient-gold);
+      color: #1a1a2e;
+      box-shadow: var(--shadow-gold);
+    }
+
+    .auth-form { display: none; }
+    .auth-form.active { display: block; animation: fadeInUp 0.4s ease; }
+
+    .form-title {
+      font-size: 24px;
+      font-weight: 900;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .form-subtitle {
+      font-size: 13px;
+      color: var(--text-muted);
+      margin-bottom: 28px;
+    }
+
+    .input-icon-wrap {
+      position: relative;
+    }
+
+    .input-icon-wrap .form-control {
+      padding-left: 44px;
+    }
+
+    .input-icon {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      font-size: 15px;
+      pointer-events: none;
+    }
+
+    .input-eye {
+      position: absolute;
+      right: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 15px;
+      transition: var(--transition);
+    }
+
+    .input-eye:hover { color: var(--accent-gold); }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .recommend-search {
+      display: flex;
+      gap: 8px;
+    }
+
+    .recommend-search .form-control { flex: 1; }
+
+    .recommend-result {
+      margin-top: 8px;
+      background: var(--bg-secondary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      display: none;
+    }
+
+    .recommend-result.open { display: block; }
+
+    .recommend-item {
+      padding: 10px 14px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: var(--transition-fast);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .recommend-item:hover { background: rgba(212,160,23,0.08); }
+    .recommend-item .uid { font-weight: 700; color: var(--text-primary); }
+    .recommend-item .uname { color: var(--text-muted); }
+
+    .selected-recommender {
+      padding: 8px 12px;
+      background: rgba(212,160,23,0.1);
+      border: 1px solid rgba(212,160,23,0.3);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      color: var(--accent-gold);
+      font-weight: 600;
+      margin-top: 6px;
+      display: none;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .selected-recommender.show { display: flex; }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-color);
+    }
+
+    .auth-divider span {
+      font-size: 11px;
+      color: var(--text-muted);
+      font-weight: 600;
+      letter-spacing: 0.08em;
+    }
+
+    .auth-links {
+      display: flex;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 20px;
+    }
+
+    .auth-link {
+      font-size: 12px;
+      color: var(--text-muted);
+      text-decoration: none;
+      transition: var(--transition);
+      cursor: pointer;
+    }
+
+    .auth-link:hover { color: var(--accent-gold); }
+
+    /* Floating particles */
+    .float-particle {
+      position: absolute;
+      border-radius: 50%;
+      background: rgba(212,160,23,0.15);
+      animation: floatParticle linear infinite;
+    }
+
+    @keyframes floatParticle {
+      0% { transform: translateY(0) rotate(0deg); opacity: 0.3; }
+      50% { opacity: 0.6; }
+      100% { transform: translateY(-100vh) rotate(360deg); opacity: 0; }
+    }
+
+    /* Theme Toggle (top-right) */
+    .auth-theme-btn {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      padding: 8px 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 20px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      transition: var(--transition);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .auth-theme-btn:hover {
+      border-color: var(--accent-gold);
+      color: var(--accent-gold);
+    }
+
+    /* Responsive */
+    @media (max-width: 900px) {
+      .auth-container { grid-template-columns: 1fr; }
+      .auth-left { display: none; }
+      .auth-right { padding: 32px 24px; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Toast Container -->
+  <div id="toast-container"></div>
+
+  <!-- Theme Toggle -->
+  <button class="auth-theme-btn" onclick="toggleTheme()" id="theme-btn">
+    <i class="fas fa-moon" id="theme-icon"></i>
+    <span id="theme-label">라이트</span>
+  </button>
+
+  <div class="auth-container">
+    <!-- ── Left Panel ── -->
+    <div class="auth-left">
+      <div class="auth-grid"></div>
+
+      <!-- Floating Particles -->
+      <div class="float-particle" style="width:8px;height:8px;left:10%;bottom:-20px;animation-duration:12s;animation-delay:0s;"></div>
+      <div class="float-particle" style="width:5px;height:5px;left:25%;bottom:-20px;animation-duration:9s;animation-delay:2s;"></div>
+      <div class="float-particle" style="width:10px;height:10px;left:50%;bottom:-20px;animation-duration:15s;animation-delay:4s;"></div>
+      <div class="float-particle" style="width:6px;height:6px;left:70%;bottom:-20px;animation-duration:11s;animation-delay:1s;"></div>
+      <div class="float-particle" style="width:9px;height:9px;left:85%;bottom:-20px;animation-duration:13s;animation-delay:3s;"></div>
+
+      <div class="auth-brand">
+        <div class="auth-logo anim-float">D</div>
+        <div class="auth-brand-name">DANGUN</div>
+        <div class="auth-brand-sub">Financial Platform</div>
+
+        <div class="auth-features">
+          <div class="feature-item delay-1">
+            <div class="feature-icon"><i class="fas fa-percent"></i></div>
+            <div class="feature-text">
+              <div class="title">주 10% 고정 수익</div>
+              <div class="desc">매주 금요일 계좌 직접 지급</div>
+            </div>
+          </div>
+          <div class="feature-item delay-2">
+            <div class="feature-icon"><i class="fas fa-calendar-week"></i></div>
+            <div class="feature-text">
+              <div class="title">15주 분할 지급</div>
+              <div class="desc">원금 + 수익을 15주간 안전하게</div>
+            </div>
+          </div>
+          <div class="feature-item delay-3">
+            <div class="feature-icon"><i class="fas fa-sitemap"></i></div>
+            <div class="feature-text">
+              <div class="title">직급 수당 시스템</div>
+              <div class="desc">팀장·본부장 총 20% 수당 지급</div>
+            </div>
+          </div>
+          <div class="feature-item delay-4">
+            <div class="feature-icon"><i class="fas fa-shield-alt"></i></div>
+            <div class="feature-text">
+              <div class="title">투명한 수익 구조</div>
+              <div class="desc">실시간 대시보드로 수익 확인</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Right Panel ── -->
+    <div class="auth-right">
+      <div class="auth-form-box anim-fadeInUp">
+
+        <!-- Tabs -->
+        <div class="auth-tabs">
+          <button class="auth-tab active" onclick="switchTab('login')">로그인</button>
+          <button class="auth-tab" onclick="switchTab('register')">회원가입</button>
+        </div>
+
+        <!-- ── Login Form ── -->
+        <div class="auth-form active" id="form-login">
+          <div class="form-title">다시 오신 것을 환영합니다 👋</div>
+          <div class="form-subtitle">DANGUN 계정으로 로그인하세요</div>
+
+          <form onsubmit="handleLogin(event)">
+            <div class="form-group">
+              <label class="form-label">아이디</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-user input-icon"></i>
+                <input type="text" class="form-control" id="login-id" placeholder="아이디를 입력하세요" required autocomplete="username">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">비밀번호</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-lock input-icon"></i>
+                <input type="password" class="form-control" id="login-pw" placeholder="비밀번호를 입력하세요" required autocomplete="current-password">
+                <span class="input-eye" onclick="togglePw('login-pw', this)"><i class="fas fa-eye"></i></span>
+              </div>
+            </div>
+
+            <div class="flex-between mt-4 mb-20">
+              <label class="flex gap-8 cursor-pointer" style="font-size:12px;color:var(--text-muted);">
+                <input type="checkbox" style="accent-color:var(--accent-gold);"> 로그인 상태 유지
+              </label>
+              <span class="auth-link" onclick="switchTab('find')">계정 찾기</span>
+            </div>
+
+            <button type="submit" class="btn btn-gold w-full btn-lg">
+              <i class="fas fa-sign-in-alt"></i> 로그인
+            </button>
+          </form>
+
+          <div class="auth-divider"><span>OR</span></div>
+
+          <!-- Demo Access Links -->
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+            <button class="btn btn-outline w-full" onclick="demoLogin('member')" style="font-size:12px;">
+              <i class="fas fa-user"></i> 회원 데모
+            </button>
+            <button class="btn btn-outline w-full" onclick="demoLogin('admin')" style="font-size:12px;">
+              <i class="fas fa-user-shield"></i> 관리자 데모
+            </button>
+          </div>
+
+          <div class="auth-links">
+            <span class="auth-link" onclick="switchTab('register')">회원가입</span>
+            <span style="color:var(--border-color)">|</span>
+            <span class="auth-link" onclick="switchTab('find')">아이디/비밀번호 찾기</span>
+          </div>
+        </div>
+
+        <!-- ── Register Form ── -->
+        <div class="auth-form" id="form-register">
+          <div class="form-title">회원가입</div>
+          <div class="form-subtitle">DANGUN 금융플랫폼에 오신 것을 환영합니다</div>
+
+          <form onsubmit="handleRegister(event)">
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">아이디 <span style="color:var(--accent-red)">*</span></label>
+                <div class="input-icon-wrap">
+                  <i class="fas fa-user input-icon"></i>
+                  <input type="text" class="form-control" id="reg-id" placeholder="영문+숫자 6~20자" required minlength="6" maxlength="20" autocomplete="off">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">이름 <span style="color:var(--accent-red)">*</span></label>
+                <div class="input-icon-wrap">
+                  <i class="fas fa-id-card input-icon"></i>
+                  <input type="text" class="form-control" id="reg-name" placeholder="실명 입력" required>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">이메일 <span style="color:var(--accent-red)">*</span></label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-envelope input-icon"></i>
+                <input type="email" class="form-control" id="reg-email" placeholder="example@email.com" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">핸드폰 번호 <span style="color:var(--accent-red)">*</span></label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-mobile-alt input-icon"></i>
+                <input type="tel" class="form-control" id="reg-phone" placeholder="010-0000-0000" required>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">비밀번호 <span style="color:var(--accent-red)">*</span></label>
+                <div class="input-icon-wrap">
+                  <i class="fas fa-lock input-icon"></i>
+                  <input type="password" class="form-control" id="reg-pw" placeholder="8자 이상" required minlength="8">
+                  <span class="input-eye" onclick="togglePw('reg-pw', this)"><i class="fas fa-eye"></i></span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">비밀번호 확인 <span style="color:var(--accent-red)">*</span></label>
+                <div class="input-icon-wrap">
+                  <i class="fas fa-lock input-icon"></i>
+                  <input type="password" class="form-control" id="reg-pw2" placeholder="비밀번호 재입력" required>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-row">
+              <div class="form-group">
+                <label class="form-label">은행명 <span style="color:var(--accent-red)">*</span></label>
+                <select class="form-control" id="reg-bank" required>
+                  <option value="">은행 선택</option>
+                  <option>국민은행</option><option>신한은행</option><option>우리은행</option>
+                  <option>하나은행</option><option>농협은행</option><option>기업은행</option>
+                  <option>SC제일은행</option><option>카카오뱅크</option><option>토스뱅크</option>
+                  <option>케이뱅크</option><option>새마을금고</option><option>수협은행</option>
+                  <option>우체국</option><option>씨티은행</option><option>기타</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">계좌번호 <span style="color:var(--accent-red)">*</span></label>
+                <div class="input-icon-wrap">
+                  <i class="fas fa-university input-icon"></i>
+                  <input type="text" class="form-control" id="reg-account" placeholder="- 없이 입력" required>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">추천인 검색 (선택)</label>
+              <div class="recommend-search">
+                <div class="input-icon-wrap" style="flex:1;">
+                  <i class="fas fa-search input-icon"></i>
+                  <input type="text" class="form-control" id="recommend-input" placeholder="아이디 또는 이름 검색">
+                </div>
+                <button type="button" class="btn btn-outline btn-sm" onclick="searchRecommender()">
+                  <i class="fas fa-search"></i>
+                </button>
+              </div>
+              <div class="recommend-result" id="recommend-result"></div>
+              <div class="selected-recommender" id="selected-recommender">
+                <span id="selected-recommender-text"></span>
+                <span style="cursor:pointer;color:var(--text-muted);" onclick="clearRecommender()"><i class="fas fa-times"></i></span>
+              </div>
+              <input type="hidden" id="reg-recommender-id" value="">
+            </div>
+
+            <button type="submit" class="btn btn-gold w-full btn-lg">
+              <i class="fas fa-user-plus"></i> 회원가입
+            </button>
+          </form>
+
+          <div class="auth-links">
+            <span class="auth-link" onclick="switchTab('login')">이미 계정이 있으신가요? 로그인</span>
+          </div>
+        </div>
+
+        <!-- ── Find Account Form ── -->
+        <div class="auth-form" id="form-find">
+          <div class="form-title">계정 찾기</div>
+          <div class="form-subtitle">등록된 정보로 계정을 찾습니다</div>
+
+          <div class="auth-tabs" style="margin-bottom:24px;">
+            <button class="auth-tab active" onclick="switchFindTab('id')" id="find-tab-id">아이디 찾기</button>
+            <button class="auth-tab" onclick="switchFindTab('pw')" id="find-tab-pw">비밀번호 재설정</button>
+          </div>
+
+          <div id="find-id-form">
+            <div class="form-group">
+              <label class="form-label">이름</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-id-card input-icon"></i>
+                <input type="text" class="form-control" placeholder="가입 시 등록한 이름">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">핸드폰 번호</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-mobile-alt input-icon"></i>
+                <input type="tel" class="form-control" placeholder="010-0000-0000">
+              </div>
+            </div>
+            <button type="button" class="btn btn-gold w-full" onclick="showToast('PHP 개발자 연동 후 사용 가능합니다.','info')">
+              <i class="fas fa-search"></i> 아이디 찾기
+            </button>
+          </div>
+
+          <div id="find-pw-form" style="display:none;">
+            <div class="form-group">
+              <label class="form-label">아이디</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-user input-icon"></i>
+                <input type="text" class="form-control" placeholder="아이디 입력">
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">이메일</label>
+              <div class="input-icon-wrap">
+                <i class="fas fa-envelope input-icon"></i>
+                <input type="email" class="form-control" placeholder="가입 이메일 주소">
+              </div>
+            </div>
+            <button type="button" class="btn btn-gold w-full" onclick="showToast('PHP 개발자 연동 후 사용 가능합니다.','info')">
+              <i class="fas fa-paper-plane"></i> 재설정 메일 발송
+            </button>
+          </div>
+
+          <div class="auth-links" style="margin-top:20px;">
+            <span class="auth-link" onclick="switchTab('login')">로그인으로 돌아가기</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <script src="js/app.js"></script>
+  <script src="js/api.js"></script>
+  <script>
+    // ── 이미 로그인 상태면 해당 페이지로 이동 ──
+    (function() {
+      const token = localStorage.getItem('dangun_token');
+      const admin = (() => { try { return JSON.parse(localStorage.getItem('dangun_admin') || 'null'); } catch { return null; } })();
+      const user  = (() => { try { return JSON.parse(localStorage.getItem('dangun_user')  || 'null'); } catch { return null; } })();
+      if (token && admin?.id) { window.location.href = 'admin/dashboard.html'; return; }
+      if (token && user?.id)  { window.location.href = 'member/index.html';    return; }
+    })();
+
+    // ── Tab Switching ──
+    function switchTab(tab) {
+      document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+      document.querySelectorAll('.auth-tabs .auth-tab').forEach((t, i) => {
+        if ((tab === 'login' && i === 0) || (tab === 'register' && i === 1)) {
+          t.classList.add('active');
+        } else {
+          t.classList.remove('active');
+        }
+      });
+      const map = { login: 'form-login', register: 'form-register', find: 'form-find' };
+      document.getElementById(map[tab])?.classList.add('active');
+    }
+
+    function switchFindTab(type) {
+      document.getElementById('find-id-form').style.display = type === 'id' ? 'block' : 'none';
+      document.getElementById('find-pw-form').style.display = type === 'pw' ? 'block' : 'none';
+      document.getElementById('find-tab-id').classList.toggle('active', type === 'id');
+      document.getElementById('find-tab-pw').classList.toggle('active', type === 'pw');
+    }
+
+    // ── Password Toggle ──
+    function togglePw(id, el) {
+      const inp = document.getElementById(id);
+      const isText = inp.type === 'text';
+      inp.type = isText ? 'password' : 'text';
+      el.innerHTML = `<i class="fas fa-eye${isText ? '' : '-slash'}"></i>`;
+    }
+
+    // ── Demo Login (superadmin 계정으로 자동 로그인) ──
+    async function demoLogin(role) {
+      if (role === 'admin') {
+        // 관리자 데모: superadmin / Admin1234! 로 자동 로그인 시도
+        try {
+          const data = await AuthAPI.adminLogin('superadmin', 'Admin1234!');
+          if (data?.token) {
+            showToast('관리자 로그인 성공!', 'success');
+            setTimeout(() => window.location.href = 'admin/dashboard.html', 600);
+          }
+        } catch(e) {
+          // 서버 미연결 시 페이지 이동만
+          window.location.href = 'admin/dashboard.html';
+        }
+      } else {
+        window.location.href = 'member/index.html';
+      }
+    }
+
+    // ── Login Handler ── 실제 API 연동
+    async function handleLogin(e) {
+      e.preventDefault();
+      const id = document.getElementById('login-id').value.trim();
+      const pw = document.getElementById('login-pw').value;
+      if (!id || !pw) { showToast('아이디와 비밀번호를 입력하세요.', 'error'); return; }
+
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 로그인 중...';
+
+      try {
+        // 1) 관리자 로그인 시도
+        let isAdmin = false;
+        let data = null;
+        try {
+          data = await fetch('/api/auth/admin/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin_id: id, password: pw })
+          }).then(r => r.json());
+          if (data?.token) isAdmin = true;
+        } catch {}
+
+        if (!isAdmin || !data?.token) {
+          // 2) 회원 로그인 시도
+          const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: id, password: pw })
+          });
+          data = await res.json();
+          if (!res.ok) throw new Error(data.error || '로그인 실패');
+        }
+
+        if (data?.token) {
+          localStorage.setItem('dangun_token', data.token);
+          if (data.admin) {
+            localStorage.setItem('dangun_admin', JSON.stringify(data.admin));
+            localStorage.removeItem('dangun_user');
+            showToast('관리자 로그인 성공!', 'success');
+            setTimeout(() => window.location.href = 'admin/dashboard.html', 600);
+          } else {
+            localStorage.setItem('dangun_user', JSON.stringify(data.user));
+            localStorage.removeItem('dangun_admin');
+            showToast('로그인 성공!', 'success');
+            setTimeout(() => window.location.href = 'member/index.html', 600);
+          }
+        } else {
+          throw new Error(data?.error || '로그인에 실패했습니다.');
+        }
+      } catch(err) {
+        showToast(err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-sign-in-alt"></i> 로그인';
+      }
+    }
+
+    // ── Register Handler ── 실제 API 연동
+    async function handleRegister(e) {
+      e.preventDefault();
+      const pw  = document.getElementById('reg-pw').value;
+      const pw2 = document.getElementById('reg-pw2').value;
+      if (pw !== pw2) { showToast('비밀번호가 일치하지 않습니다.', 'error'); return; }
+
+      const btn = e.target.querySelector('button[type=submit]');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...';
+
+      const body = {
+        user_id:              document.getElementById('reg-id').value.trim(),
+        password:             pw,
+        name:                 document.getElementById('reg-name').value.trim(),
+        email:                document.getElementById('reg-email').value.trim(),
+        phone:                document.getElementById('reg-phone').value.trim(),
+        bank_name:            document.getElementById('reg-bank').value,
+        account_number:       document.getElementById('reg-account').value.trim(),
+        account_holder:       document.getElementById('reg-name').value.trim(),
+        recommender_user_id:  document.getElementById('recommend-input').value.trim() || undefined,
+      };
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '회원가입 실패');
+        showToast('회원가입 완료! 관리자 승인 후 로그인 가능합니다.', 'success');
+        setTimeout(() => switchTab('login'), 2000);
+      } catch(err) {
+        showToast(err.message, 'error');
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> 회원가입';
+      }
+    }
+
+    // ── Recommender Search ── 실제 API 연동
+    let searchTimer = null;
+    async function searchRecommender() {
+      const q = document.getElementById('recommend-input').value.trim();
+      const resultEl = document.getElementById('recommend-result');
+      if (!q || q.length < 2) { resultEl.classList.remove('open'); return; }
+
+      try {
+        const res  = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`);
+        const found = await res.json();
+
+        if (!Array.isArray(found) || found.length === 0) {
+          resultEl.innerHTML = `<div class="recommend-item"><span class="uname">검색 결과 없음</span></div>`;
+        } else {
+          resultEl.innerHTML = found.map(m => `
+            <div class="recommend-item" onclick="selectRecommender('${m.user_id}', '${m.user_id}', '${m.name}', '${m.rank}')">
+              <span class="uid">${m.user_id}</span>
+              <span class="uname">${m.name} · ${m.rank}</span>
+            </div>
+          `).join('');
+        }
+        resultEl.classList.add('open');
+      } catch {
+        resultEl.classList.remove('open');
+      }
+    }
+
+    function selectRecommender(id, userId, name, rank) {
+      document.getElementById('reg-recommender-id').value = userId;
+      document.getElementById('recommend-result').classList.remove('open');
+      document.getElementById('recommend-input').value = userId;
+      const selEl = document.getElementById('selected-recommender');
+      document.getElementById('selected-recommender-text').textContent = `✓ ${userId} (${name}) · ${rank}`;
+      selEl.classList.add('show');
+    }
+
+    function clearRecommender() {
+      document.getElementById('reg-recommender-id').value = '';
+      document.getElementById('recommend-input').value = '';
+      document.getElementById('selected-recommender').classList.remove('show');
+    }
+
+    // 검색 입력 이벤트 (debounce)
+    document.getElementById('recommend-input')?.addEventListener('input', function() {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(searchRecommender, 400);
+    });
+    document.getElementById('recommend-input')?.addEventListener('keypress', e => {
+      if (e.key === 'Enter') { e.preventDefault(); searchRecommender(); }
+    });
+
+    // 외부 클릭 시 결과 닫기
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#recommend-result') && !e.target.closest('#recommend-input')) {
+        document.getElementById('recommend-result')?.classList.remove('open');
+      }
+    });
+
+    // 폰 번호 자동 포맷
+    document.getElementById('reg-phone')?.addEventListener('input', function() {
+      let v = this.value.replace(/\D/g, '');
+      if (v.length > 11) v = v.slice(0, 11);
+      if (v.length > 7) v = v.slice(0,3)+'-'+v.slice(3,7)+'-'+v.slice(7);
+      else if (v.length > 3) v = v.slice(0,3)+'-'+v.slice(3);
+      this.value = v;
+    });
+
+    // 계정 찾기 버튼 실제 연동
+    document.querySelectorAll('#find-id-form button, #find-pw-form button').forEach(btn => {
+      btn.addEventListener('click', function() {
+        showToast('이 기능은 이메일 서비스 설정 후 사용 가능합니다. 관리자에게 문의하세요.', 'info');
+      });
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,1359 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>🚀 DANGUN 플랫폼 배포 가이드</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css" />
+  <style>
+    :root {
+      --bg: #0d1117;
+      --surface: #161b22;
+      --surface2: #21262d;
+      --border: #30363d;
+      --primary: #58a6ff;
+      --primary-glow: rgba(88,166,255,.18);
+      --green: #3fb950;
+      --green-glow: rgba(63,185,80,.18);
+      --yellow: #d29922;
+      --red: #f85149;
+      --purple: #bc8cff;
+      --orange: #f0883e;
+      --text: #e6edf3;
+      --text-muted: #8b949e;
+      --code-bg: #0d1117;
+      --radius: 12px;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Noto Sans KR', sans-serif;
+      line-height: 1.7;
+      min-height: 100vh;
+    }
+
+    /* ── 헤더 ── */
+    header {
+      background: linear-gradient(135deg, #0d1117 0%, #161b22 50%, #0d1117 100%);
+      border-bottom: 1px solid var(--border);
+      padding: 48px 24px 40px;
+      text-align: center;
+      position: relative;
+      overflow: hidden;
+    }
+    header::before {
+      content: '';
+      position: absolute; inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(88,166,255,.12) 0%, transparent 70%);
+    }
+    .header-badge {
+      display: inline-block;
+      background: var(--primary-glow);
+      border: 1px solid var(--primary);
+      color: var(--primary);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      padding: 4px 14px;
+      border-radius: 20px;
+      margin-bottom: 16px;
+    }
+    header h1 {
+      font-size: clamp(28px, 5vw, 48px);
+      font-weight: 900;
+      background: linear-gradient(135deg, #e6edf3 0%, var(--primary) 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+    header p {
+      color: var(--text-muted);
+      font-size: 15px;
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* ── 네비게이션 탭 ── */
+    nav.tabs {
+      display: flex;
+      gap: 4px;
+      justify-content: center;
+      flex-wrap: wrap;
+      padding: 20px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .tab-btn {
+      padding: 8px 18px;
+      border-radius: 8px;
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 13px;
+      font-weight: 600;
+      font-family: 'Noto Sans KR', sans-serif;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .tab-btn:hover { background: var(--surface2); color: var(--text); }
+    .tab-btn.active {
+      background: var(--primary-glow);
+      border-color: var(--primary);
+      color: var(--primary);
+    }
+
+    /* ── 메인 레이아웃 ── */
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 32px 24px 64px;
+    }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    /* ── 섹션 ── */
+    section {
+      margin-bottom: 40px;
+    }
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .section-title .icon {
+      width: 40px; height: 40px;
+      background: var(--primary-glow);
+      border: 1px solid var(--primary);
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      flex-shrink: 0;
+    }
+    .section-title h2 {
+      font-size: 20px;
+      font-weight: 700;
+    }
+    .section-title .badge {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 2px 10px;
+      border-radius: 12px;
+      letter-spacing: 1px;
+    }
+    .badge-free { background: rgba(63,185,80,.2); color: var(--green); border: 1px solid var(--green); }
+    .badge-paid { background: rgba(240,136,62,.2); color: var(--orange); border: 1px solid var(--orange); }
+    .badge-recommended { background: rgba(88,166,255,.2); color: var(--primary); border: 1px solid var(--primary); }
+
+    /* ── 카드 ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ── 단계 리스트 ── */
+    .steps {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .step {
+      display: flex;
+      gap: 16px;
+      align-items: flex-start;
+    }
+    .step-num {
+      width: 28px; height: 28px;
+      background: var(--primary-glow);
+      border: 1px solid var(--primary);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--primary);
+      flex-shrink: 0;
+      margin-top: 2px;
+    }
+    .step-body { flex: 1; }
+    .step-body strong { font-size: 14px; font-weight: 700; }
+    .step-body p { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+
+    /* ── 코드 블록 ── */
+    .code-block {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      margin: 12px 0;
+      overflow: hidden;
+    }
+    .code-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 16px;
+      background: var(--surface2);
+      border-bottom: 1px solid var(--border);
+    }
+    .code-lang {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+    .copy-btn {
+      background: none;
+      border: none;
+      color: var(--text-muted);
+      cursor: pointer;
+      font-size: 12px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-family: 'Noto Sans KR', sans-serif;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+    .copy-btn:hover { background: var(--surface); color: var(--primary); }
+    .copy-btn.copied { color: var(--green); }
+    pre {
+      padding: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-x: auto;
+      color: var(--text);
+    }
+    pre .comment { color: #6e7681; }
+    pre .cmd { color: #79c0ff; }
+    pre .string { color: #a5d6ff; }
+    pre .highlight { color: var(--green); font-weight: bold; }
+    pre .warn { color: var(--yellow); }
+
+    /* ── 알림 박스 ── */
+    .alert {
+      padding: 14px 18px;
+      border-radius: 8px;
+      margin: 12px 0;
+      font-size: 14px;
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+    .alert-info { background: var(--primary-glow); border: 1px solid rgba(88,166,255,.4); }
+    .alert-success { background: var(--green-glow); border: 1px solid rgba(63,185,80,.4); }
+    .alert-warn { background: rgba(210,153,34,.12); border: 1px solid rgba(210,153,34,.4); color: var(--yellow); }
+    .alert-danger { background: rgba(248,81,73,.12); border: 1px solid rgba(248,81,73,.4); color: var(--red); }
+    .alert i { margin-top: 2px; flex-shrink: 0; }
+
+    /* ── 그리드 ── */
+    .grid-2 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    /* ── 비교 테이블 ── */
+    .compare-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .compare-table th, .compare-table td {
+      padding: 10px 14px;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+    }
+    .compare-table th {
+      background: var(--surface2);
+      font-weight: 700;
+      color: var(--text-muted);
+      font-size: 12px;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    .compare-table tr:hover td { background: var(--surface2); }
+    .check { color: var(--green); }
+    .cross { color: var(--red); }
+    .partial { color: var(--yellow); }
+
+    /* ── 환경변수 테이블 ── */
+    .env-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .env-table td { padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .env-key { font-family: 'JetBrains Mono', monospace; color: var(--primary); font-size: 12px; }
+    .env-required { color: var(--red); font-size: 11px; font-weight: 700; }
+    .env-optional { color: var(--text-muted); font-size: 11px; }
+
+    /* ── 빠른 링크 버튼 ── */
+    .link-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--surface2);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      transition: all .2s;
+      margin: 4px;
+    }
+    .link-btn:hover { border-color: var(--primary); color: var(--primary); background: var(--primary-glow); }
+    .link-btn.primary { background: var(--primary); border-color: var(--primary); color: #0d1117; }
+    .link-btn.primary:hover { opacity: .85; }
+
+    /* ── 진행 체크리스트 ── */
+    .checklist { list-style: none; }
+    .checklist li {
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 14px;
+    }
+    .checklist li:last-child { border-bottom: none; }
+    .checklist input[type=checkbox] {
+      width: 16px; height: 16px;
+      accent-color: var(--primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    /* ── 반응형 ── */
+    @media (max-width: 640px) {
+      .card { padding: 16px; }
+      pre { font-size: 11px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ══ 헤더 ══════════════════════════════════ -->
+<header>
+  <div class="header-badge">DEPLOYMENT GUIDE v1.0</div>
+  <h1>🏦 DANGUN 플랫폼<br/>배포 완전 가이드</h1>
+  <p>Node.js + SQLite3 · 5분 만에 클라우드 배포 완료<br/>무료 / 유료 플랫폼 선택 가이드 포함</p>
+</header>
+
+<!-- ══ 탭 네비게이션 ══════════════════════════ -->
+<nav class="tabs">
+  <button class="tab-btn active" onclick="switchTab('overview')">
+    <i class="fa-solid fa-map"></i> 개요
+  </button>
+  <button class="tab-btn" onclick="switchTab('quick')">
+    <i class="fa-solid fa-bolt"></i> 즉시 배포
+  </button>
+  <button class="tab-btn" onclick="switchTab('railway')">
+    <i class="fa-solid fa-train"></i> Railway
+  </button>
+  <button class="tab-btn" onclick="switchTab('render')">
+    <i class="fa-solid fa-cloud"></i> Render
+  </button>
+  <button class="tab-btn" onclick="switchTab('vps')">
+    <i class="fa-solid fa-server"></i> VPS 서버
+  </button>
+  <button class="tab-btn" onclick="switchTab('docker')">
+    <i class="fa-brands fa-docker"></i> Docker
+  </button>
+  <button class="tab-btn" onclick="switchTab('envvars')">
+    <i class="fa-solid fa-gear"></i> 환경변수
+  </button>
+  <button class="tab-btn" onclick="switchTab('checklist')">
+    <i class="fa-solid fa-list-check"></i> 체크리스트
+  </button>
+</nav>
+
+<main>
+
+<!-- ══════════════════════════════════════════
+  TAB: 개요
+══════════════════════════════════════════ -->
+<div class="tab-content active" id="tab-overview">
+
+  <section>
+    <div class="section-title">
+      <div class="icon">🎯</div>
+      <h2>플랫폼 선택 가이드</h2>
+    </div>
+    <div class="card" style="padding:0; overflow:hidden;">
+      <table class="compare-table">
+        <thead>
+          <tr>
+            <th>플랫폼</th>
+            <th>난이도</th>
+            <th>비용</th>
+            <th>SQLite 영구저장</th>
+            <th>커스텀 도메인</th>
+            <th>추천 대상</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><strong><i class="fa-solid fa-train" style="color:#7c3aed"></i> Railway</strong></td>
+            <td>⭐ 매우 쉬움</td>
+            <td>무료(500h/월)</td>
+            <td><span class="partial">⚠ 볼륨 필요</span></td>
+            <td><span class="check">✓</span></td>
+            <td>빠른 테스트</td>
+          </tr>
+          <tr>
+            <td><strong><i class="fa-solid fa-cloud" style="color:#4f46e5"></i> Render</strong></td>
+            <td>⭐ 매우 쉬움</td>
+            <td>무료(90일)/유료</td>
+            <td><span class="check">✓ (Disk 옵션)</span></td>
+            <td><span class="check">✓</span></td>
+            <td>중소 규모 운영</td>
+          </tr>
+          <tr>
+            <td><strong><i class="fa-brands fa-aws" style="color:#ff9900"></i> AWS EC2</strong></td>
+            <td>⭐⭐⭐ 보통</td>
+            <td>유료(t3.micro 프리)</td>
+            <td><span class="check">✓ 완전 지원</span></td>
+            <td><span class="check">✓</span></td>
+            <td>상업적 운영</td>
+          </tr>
+          <tr>
+            <td><strong><i class="fa-brands fa-google" style="color:#4285f4"></i> GCP</strong></td>
+            <td>⭐⭐⭐ 보통</td>
+            <td>유료(e2-micro 프리)</td>
+            <td><span class="check">✓ 완전 지원</span></td>
+            <td><span class="check">✓</span></td>
+            <td>상업적 운영</td>
+          </tr>
+          <tr>
+            <td><strong>🟠 Oracle Cloud</strong></td>
+            <td>⭐⭐⭐ 보통</td>
+            <td><strong style="color:var(--green)">항상 무료!</strong></td>
+            <td><span class="check">✓ 완전 지원</span></td>
+            <td><span class="check">✓</span></td>
+            <td><strong>장기 운영 최추천</strong></td>
+          </tr>
+          <tr>
+            <td><strong>🐳 Docker (VPS)</strong></td>
+            <td>⭐⭐ 쉬움</td>
+            <td>서버비 별도</td>
+            <td><span class="check">✓ 볼륨 영구</span></td>
+            <td><span class="check">✓</span></td>
+            <td>완전 제어</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="alert alert-info">
+      <i class="fa-solid fa-lightbulb"></i>
+      <div>
+        <strong>추천 조합:</strong> 무료 장기 운영은 <strong>Oracle Cloud Always Free</strong>(ARM 4코어/24GB RAM),
+        빠른 테스트는 <strong>Railway</strong>, 간편한 관리는 <strong>Render</strong>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <div class="icon">📁</div>
+      <h2>배포 파일 목록</h2>
+    </div>
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">
+          <i class="fa-solid fa-file-code" style="color:var(--primary)"></i> 배포 관련 파일
+        </div>
+        <div class="steps">
+          <div class="step">
+            <div class="step-num"><i class="fa-solid fa-file" style="font-size:10px"></i></div>
+            <div class="step-body">
+              <strong>install.sh</strong>
+              <p>Ubuntu 서버 원클릭 설치 스크립트<br/><code style="color:var(--green)">sudo bash install.sh</code></p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num"><i class="fa-solid fa-file" style="font-size:10px"></i></div>
+            <div class="step-body">
+              <strong>railway.toml</strong>
+              <p>Railway 자동 배포 설정</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num"><i class="fa-solid fa-file" style="font-size:10px"></i></div>
+            <div class="step-body">
+              <strong>render.yaml</strong>
+              <p>Render.com IaC 배포 설정</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num"><i class="fa-solid fa-file" style="font-size:10px"></i></div>
+            <div class="step-body">
+              <strong>Dockerfile + docker-compose.yml</strong>
+              <p>컨테이너 기반 배포</p>
+            </div>
+          </div>
+          <div class="step">
+            <div class="step-num"><i class="fa-solid fa-file" style="font-size:10px"></i></div>
+            <div class="step-body">
+              <strong>.github/workflows/deploy.yml</strong>
+              <p>GitHub Actions CI/CD 파이프라인</p>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title" style="margin-bottom:12px">
+          <i class="fa-solid fa-terminal" style="color:var(--green)"></i> 핵심 명령어
+        </div>
+        <div class="code-block">
+          <div class="code-header">
+            <span class="code-lang">bash</span>
+            <button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button>
+          </div>
+          <pre><span class="comment"># 개발 실행</span>
+<span class="cmd">npm run dev</span>
+
+<span class="comment"># 프로덕션 실행</span>
+<span class="cmd">npm start</span>
+
+<span class="comment"># 테스트 데이터 생성</span>
+<span class="cmd">npm run db:seed</span>
+
+<span class="comment"># DB 초기화 (주의!)</span>
+<span class="cmd">npm run db:reset</span>
+
+<span class="comment"># 즉시 지급 스케줄러 실행</span>
+<span class="cmd">node scheduler.js --now</span>
+
+<span class="comment"># Docker 빌드+실행</span>
+<span class="cmd">docker-compose up -d --build</span></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+  TAB: 즉시 배포 (가장 빠른 방법)
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-quick">
+
+  <section>
+    <div class="section-title">
+      <div class="icon">⚡</div>
+      <h2>5분 즉시 배포 (Railway 기준)</h2>
+      <span class="badge badge-recommended">RECOMMENDED</span>
+    </div>
+    <div class="alert alert-success">
+      <i class="fa-solid fa-check-circle"></i>
+      GitHub 계정만 있으면 됩니다. 신용카드 불필요. 무료로 시작!
+    </div>
+
+    <div class="card">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>GitHub에 코드 올리기</strong>
+            <p>아직 GitHub에 코드가 없다면 새 저장소 생성 후 업로드하세요</p>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+              <pre><span class="comment"># 프로젝트 폴더에서 실행</span>
+git init
+git add .
+git commit -m "초기 커밋: DANGUN 플랫폼"
+git branch -M main
+
+<span class="comment"># GitHub 저장소 URL로 변경하세요</span>
+git remote add origin https://github.com/<span class="warn">YOUR_USER</span>/dangun-platform.git
+git push -u origin main</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>Railway 계정 생성 및 로그인</strong>
+            <p>GitHub 계정으로 소셜 로그인 → 바로 사용 가능</p>
+            <a href="https://railway.app" target="_blank" class="link-btn primary">
+              <i class="fa-solid fa-external-link"></i> railway.app 열기
+            </a>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>"New Project" → "Deploy from GitHub repo" 클릭</strong>
+            <p>dangun-platform 저장소 선택 → 자동으로 railway.toml 감지</p>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <strong>환경변수(Variables) 설정</strong>
+            <p>Railway 프로젝트 → Variables 탭에서 아래 값 추가:</p>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">env</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+              <pre>JWT_SECRET=<span class="warn">무작위32자이상문자열로변경필수</span>
+ADMIN_ID=superadmin
+ADMIN_PASSWORD=<span class="warn">Admin1234!</span>
+ADMIN_NAME=최고관리자
+ADMIN_EMAIL=admin@dangun.com
+SCHEDULER_ENABLED=true</pre>
+            </div>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <strong>배포 완료!</strong>
+            <p>Railway가 자동 빌드 후 URL 발급. "Settings → Domains"에서 커스텀 도메인 연결 가능</p>
+            <div class="alert alert-warn" style="margin-top:8px">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+              Railway 무료 플랜은 월 500시간 제한. 지속 운영 시 $5/월 플랜 권장
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="section-title">
+      <div class="icon">🆓</div>
+      <h2>완전 무료 영구 배포 (Oracle Cloud)</h2>
+      <span class="badge badge-free">ALWAYS FREE</span>
+    </div>
+    <div class="card">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>Oracle Cloud 계정 생성</strong>
+            <p>Always Free 티어: ARM 4코어 · 24GB RAM · 200GB 스토리지 (영구 무료)</p>
+            <a href="https://www.oracle.com/cloud/free/" target="_blank" class="link-btn primary">
+              <i class="fa-solid fa-external-link"></i> Oracle Cloud 무료 가입
+            </a>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>Ubuntu 22.04 VM 인스턴스 생성</strong>
+            <p>Compute → Instances → Create Instance → VM.Standard.A1.Flex (ARM) 선택</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>코드 업로드 후 install.sh 실행</strong>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+              <pre><span class="comment"># 코드 압축 후 서버에 업로드</span>
+scp -r ./dangun-platform ubuntu@<span class="warn">서버IP</span>:~
+
+<span class="comment"># SSH 접속</span>
+ssh ubuntu@<span class="warn">서버IP</span>
+
+<span class="comment"># 설치 스크립트 실행 (5~10분 소요)</span>
+cd dangun-platform
+sudo bash install.sh</pre>
+            </div>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <strong>Oracle Cloud 보안 그룹에서 80, 443 포트 열기</strong>
+            <p>Networking → Virtual Cloud Networks → Security Lists → Ingress Rules에 80, 443 추가</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">5</div>
+          <div class="step-body">
+            <strong>접속 완료!</strong>
+            <p><code>http://서버IP/</code> 로 접속. 도메인 연결 후 SSL 인증서 발급 권장</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+
+<!-- ══════════════════════════════════════════
+  TAB: Railway
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-railway">
+  <section>
+    <div class="section-title">
+      <div class="icon"><i class="fa-solid fa-train"></i></div>
+      <h2>Railway 배포 상세 가이드</h2>
+    </div>
+    <div class="alert alert-info">
+      <i class="fa-solid fa-info-circle"></i>
+      <div>railway.toml 파일이 이미 설정되어 있습니다. GitHub 연결만 하면 자동 배포됩니다.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-terminal" style="color:var(--green)"></i> Railway CLI로 배포 (터미널)
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># Railway CLI 설치</span>
+npm install -g @railway/cli
+
+<span class="comment"># Railway 로그인</span>
+railway login
+
+<span class="comment"># 프로젝트 초기화 (처음 한 번만)</span>
+railway init
+
+<span class="comment"># 환경변수 설정</span>
+railway variables set JWT_SECRET="<span class="warn">your-64-char-secret</span>"
+railway variables set ADMIN_PASSWORD="<span class="warn">Admin1234!</span>"
+railway variables set ADMIN_ID="superadmin"
+railway variables set ADMIN_EMAIL="admin@dangun.com"
+railway variables set SCHEDULER_ENABLED="true"
+
+<span class="comment"># 배포 실행</span>
+railway up
+
+<span class="comment"># 배포 URL 확인</span>
+railway domain
+
+<span class="comment"># 로그 실시간 확인</span>
+railway logs --follow</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-triangle-exclamation" style="color:var(--yellow)"></i> SQLite 영구 저장 설정
+      </div>
+      <p style="font-size:14px; color:var(--text-muted); margin-bottom:12px">
+        Railway는 배포 시 컨테이너가 재생성되므로 SQLite DB 파일 유지를 위해 Volume을 설정해야 합니다.
+      </p>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>Railway 대시보드 → 프로젝트 → "Add Volume" 클릭</strong>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>Mount Path: <code>/app/database</code> 설정</strong>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>환경변수 추가: <code>DB_PATH=/app/database/dangun.db</code></strong>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══════════════════════════════════════════
+  TAB: Render
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-render">
+  <section>
+    <div class="section-title">
+      <div class="icon"><i class="fa-solid fa-cloud"></i></div>
+      <h2>Render.com 배포 상세 가이드</h2>
+    </div>
+    <div class="alert alert-success">
+      <i class="fa-solid fa-check-circle"></i>
+      render.yaml 파일이 이미 설정되어 있어 저장소 연결만으로 자동 배포됩니다.
+    </div>
+
+    <div class="card">
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>render.com 가입 → GitHub 연결</strong>
+            <a href="https://render.com" target="_blank" class="link-btn" style="margin-top:8px;display:inline-flex">
+              <i class="fa-solid fa-external-link"></i> render.com 열기
+            </a>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>"New" → "Web Service" → GitHub 저장소 선택</strong>
+            <p>render.yaml을 자동 감지하여 설정을 불러옵니다</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>Environment Variables에서 ADMIN_PASSWORD 설정</strong>
+            <p>render.yaml에서 sync:false로 표시된 항목은 수동 입력 필요</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">4</div>
+          <div class="step-body">
+            <strong>"Create Web Service" 클릭 → 자동 배포</strong>
+            <p>빌드 완료 후 <code>*.onrender.com</code> URL이 발급됩니다</p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-database" style="color:var(--primary)"></i> Persistent Disk 설정 (유료)
+      </div>
+      <p style="font-size:14px;color:var(--text-muted)">
+        Render 무료 플랜은 배포 시 파일시스템이 초기화됩니다. SQLite 영구 보존을 위해 Disk 추가 필요:
+      </p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">yaml (render.yaml 내)</span></div>
+        <pre>    disk:
+      name: dangun-db
+      mountPath: /opt/render/project/src/database
+      sizeGB: 1    <span class="comment"># 월 $0.25/GB</span></pre>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══════════════════════════════════════════
+  TAB: VPS 서버
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-vps">
+  <section>
+    <div class="section-title">
+      <div class="icon"><i class="fa-solid fa-server"></i></div>
+      <h2>VPS / 클라우드 서버 배포</h2>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">
+        <i class="fa-solid fa-wand-magic-sparkles" style="color:var(--yellow)"></i> 원클릭 설치 스크립트
+      </div>
+      <div class="alert alert-info" style="margin-bottom:12px">
+        <i class="fa-solid fa-info-circle"></i>
+        Ubuntu 20.04/22.04/24.04 LTS 지원. Node.js, PM2, Nginx 자동 설치!
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># 방법 1: 프로젝트 폴더에서 직접 실행</span>
+sudo bash install.sh
+
+<span class="comment"># 방법 2: Git clone 후 실행</span>
+git clone https://github.com/<span class="warn">YOUR_USER</span>/dangun-platform.git
+cd dangun-platform
+sudo bash install.sh</pre>
+      </div>
+      <div class="alert alert-success" style="margin-top:12px">
+        <i class="fa-solid fa-check-circle"></i>
+        install.sh가 자동으로 처리하는 것: Node.js 설치 → 환경변수 생성 → npm install → PM2 설정 → Nginx 리버스 프록시 → 방화벽 설정 → 자동 시작 등록
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">
+        <i class="fa-solid fa-shield-halved" style="color:var(--green)"></i> SSL 인증서 설치 (HTTPS)
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># Certbot 설치 (Let's Encrypt 무료 SSL)</span>
+sudo apt install -y certbot python3-certbot-nginx
+
+<span class="comment"># SSL 인증서 발급 (도메인이 연결된 경우)</span>
+sudo certbot --nginx -d <span class="warn">yourdomain.com</span> -d www.<span class="warn">yourdomain.com</span>
+
+<span class="comment"># 자동 갱신 테스트</span>
+sudo certbot renew --dry-run</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">
+        <i class="fa-brands fa-aws" style="color:#ff9900"></i> AWS EC2 빠른 설정
+      </div>
+      <div class="steps">
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-body">
+            <strong>EC2 인스턴스 생성</strong>
+            <p>Ubuntu 22.04 LTS · t3.micro (프리 티어) · 20GB EBS · SSH 키 다운로드</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-body">
+            <strong>보안 그룹 설정</strong>
+            <p>인바운드: SSH(22), HTTP(80), HTTPS(443) 허용</p>
+          </div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-body">
+            <strong>접속 후 install.sh 실행</strong>
+            <div class="code-block">
+              <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+              <pre>ssh -i <span class="warn">key.pem</span> ubuntu@<span class="warn">EC2_IP</span>
+git clone https://github.com/<span class="warn">USER</span>/dangun-platform.git
+cd dangun-platform && sudo bash install.sh</pre>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px">
+        <i class="fa-solid fa-gears" style="color:var(--purple)"></i> PM2 관리 명령어
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># 상태 확인</span>
+pm2 status
+
+<span class="comment"># 실시간 로그</span>
+pm2 logs dangun-platform
+
+<span class="comment"># 재시작 (무중단)</span>
+pm2 reload dangun-platform
+
+<span class="comment"># 중지 / 시작</span>
+pm2 stop dangun-platform
+pm2 start dangun-platform
+
+<span class="comment"># 메모리/CPU 모니터링</span>
+pm2 monit
+
+<span class="comment"># 코드 업데이트 후 재배포</span>
+cd /opt/dangun
+git pull origin main
+npm install --omit=dev
+pm2 reload dangun-platform</pre>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══════════════════════════════════════════
+  TAB: Docker
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-docker">
+  <section>
+    <div class="section-title">
+      <div class="icon"><i class="fa-brands fa-docker"></i></div>
+      <h2>Docker 컨테이너 배포</h2>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-rocket" style="color:var(--primary)"></i> 기본 Docker Compose 실행
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># 1. 환경변수 파일 생성</span>
+cp .env.example .env
+
+<span class="comment"># 2. .env 파일 편집 (JWT_SECRET, ADMIN_PASSWORD 변경 필수)</span>
+nano .env
+
+<span class="comment"># 3. 빌드 및 백그라운드 실행</span>
+docker-compose up -d --build
+
+<span class="comment"># 4. 실행 상태 확인</span>
+docker-compose ps
+
+<span class="comment"># 5. 로그 확인</span>
+docker-compose logs -f app
+
+<span class="comment"># 6. 재시작</span>
+docker-compose restart app
+
+<span class="comment"># 7. 중지</span>
+docker-compose down</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-database" style="color:var(--green)"></i> DB 백업 및 복원
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># DB 백업 (볼륨에서 로컬로)</span>
+docker cp dangun-app:/app/database/dangun.db ./backup_$(date +%Y%m%d).db
+
+<span class="comment"># DB 복원</span>
+docker cp ./backup_20250418.db dangun-app:/app/database/dangun.db
+docker-compose restart app
+
+<span class="comment"># 볼륨 목록 확인</span>
+docker volume ls | grep dangun
+
+<span class="comment"># 테스트 데이터 생성</span>
+docker exec dangun-app node database/seed.js
+
+<span class="comment"># 즉시 지급 실행</span>
+docker exec dangun-app node scheduler.js --now</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-brands fa-github" style="color:var(--text)"></i> GitHub Actions + Docker Hub 자동 배포
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">
+        .github/workflows/deploy.yml에 SSH 배포가 설정되어 있습니다.<br/>
+        GitHub Secrets에 아래 값을 추가하면 main 브랜치 push 시 자동 배포됩니다.
+      </p>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">GitHub Secrets 설정 목록</span></div>
+        <pre>SSH_HOST        = <span class="warn">서버 IP 또는 도메인</span>
+SSH_USER        = ubuntu (또는 dangun)
+SSH_PRIVATE_KEY = <span class="warn">SSH 개인키 내용 (-----BEGIN...)</span>
+SSH_PORT        = 22</pre>
+      </div>
+      <p style="font-size:13px;color:var(--text-muted);margin-top:8px">
+        GitHub 저장소 → Settings → Secrets and variables → Actions → New repository secret
+      </p>
+    </div>
+  </section>
+</div>
+
+<!-- ══════════════════════════════════════════
+  TAB: 환경변수
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-envvars">
+  <section>
+    <div class="section-title">
+      <div class="icon"><i class="fa-solid fa-gear"></i></div>
+      <h2>환경변수 전체 목록</h2>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden">
+      <table class="env-table">
+        <thead style="background:var(--surface2)">
+          <tr>
+            <td style="font-weight:700;font-size:12px;color:var(--text-muted);padding:10px 12px;">변수명</td>
+            <td style="font-weight:700;font-size:12px;color:var(--text-muted);padding:10px 12px;">기본값</td>
+            <td style="font-weight:700;font-size:12px;color:var(--text-muted);padding:10px 12px;">필수</td>
+            <td style="font-weight:700;font-size:12px;color:var(--text-muted);padding:10px 12px;">설명</td>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><span class="env-key">NODE_ENV</span></td>
+            <td><code>production</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>실행 환경 (production/development)</td>
+          </tr>
+          <tr>
+            <td><span class="env-key">PORT</span></td>
+            <td><code>3000</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>서버 포트 (Render: 10000)</td>
+          </tr>
+          <tr>
+            <td><span class="env-key">DB_PATH</span></td>
+            <td><code>/app/database/dangun.db</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>SQLite DB 파일 경로</td>
+          </tr>
+          <tr style="background:rgba(248,81,73,.05)">
+            <td><span class="env-key">JWT_SECRET</span></td>
+            <td><code>-</code></td>
+            <td><span class="env-required">필수</span></td>
+            <td>JWT 서명키 (64자 무작위 문자열 권장)</td>
+          </tr>
+          <tr>
+            <td><span class="env-key">JWT_EXPIRES_IN</span></td>
+            <td><code>7d</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>JWT 만료 시간</td>
+          </tr>
+          <tr style="background:rgba(248,81,73,.05)">
+            <td><span class="env-key">ADMIN_ID</span></td>
+            <td><code>superadmin</code></td>
+            <td><span class="env-required">필수</span></td>
+            <td>최초 관리자 로그인 ID</td>
+          </tr>
+          <tr style="background:rgba(248,81,73,.05)">
+            <td><span class="env-key">ADMIN_PASSWORD</span></td>
+            <td><code>Admin1234!</code></td>
+            <td><span class="env-required">필수</span></td>
+            <td>관리자 초기 비밀번호 (반드시 변경!)</td>
+          </tr>
+          <tr>
+            <td><span class="env-key">ADMIN_NAME</span></td>
+            <td><code>최고관리자</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>관리자 표시 이름</td>
+          </tr>
+          <tr>
+            <td><span class="env-key">ADMIN_EMAIL</span></td>
+            <td><code>admin@dangun.com</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>관리자 이메일</td>
+          </tr>
+          <tr>
+            <td><span class="env-key">SCHEDULER_ENABLED</span></td>
+            <td><code>true</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>매주 금요일 자동 지급 스케줄러 활성화</td>
+          </tr>
+          <tr>
+            <td><span class="env-key">LOG_LEVEL</span></td>
+            <td><code>info</code></td>
+            <td><span class="env-optional">선택</span></td>
+            <td>로그 레벨 (error/warn/info/debug)</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-top:16px">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-key" style="color:var(--yellow)"></i> JWT_SECRET 안전하게 생성하기
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># Linux / macOS</span>
+openssl rand -base64 64
+
+<span class="comment"># Node.js</span>
+node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"
+
+<span class="comment"># Windows PowerShell</span>
+[System.Convert]::ToBase64String([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(64))</pre>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ══════════════════════════════════════════
+  TAB: 체크리스트
+══════════════════════════════════════════ -->
+<div class="tab-content" id="tab-checklist">
+  <section>
+    <div class="section-title">
+      <div class="icon"><i class="fa-solid fa-list-check"></i></div>
+      <h2>배포 전 체크리스트</h2>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px; color:var(--red)">
+        <i class="fa-solid fa-shield-halved"></i> 🔴 보안 필수 항목
+      </div>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" id="c1" />
+          <label for="c1">JWT_SECRET을 64자 이상 무작위 문자열로 변경했다</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c2" />
+          <label for="c2">ADMIN_PASSWORD를 강력한 비밀번호(영문+숫자+특수문자)로 변경했다</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c3" />
+          <label for="c3">.env 파일이 Git에 커밋되지 않도록 .gitignore에 포함되어 있다</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c4" />
+          <label for="c4">첫 로그인 후 관리자 비밀번호를 즉시 변경했다</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c5" />
+          <label for="c5">방화벽에서 3000 포트는 내부 전용으로 막혀 있다 (80/443만 외부 공개)</label>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px; color:var(--yellow)">
+        <i class="fa-solid fa-triangle-exclamation"></i> 🟡 배포 필수 항목
+      </div>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" id="c6" />
+          <label for="c6">npm install 정상 완료 (node_modules 존재)</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c7" />
+          <label for="c7">/api/health 엔드포인트 응답 확인 (200 OK)</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c8" />
+          <label for="c8">관리자 로그인 성공 확인</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c9" />
+          <label for="c9">SQLite DB 파일 경로 쓰기 권한 확인</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c10" />
+          <label for="c10">스케줄러 동작 확인 (node scheduler.js --now 테스트)</label>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:16px; color:var(--green)">
+        <i class="fa-solid fa-check-double"></i> 🟢 운영 권장 항목
+      </div>
+      <ul class="checklist">
+        <li>
+          <input type="checkbox" id="c11" />
+          <label for="c11">HTTPS(SSL) 인증서 설치 완료 (certbot --nginx)</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c12" />
+          <label for="c12">DB 자동 백업 cron 설정 (매일 새벽 3시)</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c13" />
+          <label for="c13">테스트 데이터 생성 후 실제 로직 검증 완료</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c14" />
+          <label for="c14">PM2 부팅 자동 시작 등록 (pm2 startup && pm2 save)</label>
+        </li>
+        <li>
+          <input type="checkbox" id="c15" />
+          <label for="c15">서버 모니터링 설정 (pm2 monit / CloudWatch 등)</label>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-stethoscope" style="color:var(--primary)"></i> 헬스체크 URL 테스트
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># 헬스체크 (서버 상태 확인)</span>
+curl http://<span class="warn">your-domain.com</span>/api/health
+
+<span class="comment"># 예상 응답:</span>
+<span class="highlight">{
+  "status": "ok",
+  "platform": "DANGUN 금융플랫폼",
+  "version": "1.0.0",
+  "timestamp": "2025-04-18T...",
+  "env": "production"
+}</span>
+
+<span class="comment"># 관리자 로그인 테스트</span>
+curl -X POST http://<span class="warn">your-domain.com</span>/api/auth/admin/login \
+  -H "Content-Type: application/json" \
+  -d '{"admin_id":"superadmin","password":"Admin1234!"}'</pre>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title" style="margin-bottom:12px">
+        <i class="fa-solid fa-database" style="color:var(--green)"></i> DB 자동 백업 설정 (cron)
+      </div>
+      <div class="code-block">
+        <div class="code-header"><span class="code-lang">bash</span><button class="copy-btn" onclick="copyCode(this)"><i class="fa-regular fa-copy"></i> 복사</button></div>
+        <pre><span class="comment"># crontab 편집</span>
+crontab -e
+
+<span class="comment"># 아래 줄 추가 (매일 새벽 3시 자동 백업)</span>
+0 3 * * * cp /opt/dangun/database/dangun.db /opt/dangun/database/backup_$(date +\%Y\%m\%d).db && find /opt/dangun/database -name "backup_*.db" -mtime +30 -delete
+
+<span class="comment"># 백업 목록 확인</span>
+ls -lh /opt/dangun/database/backup_*.db</pre>
+      </div>
+    </div>
+  </section>
+</div>
+
+</main>
+
+<script>
+  // ── 탭 전환 ──────────────────────────────
+  function switchTab(id) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelector(`#tab-${id}`).classList.add('active');
+    event.currentTarget.classList.add('active');
+  }
+
+  // ── 코드 복사 ─────────────────────────────
+  function copyCode(btn) {
+    const pre = btn.closest('.code-block').querySelector('pre');
+    const text = pre.innerText;
+    navigator.clipboard.writeText(text).then(() => {
+      btn.classList.add('copied');
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> 복사됨';
+      setTimeout(() => {
+        btn.classList.remove('copied');
+        btn.innerHTML = '<i class="fa-regular fa-copy"></i> 복사';
+      }, 2000);
+    }).catch(() => {
+      // fallback
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+      btn.innerHTML = '<i class="fa-solid fa-check"></i> 복사됨';
+      setTimeout(() => { btn.innerHTML = '<i class="fa-regular fa-copy"></i> 복사'; }, 2000);
+    });
+  }
+
+  // ── 체크리스트 상태 저장 ──────────────────
+  document.querySelectorAll('.checklist input[type=checkbox]').forEach(cb => {
+    const saved = localStorage.getItem('dangun_check_' + cb.id);
+    if (saved === 'true') { cb.checked = true; cb.closest('li').style.opacity = '.5'; }
+    cb.addEventListener('change', () => {
+      localStorage.setItem('dangun_check_' + cb.id, cb.checked);
+      cb.closest('li').style.opacity = cb.checked ? '.5' : '1';
+    });
+  });
+</script>
+</body>
+</html>

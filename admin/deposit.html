@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - 투자금 입금 관리</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    .deposit-form-card {
+      background: var(--bg-card);
+      border: 1px solid rgba(212,160,23,0.3);
+      border-radius: var(--radius-xl);
+      padding: 32px;
+      position: relative;
+      overflow: hidden;
+      animation: borderGlow 4s ease-in-out infinite;
+    }
+    .deposit-form-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 4px;
+      background: var(--gradient-gold);
+    }
+    .member-preview {
+      background: var(--bg-primary);
+      border: 1px solid rgba(212,160,23,0.3);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: none;
+    }
+    .member-preview.show { display: block; }
+    .calc-preview {
+      background: rgba(39,174,96,0.05);
+      border: 1px solid rgba(39,174,96,0.2);
+      border-radius: var(--radius-md);
+      padding: 16px;
+      display: none;
+    }
+    .calc-preview.show { display: block; }
+    .calc-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 6px 0;
+      border-bottom: 1px solid var(--border-color);
+      font-size: 13px;
+    }
+    .calc-row:last-child { border-bottom: none; }
+    .calc-row .label { color: var(--text-muted); }
+    .calc-row .value { font-weight: 700; }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+  <div class="app-wrapper">
+    <aside class="sidebar" style="background:linear-gradient(180deg,#0d0d1a 0%,#12122a 60%,#0f1535 100%);">
+      <div class="sidebar-header">
+        <a class="sidebar-logo" href="dashboard.html">
+          <div class="logo-icon">D</div>
+          <div class="logo-text"><span class="logo-name">DANGUN</span><span class="logo-sub">Admin Panel</span></div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">메인</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon"><i class="fas fa-chart-pie"></i></span> 대시보드</a>
+        <div class="nav-section">회원 관리</div>
+        <a class="nav-item" href="members.html"><span class="nav-icon"><i class="fas fa-users"></i></span> 회원 정보</a>
+        <div class="nav-section">투자 관리</div>
+        <a class="nav-item active" href="deposit.html"><span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금</a>
+        <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
+        <a class="nav-item" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
+        <div class="nav-section" style="margin-top:16px;">설정</div>
+        <a class="nav-item" href="../index.html"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar" style="background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;">A</div>
+          <div class="user-info"><div class="user-name">최고관리자</div><div class="user-rank" style="color:var(--accent-red);">🛡 SuperAdmin</div></div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <span class="topbar-title">
+          <i class="fas fa-arrow-circle-down" style="color:var(--accent-gold);margin-right:8px;"></i> 투자금 입금 관리
+        </span>
+        <div class="topbar-actions">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+            <i class="fas fa-moon" id="theme-icon"></i><span id="theme-label">라이트</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="page-content">
+
+        <!-- KPIs -->
+        <div class="grid grid-4 mb-24" style="gap:14px;">
+          <div class="stat-card anim-fadeInUp delay-1">
+            <div class="stat-icon"><i class="fas fa-arrow-circle-down"></i></div>
+            <div class="stat-value">47</div><div class="stat-label">총 입금 건수</div>
+          </div>
+          <div class="stat-card blue anim-fadeInUp delay-2">
+            <div class="stat-icon"><i class="fas fa-coins"></i></div>
+            <div class="stat-value" style="font-size:18px;">₩4.85억</div><div class="stat-label">총 입금액 누계</div>
+          </div>
+          <div class="stat-card green anim-fadeInUp delay-3">
+            <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
+            <div class="stat-value" style="font-size:18px;">₩3,200만</div><div class="stat-label">이번 달 입금</div>
+          </div>
+          <div class="stat-card anim-fadeInUp delay-4">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-value">47</div><div class="stat-label">투자 회원 수</div>
+          </div>
+        </div>
+
+        <div class="grid grid-2 mb-24" style="gap:24px;align-items:start;">
+
+          <!-- ── 투자금 입금 입력 폼 ── -->
+          <div class="deposit-form-card anim-fadeInUp delay-1">
+            <div style="font-size:18px;font-weight:900;margin-bottom:4px;">
+              <i class="fas fa-plus-circle" style="color:var(--accent-gold);margin-right:8px;"></i>
+              투자금 입금 등록
+            </div>
+            <div style="font-size:12px;color:var(--text-muted);margin-bottom:24px;">
+              입력 즉시 투자 스케줄이 생성되고, 직급 수당이 자동 지급됩니다.
+            </div>
+
+            <!-- 회원 검색 -->
+            <div class="form-group">
+              <label class="form-label">회원 검색 <span style="color:var(--accent-red)">*</span></label>
+              <div style="display:flex;gap:8px;">
+                <div style="flex:1;position:relative;">
+                  <i class="fas fa-search" style="position:absolute;left:14px;top:50%;transform:translateY(-50%);color:var(--text-muted);"></i>
+                  <input type="text" class="form-control" id="dep-search" placeholder="아이디 또는 이름 검색" style="padding-left:40px;" oninput="searchMemberDep()">
+                </div>
+                <button class="btn btn-outline btn-sm" onclick="searchMemberDep()"><i class="fas fa-search"></i></button>
+              </div>
+              <div id="dep-search-result" style="margin-top:6px;background:var(--bg-secondary);border:1px solid var(--border-color);border-radius:var(--radius-md);overflow:hidden;display:none;">
+              </div>
+            </div>
+
+            <!-- 선택된 회원 프리뷰 -->
+            <div class="member-preview" id="member-preview">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:44px;height:44px;border-radius:50%;background:var(--gradient-gold);display:flex;align-items:center;justify-content:center;font-weight:900;font-size:18px;color:#1a1a2e;" id="preview-avatar">K</div>
+                <div>
+                  <div style="font-weight:700;font-size:15px;" id="preview-name">-</div>
+                  <div style="font-size:12px;color:var(--text-muted);" id="preview-sub">-</div>
+                </div>
+                <div style="margin-left:auto;">
+                  <div id="preview-rank"></div>
+                </div>
+              </div>
+              <div class="divider-gold" style="margin:12px 0;"></div>
+              <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:12px;">
+                <div><span style="color:var(--text-muted);">은행</span> <span id="preview-bank" style="font-weight:700;margin-left:4px;">-</span></div>
+                <div><span style="color:var(--text-muted);">계좌</span> <span id="preview-account" style="font-weight:700;margin-left:4px;">-</span></div>
+              </div>
+            </div>
+
+            <input type="hidden" id="dep-member-id">
+
+            <!-- 투자금 입력 -->
+            <div class="form-group mt-16">
+              <label class="form-label">투자금액 <span style="color:var(--accent-red)">*</span></label>
+              <div style="position:relative;">
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--accent-gold);">₩</span>
+                <input type="number" class="form-control" id="dep-amount" placeholder="0" min="100000" step="100000"
+                  oninput="calcPreview()" style="padding-left:32px;font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;">
+              </div>
+              <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" onclick="setAmount(500000)">50만</button>
+                <button class="btn btn-outline btn-sm" onclick="setAmount(1000000)">100만</button>
+                <button class="btn btn-outline btn-sm" onclick="setAmount(3000000)">300만</button>
+                <button class="btn btn-outline btn-sm" onclick="setAmount(5000000)">500만</button>
+                <button class="btn btn-outline btn-sm" onclick="setAmount(10000000)">1000만</button>
+              </div>
+            </div>
+
+            <!-- 투자일 -->
+            <div class="form-group">
+              <label class="form-label">투자 입금일 <span style="color:var(--accent-red)">*</span></label>
+              <input type="date" class="form-control" id="dep-date" oninput="calcPreview()">
+            </div>
+
+            <!-- 메모 -->
+            <div class="form-group">
+              <label class="form-label">메모 (선택)</label>
+              <textarea class="form-control" id="dep-memo" rows="2" placeholder="관리자 메모..." style="resize:vertical;"></textarea>
+            </div>
+
+            <!-- 계산 프리뷰 -->
+            <div class="calc-preview" id="calc-preview">
+              <div style="font-size:12px;font-weight:700;color:var(--accent-green);margin-bottom:10px;">
+                <i class="fas fa-calculator"></i> 지급 계획 자동 계산
+              </div>
+              <div class="calc-row">
+                <span class="label">투자 원금</span>
+                <span class="value" id="calc-principal">-</span>
+              </div>
+              <div class="calc-row">
+                <span class="label">총 수익금 (원금 × 10%)</span>
+                <span class="value" style="color:var(--accent-green);" id="calc-profit">-</span>
+              </div>
+              <div class="calc-row">
+                <span class="label">총 지급액 (원금+수익)</span>
+                <span class="value" style="color:var(--accent-gold);font-family:'Orbitron',sans-serif;" id="calc-total">-</span>
+              </div>
+              <div class="calc-row">
+                <span class="label">주당 지급액 (15주 분할)</span>
+                <span class="value" id="calc-weekly">-</span>
+              </div>
+              <div class="calc-row">
+                <span class="label">첫 지급 예정일 (금요일)</span>
+                <span class="value" style="color:var(--accent-blue);" id="calc-first-friday">-</span>
+              </div>
+              <div class="calc-row">
+                <span class="label">직급 수당 (즉시 지급)</span>
+                <span class="value" style="color:var(--accent-purple);" id="calc-commission">-</span>
+              </div>
+            </div>
+
+            <button class="btn btn-gold w-full btn-lg mt-16" onclick="submitDeposit()">
+              <i class="fas fa-paper-plane"></i> 투자금 등록 처리
+            </button>
+          </div>
+
+          <!-- ── 최근 입금 내역 ── -->
+          <div class="card anim-fadeInUp delay-2">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-history icon"></i> 최근 투자금 입금 내역</span>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div class="table-wrapper">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>아이디</th>
+                      <th>이름</th>
+                      <th>투자금</th>
+                      <th>매출일자</th>
+                      <th>수당 지급</th>
+                      <th>관리</th>
+                    </tr>
+                  </thead>
+                  <tbody id="deposit-history-tbody"></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    if (!requireAdminAuth()) { /* redirect */ }
+
+    let selectedMember = null;
+    let searchTimer    = null;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      applyTheme(getTheme());
+      const today = new Date().toISOString().slice(0, 10);
+      document.getElementById('dep-date').value = today;
+      loadDepositHistory();
+
+      // 검색 debounce
+      document.getElementById('dep-search').addEventListener('input', () => {
+        clearTimeout(searchTimer);
+        searchTimer = setTimeout(searchMemberDep, 350);
+      });
+    });
+
+    // ── 회원 검색 (실제 API) ──
+    async function searchMemberDep() {
+      const q = document.getElementById('dep-search').value.trim();
+      const resultEl = document.getElementById('dep-search-result');
+      if (!q || q.length < 1) { resultEl.style.display = 'none'; return; }
+
+      try {
+        const res = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`, {
+          headers: { Authorization: `Bearer ${localStorage.getItem('dangun_token')}` }
+        });
+        const found = await res.json();
+        if (!Array.isArray(found) || !found.length) {
+          resultEl.innerHTML = `<div style="padding:12px;font-size:12px;color:var(--text-muted);">검색 결과 없음</div>`;
+        } else {
+          resultEl.innerHTML = found.map(m => `
+            <div onclick='selectMemberDep(${JSON.stringify(m)})' style="padding:10px 14px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;transition:var(--transition-fast);"
+              onmouseover="this.style.background='rgba(212,160,23,0.08)'" onmouseout="this.style.background='transparent'">
+              <div>
+                <span style="font-weight:700;font-size:13px;">${m.user_id}</span>
+                <span style="font-size:12px;color:var(--text-muted);margin-left:8px;">${m.name}</span>
+              </div>
+              ${rankBadge(m.rank)}
+            </div>
+          `).join('');
+        }
+        resultEl.style.display = 'block';
+      } catch { resultEl.style.display = 'none'; }
+    }
+
+    function selectMemberDep(m) {
+      if (typeof m === 'string') m = JSON.parse(m);
+      selectedMember = m;
+
+      document.getElementById('dep-member-id').value = m.id;
+      document.getElementById('dep-search').value    = m.user_id;
+      document.getElementById('dep-search-result').style.display = 'none';
+
+      document.getElementById('preview-avatar').textContent  = (m.name||'?')[0];
+      document.getElementById('preview-name').textContent    = m.name;
+      document.getElementById('preview-sub').textContent     = `${m.user_id} · ${m.phone||''}`;
+      document.getElementById('preview-rank').innerHTML      = rankBadge(m.rank);
+      document.getElementById('preview-bank').textContent    = m.bank_name    || '-';
+      document.getElementById('preview-account').textContent = m.account_number || '-';
+      document.getElementById('member-preview').classList.add('show');
+      calcPreview();
+    }
+
+    // ── 금액 프리셋 ──
+    function setAmount(v) {
+      document.getElementById('dep-amount').value = v;
+      calcPreview();
+    }
+
+    // ── 계산 미리보기 ──
+    function calcPreview() {
+      const amount  = parseInt(document.getElementById('dep-amount').value) || 0;
+      const dateStr = document.getElementById('dep-date').value;
+      const preview = document.getElementById('calc-preview');
+      if (!amount || amount < 100000) { preview.classList.remove('show'); return; }
+      preview.classList.add('show');
+
+      const profit  = Math.round(amount * 0.1);
+      const total   = amount + profit;
+      const weekly  = Math.round(total / 15);
+      const commAmt = Math.round(amount * 0.2);
+
+      document.getElementById('calc-principal').textContent  = formatMoney(amount);
+      document.getElementById('calc-profit').textContent     = `+${formatMoney(profit)}`;
+      document.getElementById('calc-total').textContent      = formatMoney(total);
+      document.getElementById('calc-weekly').textContent     = `${formatMoney(weekly)} × 15주`;
+      document.getElementById('calc-commission').textContent = `₩${commAmt.toLocaleString()} (상위 계보 지급)`;
+
+      if (dateStr) {
+        const nextFri = getNextFriday(new Date(dateStr));
+        document.getElementById('calc-first-friday').textContent = formatDate(nextFri.toISOString().slice(0, 10));
+      }
+    }
+
+    function getNextFriday(date) {
+      const d = new Date(date);
+      const add = (5 - d.getDay() + 7) % 7 || 7;
+      d.setDate(d.getDate() + add);
+      return d;
+    }
+
+    // ── 투자금 등록 (실제 API) ──
+    async function submitDeposit() {
+      const memberId = document.getElementById('dep-member-id').value;
+      const amount   = parseInt(document.getElementById('dep-amount').value) || 0;
+      const date     = document.getElementById('dep-date').value;
+      const memo     = document.getElementById('dep-memo').value;
+
+      if (!memberId)       { showToast('회원을 선택하세요.', 'warning'); return; }
+      if (amount < 100000) { showToast('최소 투자금액은 100,000원입니다.', 'warning'); return; }
+      if (!date)           { showToast('투자 입금일을 입력하세요.', 'warning'); return; }
+
+      const btn = document.getElementById('submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...';
+
+      try {
+        const result = await InvestmentsAPI.deposit({
+          member_id: parseInt(memberId),
+          amount,
+          investment_date: date,
+          memo
+        });
+
+        showToast(
+          `${selectedMember?.name||''} 투자금 ${formatMoney(amount)} 등록 완료!\n` +
+          `수당 ${result.commissions_paid}건 즉시 지급, 15주 스케줄 생성`,
+          'success'
+        );
+
+        // 폼 초기화
+        document.getElementById('dep-search').value = '';
+        document.getElementById('dep-member-id').value = '';
+        document.getElementById('dep-amount').value = '';
+        document.getElementById('dep-memo').value = '';
+        document.getElementById('member-preview').classList.remove('show');
+        document.getElementById('calc-preview').classList.remove('show');
+        selectedMember = null;
+
+        await loadDepositHistory();
+      } catch(err) {
+        showToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> 투자금 등록 완료';
+      }
+    }
+
+    // ── 입금 이력 로드 ──
+    async function loadDepositHistory() {
+      try {
+        const data = await InvestmentsAPI.list({ page: 1, limit: 20 });
+        const rows = data.data || [];
+        document.getElementById('deposit-history-tbody').innerHTML = rows.length === 0
+          ? `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">입금 내역 없음</td></tr>`
+          : rows.map(d => `
+            <tr>
+              <td style="font-weight:700;">${d.user_id}</td>
+              <td>${d.name}</td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--accent-gold);">${formatMoney(d.amount)}</td>
+              <td style="font-size:12px;">${formatDate(d.investment_date)}</td>
+              <td style="color:var(--accent-purple);font-weight:700;">${formatMoney(Math.round(d.amount * 0.2))}</td>
+              <td style="display:flex;gap:6px;flex-wrap:wrap;">
+                <button onclick="deleteInvestment(${d.id}, '${d.name}', ${d.amount})"
+                  style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                  🗑️ 투자삭제
+                </button>
+                <button onclick="showPayouts(${d.id}, '${d.name}')"
+                  style="background:rgba(52,152,219,0.15);border:1px solid rgba(52,152,219,0.4);color:#3498db;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                  📋 이자관리
+                </button>
+              </td>
+            </tr>
+          `).join('');
+      } catch(err) {
+        console.error('입금 이력 로드 실패:', err);
+      }
+    }
+
+    // ── 투자금 삭제 ──────────────────────────────────────────
+    async function deleteInvestment(id, name, amount) {
+      const fmt = Number(amount).toLocaleString('ko-KR');
+      if (!confirm(`⚠️ 투자금을 삭제하시겠습니까?\n\n회원: ${name}\n금액: ₩${fmt}\n\n※ 관련 이자 스케줄, 직급수당이 모두 삭제되고 잔고가 복원됩니다.\n이 작업은 되돌릴 수 없습니다!`)) return;
+      try {
+        const token = localStorage.getItem('dangun_token');
+        const res = await fetch(`/api/investments/${id}`, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '삭제 실패');
+        showToast(data.message || '투자금이 삭제되었습니다.', 'success');
+        await loadDepositHistory();
+      } catch (err) {
+        showToast('삭제 실패: ' + err.message, 'error');
+      }
+    }
+
+    // ── 이자(주간지급) 관리 모달 ─────────────────────────────
+    async function showPayouts(investmentId, memberName) {
+      try {
+        const token = localStorage.getItem('dangun_token');
+        const res = await fetch(`/api/investments/${investmentId}/payouts/admin`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        // 관리자용 지급 내역 조회 (별도 엔드포인트 없으면 pending 목록 활용)
+        const allRes = await fetch(`/api/investments/payouts/pending`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const allData = await allRes.json();
+        const payouts = Array.isArray(allData) ? allData.filter(p => p.investment_id == investmentId) : [];
+
+        let html = `<div style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;" id="payout-modal">
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:24px;width:90%;max-width:700px;max-height:80vh;overflow-y:auto;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+              <h3 style="font-size:16px;font-weight:700;">📋 ${memberName} - 이자 지급 내역</h3>
+              <button onclick="document.getElementById('payout-modal').remove()"
+                style="background:none;border:none;color:var(--text-secondary);font-size:20px;cursor:pointer;">✕</button>
+            </div>`;
+
+        if (!payouts.length) {
+          html += `<p style="color:var(--text-muted);text-align:center;padding:20px;">대기 중인 이자 지급 내역이 없습니다.</p>`;
+        } else {
+          html += `<table style="width:100%;border-collapse:collapse;font-size:12px;">
+            <thead><tr style="border-bottom:1px solid var(--border-color);">
+              <th style="padding:8px;text-align:left;">주차</th>
+              <th style="padding:8px;text-align:right;">지급금액</th>
+              <th style="padding:8px;text-align:center;">예정일</th>
+              <th style="padding:8px;text-align:center;">상태</th>
+              <th style="padding:8px;text-align:center;">삭제</th>
+            </tr></thead><tbody>`;
+
+          for (const p of payouts) {
+            html += `<tr style="border-bottom:1px solid rgba(255,255,255,0.05);">
+              <td style="padding:8px;">${p.week_number}주차</td>
+              <td style="padding:8px;text-align:right;font-weight:700;">₩${Number(p.total_payout).toLocaleString()}</td>
+              <td style="padding:8px;text-align:center;">${p.scheduled_date || '-'}</td>
+              <td style="padding:8px;text-align:center;">${p.status}</td>
+              <td style="padding:8px;text-align:center;">
+                <button onclick="deletePayout(${p.id}, ${p.week_number}, ${p.total_payout}, '${p.status}')"
+                  style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:3px 8px;border-radius:5px;font-size:11px;cursor:pointer;">
+                  🗑️ 삭제
+                </button>
+              </td>
+            </tr>`;
+          }
+          html += `</tbody></table>`;
+        }
+        html += `</div></div>`;
+        document.body.insertAdjacentHTML('beforeend', html);
+      } catch(err) {
+        showToast('이자 내역 로드 실패: ' + err.message, 'error');
+      }
+    }
+
+    // ── 이자(주간지급) 개별 삭제 ─────────────────────────────
+    async function deletePayout(id, week, amount, status) {
+      const fmt = Number(amount).toLocaleString('ko-KR');
+      const isPaid = status === 'paid';
+      const msg = isPaid
+        ? `⚠️ 이미 지급된 이자입니다!\n\n${week}주차 ₩${fmt}\n\n강제 삭제 시 잔고가 복원됩니다.\n계속하시겠습니까?`
+        : `${week}주차 이자 ₩${fmt} 를 삭제하시겠습니까?`;
+      if (!confirm(msg)) return;
+
+      try {
+        const token = localStorage.getItem('dangun_token');
+        const url = `/api/investments/payouts/${id}${isPaid ? '?force=true' : ''}`;
+        const res = await fetch(url, {
+          method: 'DELETE',
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '삭제 실패');
+        showToast(data.message || '이자가 삭제되었습니다.', 'success');
+        document.getElementById('payout-modal')?.remove();
+        await loadDepositHistory();
+      } catch (err) {
+        showToast('삭제 실패: ' + err.message, 'error');
+      }
+    }
+
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#dep-search') && !e.target.closest('#dep-search-result')) {
+        document.getElementById('dep-search-result').style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>

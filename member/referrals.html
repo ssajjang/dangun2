@@ -1,0 +1,541 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - 회원 추천 트리</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    .tree-toolbar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 16px;
+      flex-wrap: wrap;
+    }
+
+    /* Canvas Tree */
+    .tree-canvas-wrapper {
+      position: relative;
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-xl);
+      overflow: hidden;
+      cursor: grab;
+    }
+    .tree-canvas-wrapper:active { cursor: grabbing; }
+
+    #treeCanvas {
+      display: block;
+      width: 100%;
+      touch-action: none;
+    }
+
+    .tree-legend {
+      display: flex;
+      gap: 16px;
+      margin-top: 12px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+    }
+
+    /* Member List Table */
+    .member-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .member-avatar-sm {
+      width: 36px; height: 36px;
+      border-radius: 50%;
+      background: var(--gradient-gold);
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #1a1a2e;
+      flex-shrink: 0;
+    }
+
+    /* Node Tooltip */
+    .node-tooltip {
+      position: absolute;
+      background: var(--bg-card);
+      border: 1px solid rgba(212,160,23,0.4);
+      border-radius: var(--radius-md);
+      padding: 12px 16px;
+      font-size: 12px;
+      pointer-events: none;
+      z-index: 100;
+      box-shadow: var(--shadow-lg);
+      min-width: 180px;
+      display: none;
+    }
+    .node-tooltip.show { display: block; }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+  <div class="app-wrapper">
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <a class="sidebar-logo" href="index.html">
+          <div class="logo-icon">D</div>
+          <div class="logo-text">
+            <span class="logo-name">DANGUN</span>
+            <span class="logo-sub">Financial Platform</span>
+          </div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">회원 메뉴</div>
+        <a class="nav-item" href="index.html"><span class="nav-icon"><i class="fas fa-home"></i></span> 대시보드</a>
+        <a class="nav-item" href="payouts.html"><span class="nav-icon"><i class="fas fa-coins"></i></span> 투자금 지급내역</a>
+        <a class="nav-item active" href="referrals.html"><span class="nav-icon"><i class="fas fa-sitemap"></i></span> 회원 추천 트리</a>
+        <div class="nav-section" style="margin-top:16px;">계정</div>
+        <a class="nav-item" href="#" onclick="logout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="user-avatar">K</div>
+          <div class="user-info">
+            <div class="user-name">김철수</div>
+            <div class="user-rank">⭐ 팀장</div>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+      <header class="topbar">
+        <span class="topbar-title">
+          <i class="fas fa-sitemap" style="color:var(--accent-gold);margin-right:8px;"></i>
+          회원 추천 트리
+        </span>
+        <div class="topbar-actions">
+          <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+            <i class="fas fa-moon" id="theme-icon"></i>
+            <span id="theme-label">라이트</span>
+          </button>
+        </div>
+      </header>
+
+      <div class="page-content">
+
+        <!-- Summary Stats -->
+        <div class="grid grid-4 mb-24" style="gap:16px;">
+          <div class="stat-card anim-fadeInUp delay-1">
+            <div class="stat-icon"><i class="fas fa-users"></i></div>
+            <div class="stat-value" id="sc-total">0</div>
+            <div class="stat-label">전체 하부 회원</div>
+          </div>
+          <div class="stat-card blue anim-fadeInUp delay-2">
+            <div class="stat-icon"><i class="fas fa-user-plus"></i></div>
+            <div class="stat-value" id="sc-direct">0</div>
+            <div class="stat-label">직계 추천 회원</div>
+          </div>
+          <div class="stat-card green anim-fadeInUp delay-3">
+            <div class="stat-icon"><i class="fas fa-layer-group"></i></div>
+            <div class="stat-value" id="sc-depth">0</div>
+            <div class="stat-label">최대 계보 깊이</div>
+          </div>
+          <div class="stat-card anim-fadeInUp delay-4" style="--accent-gold:#8e44ad;">
+            <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:#9b59b6;"><i class="fas fa-coins"></i></div>
+            <div class="stat-value" id="sc-invest" style="font-size:18px;">₩0</div>
+            <div class="stat-label">하부 총 투자금</div>
+          </div>
+        </div>
+
+        <!-- Canvas Tree -->
+        <div class="card mb-24 anim-fadeInUp">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-project-diagram icon"></i> 추천 계보 트리</span>
+            <div class="tree-toolbar">
+              <button class="btn btn-outline btn-sm" onclick="zoomIn()"><i class="fas fa-search-plus"></i></button>
+              <button class="btn btn-outline btn-sm" onclick="zoomOut()"><i class="fas fa-search-minus"></i></button>
+              <button class="btn btn-outline btn-sm" onclick="resetView()"><i class="fas fa-expand-arrows-alt"></i> 초기화</button>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="tree-canvas-wrapper" style="height:480px;">
+              <canvas id="treeCanvas"></canvas>
+              <div class="node-tooltip" id="nodeTooltip"></div>
+            </div>
+            <div style="padding:16px 24px;">
+              <div class="tree-legend">
+                <div class="legend-item">
+                  <div class="legend-dot" style="background:#d4a017;"></div> 나 (루트)
+                </div>
+                <div class="legend-item">
+                  <div class="legend-dot" style="background:#5a7bff;"></div> 직계 하부 (1단계)
+                </div>
+                <div class="legend-item">
+                  <div class="legend-dot" style="background:#27ae60;"></div> 2단계 이하
+                </div>
+                <div class="legend-item">
+                  <div class="legend-dot" style="background:rgba(255,255,255,0.2);border:1px solid rgba(255,255,255,0.3);"></div> 하부 없음
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Member List -->
+        <div class="card anim-fadeInUp delay-2">
+          <div class="card-header">
+            <span class="card-title"><i class="fas fa-list icon"></i> 하부 회원 리스트</span>
+            <div style="font-size:12px;color:var(--text-muted);" id="list-count-el">총 0명</div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table>
+                <thead>
+                  <tr>
+                    <th>회원아이디</th>
+                    <th>이름</th>
+                    <th>직급</th>
+                    <th>투자금</th>
+                    <th>투자 시작일</th>
+                    <th>계보 깊이</th>
+                    <th>하부 수</th>
+                  </tr>
+                </thead>
+                <tbody id="referral-list-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script>
+    // ── Tree Data ──
+    const rootMember = {
+      id: 1, user_id: 'kim2024', name: '김철수',
+      rank: '팀장', investment_total: 5000000,
+      investment_date: '2025-01-10',
+      children: DEMO_DATA.referrals
+    };
+
+    // ── Canvas Variables ──
+    const canvas = document.getElementById('treeCanvas');
+    const ctx = canvas.getContext('2d');
+    let scale = 1;
+    let offsetX = 0, offsetY = 0;
+    let isDragging = false, lastX = 0, lastY = 0;
+    const nodeMap = [];
+
+    const NODE_W = 140, NODE_H = 68, NODE_GAP_H = 100, NODE_GAP_V = 90;
+
+    document.addEventListener('DOMContentLoaded', () => {
+      applyTheme(getTheme());
+      renderStats();
+      renderMemberList();
+      initCanvas();
+      canvas.addEventListener('mousemove', onMouseMove);
+    });
+
+    // ── Statistics ──
+    function countAll(arr) {
+      return arr.reduce((a, m) => a + 1 + countAll(m.children), 0);
+    }
+    function maxDepth(arr, depth = 1) {
+      if (!arr.length) return 0;
+      return Math.max(...arr.map(m => 1 + maxDepth(m.children)));
+    }
+    function sumInvest(arr) {
+      return arr.reduce((a, m) => a + m.investment_total + sumInvest(m.children), 0);
+    }
+
+    function renderStats() {
+      const refs = rootMember.children;
+      const total = countAll(refs);
+      document.getElementById('sc-total').textContent = total;
+      document.getElementById('sc-direct').textContent = refs.length;
+      document.getElementById('sc-depth').textContent = maxDepth(refs);
+      document.getElementById('sc-invest').textContent = formatMoney(sumInvest(refs));
+      document.getElementById('list-count-el').textContent = `총 ${total}명`;
+    }
+
+    // ── Member List Flat ──
+    function flatList(arr, depth) {
+      let result = [];
+      arr.forEach(m => {
+        result.push({...m, depth});
+        result = result.concat(flatList(m.children, depth + 1));
+      });
+      return result;
+    }
+
+    function renderMemberList() {
+      const list = flatList(rootMember.children, 1);
+      const tbody = document.getElementById('referral-list-tbody');
+      tbody.innerHTML = list.map(m => `
+        <tr>
+          <td>
+            <div class="member-card">
+              <div class="member-avatar-sm">${m.name[0]}</div>
+              <div>
+                <div style="font-weight:700;font-size:13px;">${m.user_id}</div>
+              </div>
+            </div>
+          </td>
+          <td>${m.name}</td>
+          <td>${rankBadge(m.rank)}</td>
+          <td style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--accent-gold);">
+            ${formatMoney(m.investment_total)}
+          </td>
+          <td style="font-size:12px;">${formatDate(m.investment_date)}</td>
+          <td>
+            <span style="padding:3px 10px;background:rgba(90,123,255,0.15);color:var(--accent-blue);border-radius:8px;font-size:11px;font-weight:700;">
+              ${m.depth}단계
+            </span>
+          </td>
+          <td style="text-align:center;font-weight:700;">${m.children.length}</td>
+        </tr>
+      `).join('');
+    }
+
+    // ── Canvas Tree Drawing ──
+    function initCanvas() {
+      resizeCanvas();
+      window.addEventListener('resize', () => { resizeCanvas(); drawTree(); });
+      canvas.addEventListener('mousedown', startDrag);
+      canvas.addEventListener('mousemove', moveDrag);
+      canvas.addEventListener('mouseup', endDrag);
+      canvas.addEventListener('mouseleave', endDrag);
+      canvas.addEventListener('wheel', onWheel, { passive: false });
+      canvas.addEventListener('touchstart', touchStart, { passive: false });
+      canvas.addEventListener('touchmove', touchMove, { passive: false });
+      canvas.addEventListener('touchend', endDrag);
+      resetView();
+    }
+
+    function resizeCanvas() {
+      const wrapper = canvas.parentElement;
+      canvas.width  = wrapper.offsetWidth;
+      canvas.height = wrapper.offsetHeight;
+    }
+
+    function layoutTree(node, x, y, level) {
+      const result = { node, x, y, level, children: [] };
+      if (!node.children || node.children.length === 0) return result;
+
+      const childCount = node.children.length;
+      const totalWidth = childCount * NODE_W + (childCount - 1) * NODE_GAP_H;
+      let startX = x - totalWidth / 2;
+
+      node.children.forEach(child => {
+        const childLayout = layoutTree(child, startX + NODE_W / 2, y + NODE_H + NODE_GAP_V, level + 1);
+        result.children.push(childLayout);
+        startX += NODE_W + NODE_GAP_H;
+      });
+
+      return result;
+    }
+
+    function drawNode(layout, isDark) {
+      const { node, x, y, level } = layout;
+      const hw = NODE_W / 2, hh = NODE_H / 2;
+
+      nodeMap.push({ x, y, w: NODE_W, h: NODE_H, node });
+
+      // Shadow
+      ctx.shadowColor = level === 0 ? 'rgba(212,160,23,0.5)' : 'rgba(0,0,0,0.3)';
+      ctx.shadowBlur = level === 0 ? 16 : 8;
+      ctx.shadowOffsetY = 3;
+
+      // Box
+      const radius = 10;
+      ctx.beginPath();
+      ctx.roundRect(x - hw, y - hh, NODE_W, NODE_H, radius);
+
+      if (level === 0) {
+        const grad = ctx.createLinearGradient(x - hw, y - hh, x + hw, y + hh);
+        grad.addColorStop(0, '#d4a017');
+        grad.addColorStop(1, '#f0c040');
+        ctx.fillStyle = grad;
+      } else if (level === 1) {
+        ctx.fillStyle = isDark ? '#1e2a5e' : '#dde4ff';
+      } else {
+        ctx.fillStyle = isDark ? '#1a2035' : '#f0f4ff';
+      }
+      ctx.fill();
+
+      // Border
+      ctx.shadowBlur = 0; ctx.shadowOffsetY = 0;
+      ctx.strokeStyle = level === 0 ? '#f0c040' : level === 1 ? '#5a7bff' : (isDark ? '#2a3a6a' : '#c0caf5');
+      ctx.lineWidth = level === 0 ? 2 : 1.5;
+      ctx.stroke();
+
+      // Name
+      ctx.fillStyle = level === 0 ? '#1a1a2e' : (isDark ? '#e0e0ff' : '#1a1a2e');
+      ctx.font = `bold 13px 'Noto Sans KR', sans-serif`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(node.name, x, y - 10);
+
+      // ID
+      ctx.fillStyle = level === 0 ? 'rgba(26,26,46,0.7)' : (isDark ? 'rgba(160,160,200,0.7)' : 'rgba(80,80,120,0.7)');
+      ctx.font = `11px 'Noto Sans KR', sans-serif`;
+      ctx.fillText('@' + node.user_id, x, y + 6);
+
+      // Investment
+      ctx.fillStyle = level === 0 ? 'rgba(26,26,46,0.9)' : (isDark ? '#d4a017' : '#b08010');
+      ctx.font = `bold 11px 'Orbitron', sans-serif`;
+      ctx.fillText(formatMoneyK(node.investment_total), x, y + 22);
+    }
+
+    function drawConnector(parent, child, isDark) {
+      const fromX = parent.x, fromY = parent.y + NODE_H / 2;
+      const toX   = child.x,  toY   = child.y - NODE_H / 2;
+
+      const midY = (fromY + toY) / 2;
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.bezierCurveTo(fromX, midY, toX, midY, toX, toY);
+      ctx.strokeStyle = isDark ? 'rgba(212,160,23,0.3)' : 'rgba(212,160,23,0.5)';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.stroke();
+      ctx.setLineDash([]);
+    }
+
+    function drawLayout(layout, isDark) {
+      layout.children.forEach(child => {
+        drawConnector(layout, child, isDark);
+        drawLayout(child, isDark);
+      });
+      drawNode(layout, isDark);
+    }
+
+    function drawTree() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      nodeMap.length = 0;
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.save();
+      ctx.translate(offsetX, offsetY);
+      ctx.scale(scale, scale);
+
+      const layout = layoutTree(rootMember, canvas.width / 2 / scale, 50, 0);
+      drawLayout(layout, isDark);
+
+      ctx.restore();
+    }
+
+    function resetView() {
+      scale = 1;
+      offsetX = 0;
+      offsetY = 40;
+      drawTree();
+    }
+
+    function zoomIn()  { scale = Math.min(scale * 1.2, 3);  drawTree(); }
+    function zoomOut() { scale = Math.max(scale / 1.2, 0.3); drawTree(); }
+
+    function onWheel(e) {
+      e.preventDefault();
+      const delta = e.deltaY > 0 ? 0.9 : 1.1;
+      scale = Math.min(Math.max(scale * delta, 0.3), 3);
+      drawTree();
+    }
+
+    function startDrag(e) {
+      isDragging = true;
+      lastX = e.clientX; lastY = e.clientY;
+    }
+    function moveDrag(e) {
+      if (!isDragging) return;
+      offsetX += e.clientX - lastX;
+      offsetY += e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+      drawTree();
+    }
+    function endDrag() { isDragging = false; }
+
+    let touchDist = 0;
+    function touchStart(e) {
+      if (e.touches.length === 2) {
+        touchDist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+      } else if (e.touches.length === 1) {
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+        isDragging = true;
+      }
+    }
+    function touchMove(e) {
+      e.preventDefault();
+      if (e.touches.length === 2) {
+        const dist = Math.hypot(
+          e.touches[0].clientX - e.touches[1].clientX,
+          e.touches[0].clientY - e.touches[1].clientY
+        );
+        scale = Math.min(Math.max(scale * (dist / touchDist), 0.3), 3);
+        touchDist = dist;
+        drawTree();
+      } else if (isDragging && e.touches.length === 1) {
+        offsetX += e.touches[0].clientX - lastX;
+        offsetY += e.touches[0].clientY - lastY;
+        lastX = e.touches[0].clientX;
+        lastY = e.touches[0].clientY;
+        drawTree();
+      }
+    }
+
+    // Hover tooltip
+    function onMouseMove(e) {
+      const rect = canvas.getBoundingClientRect();
+      const mx = (e.clientX - rect.left - offsetX) / scale;
+      const my = (e.clientY - rect.top  - offsetY) / scale;
+      const tooltip = document.getElementById('nodeTooltip');
+
+      const hit = nodeMap.find(n =>
+        mx >= n.x - n.w/2 && mx <= n.x + n.w/2 &&
+        my >= n.y - n.h/2 && my <= n.y + n.h/2
+      );
+
+      if (hit) {
+        tooltip.classList.add('show');
+        tooltip.style.left = (e.clientX - rect.left + 12) + 'px';
+        tooltip.style.top  = (e.clientY - rect.top  - 40) + 'px';
+        const m = hit.node;
+        tooltip.innerHTML = `
+          <div style="font-weight:700;color:var(--accent-gold);margin-bottom:6px;">${m.name} (@${m.user_id})</div>
+          <div style="font-size:11px;color:var(--text-muted);">직급: ${m.rank}</div>
+          <div style="font-size:11px;color:var(--text-muted);">투자금: ${formatMoney(m.investment_total)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">하부회원: ${m.children ? m.children.length : 0}명</div>
+        `;
+        canvas.style.cursor = 'pointer';
+      } else {
+        tooltip.classList.remove('show');
+        canvas.style.cursor = isDragging ? 'grabbing' : 'grab';
+      }
+    }
+
+    // Re-draw on theme change
+    const originalToggle = window.toggleTheme || function(){};
+    window.toggleTheme = function() {
+      originalToggle();
+      setTimeout(drawTree, 50);
+    };
+  </script>
+</body>
+</html>

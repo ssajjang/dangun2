@@ -1,0 +1,14 @@
+# Railway Nixpacks 설정
+# sqlite3 네이티브 바이너리 빌드 환경
+
+[phases.setup]
+nixPkgs = ["nodejs_20", "python3", "gnumake", "gcc", "pkg-config", "sqlite"]
+
+[phases.install]
+cmds = ["npm install"]
+
+[phases.build]
+cmds = ["mkdir -p database logs"]
+
+[start]
+cmd = "node server.js"
