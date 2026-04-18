@@ -93,11 +93,18 @@
           <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당
         </a>
 
+        <a class="nav-item" href="simulate.html">
+          <span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션
+        </a>
+        <a class="nav-item" href="reset.html">
+          <span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가
+        </a>
+
         <div class="nav-section" style="margin-top:16px;">설정</div>
-        <a class="nav-item" href="#" onclick="showToast('시스템 설정 (PHP 연동 후 활성화)','info')">
+        <a class="nav-item" href="#" onclick="showToast('준비 중입니다.','info')">
           <span class="nav-icon"><i class="fas fa-cog"></i></span> 시스템 설정
         </a>
-        <a class="nav-item" href="../index.html">
+        <a class="nav-item" href="#" onclick="doLogout()">
           <span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃
         </a>
       </nav>
@@ -129,6 +136,28 @@
       </header>
 
       <div class="page-content">
+
+        <!-- ── Quick Actions ── -->
+        <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:20px;">
+          <button class="btn btn-gold btn-sm" onclick="location.href='members.html'" style="gap:6px;">
+            <i class="fas fa-user-plus"></i> 회원 추가
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="location.href='deposit.html'" style="gap:6px;">
+            <i class="fas fa-arrow-circle-down"></i> 투자금 입금
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="location.href='withdrawal.html'" style="gap:6px;">
+            <i class="fas fa-arrow-circle-up"></i> 출금 관리
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="location.href='simulate.html'" style="gap:6px;">
+            <i class="fas fa-play-circle"></i> 지급 시뮬레이션
+          </button>
+          <button class="btn btn-sm" onclick="location.href='reset.html'" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;gap:6px;">
+            <i class="fas fa-database"></i> 데이터 초기화
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="refreshDashboard()" style="gap:6px;">
+            <i class="fas fa-sync-alt"></i> 새로고침
+          </button>
+        </div>
 
         <!-- ── KPI Cards ── -->
         <div class="kpi-row">
@@ -288,6 +317,11 @@
   <script>
     // ── 관리자 인증 가드 ──
     if (!requireAdminAuth()) { /* 리다이렉트됨 */ }
+    function doLogout() { Auth.clear(); window.location.href = '../index.html'; }
+    async function refreshDashboard() {
+      showToast('대시보드 데이터를 새로고침합니다...', 'info');
+      await loadDashboard();
+    }
 
     let confirmCallback = null;
     let _dashData = null;

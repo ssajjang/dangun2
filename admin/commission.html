@@ -41,8 +41,10 @@
         <a class="nav-item" href="deposit.html"><span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금</a>
         <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
         <a class="nav-item active" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
+        <a class="nav-item" href="simulate.html"><span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션</a>
+        <a class="nav-item" href="reset.html"><span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가</a>
         <div class="nav-section" style="margin-top:16px;">설정</div>
-        <a class="nav-item" href="../index.html"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+        <a class="nav-item" href="#" onclick="doLogout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
       </nav>
       <div class="sidebar-footer">
         <div class="sidebar-user">
@@ -166,6 +168,7 @@
   <script src="../js/api.js"></script>
   <script>
     if (!requireAdminAuth()) { /* redirect */ }
+    function doLogout() { Auth.clear(); window.location.href = '../index.html'; }
 
     let currentPageC = 1;
     let totalCountC  = 0;

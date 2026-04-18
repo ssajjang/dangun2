@@ -87,6 +87,7 @@ app.listen(PORT, '0.0.0.0', async () => {
 // API Routes (DB 준비 전에 등록해도 무방 - 요청은 이후에 옴)
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app.use('/api/auth',        require('./api/routes/auth'));
+app.use('/api/admin',       require('./api/routes/admin'));
 app.use('/api/members',     require('./api/routes/members'));
 app.use('/api/investments', require('./api/routes/investments'));
 app.use('/api/withdrawals', require('./api/routes/withdrawals'));

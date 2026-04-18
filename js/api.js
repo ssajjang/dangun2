@@ -151,6 +151,20 @@ const CommissionsAPI = {
   my:   ()       => get('/commissions/my'),
 };
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ADMIN API (관리자 전용)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const AdminAPI = {
+  /** 회원 직접 추가 */
+  addMember:  (body)          => post('/admin/members', body),
+  /** 데이터 초기화 */
+  reset:      (target)        => post('/admin/reset', { target, confirm_text: 'RESET' }),
+  /** 지급 시뮬레이션 미리보기 */
+  payoutPreview: ()           => get('/admin/payout-preview'),
+  /** 지급 시뮬레이션 실행 */
+  simulatePayout: (opts = {}) => post('/admin/simulate-payout', opts),
+};
+
 // ── 인증 가드 (페이지 로드 시 호출) ────────────────────────
 function requireMemberAuth() {
   const token = Auth.getToken();
@@ -180,5 +194,6 @@ window.MembersAPI      = MembersAPI;
 window.InvestmentsAPI  = InvestmentsAPI;
 window.WithdrawalsAPI  = WithdrawalsAPI;
 window.CommissionsAPI  = CommissionsAPI;
+window.AdminAPI        = AdminAPI;
 window.requireMemberAuth = requireMemberAuth;
 window.requireAdminAuth  = requireAdminAuth;

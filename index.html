@@ -482,18 +482,6 @@
             </button>
           </form>
 
-          <div class="auth-divider"><span>OR</span></div>
-
-          <!-- Demo Access Links -->
-          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-            <button class="btn btn-outline w-full" onclick="demoLogin('member')" style="font-size:12px;">
-              <i class="fas fa-user"></i> 회원 데모
-            </button>
-            <button class="btn btn-outline w-full" onclick="demoLogin('admin')" style="font-size:12px;">
-              <i class="fas fa-user-shield"></i> 관리자 데모
-            </button>
-          </div>
-
           <div class="auth-links">
             <span class="auth-link" onclick="switchTab('register')">회원가입</span>
             <span style="color:var(--border-color)">|</span>
@@ -708,25 +696,6 @@
       el.innerHTML = `<i class="fas fa-eye${isText ? '' : '-slash'}"></i>`;
     }
 
-    // ── Demo Login (superadmin 계정으로 자동 로그인) ──
-    async function demoLogin(role) {
-      if (role === 'admin') {
-        // 관리자 데모: superadmin / Admin1234! 로 자동 로그인 시도
-        try {
-          const data = await AuthAPI.adminLogin('superadmin', 'Admin1234!');
-          if (data?.token) {
-            showToast('관리자 로그인 성공!', 'success');
-            setTimeout(() => window.location.href = 'admin/dashboard.html', 600);
-          }
-        } catch(e) {
-          // 서버 미연결 시 페이지 이동만
-          window.location.href = 'admin/dashboard.html';
-        }
-      } else {
-        window.location.href = 'member/index.html';
-      }
-    }
-
     // ── Login Handler ── 실제 API 연동
     async function handleLogin(e) {
       e.preventDefault();
@@ -805,7 +774,7 @@
         bank_name:            document.getElementById('reg-bank').value,
         account_number:       document.getElementById('reg-account').value.trim(),
         account_holder:       document.getElementById('reg-name').value.trim(),
-        recommender_user_id:  document.getElementById('recommend-input').value.trim() || undefined,
+        recommender_id: document.getElementById('reg-recommender-id').value || undefined,
       };
 
       try {
@@ -816,7 +785,7 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '회원가입 실패');
-        showToast('회원가입 완료! 관리자 승인 후 로그인 가능합니다.', 'success');
+        showToast('회원가입이 완료되었습니다! 바로 로그인하세요.', 'success');
         setTimeout(() => switchTab('login'), 2000);
       } catch(err) {
         showToast(err.message, 'error');
@@ -825,53 +794,57 @@
       }
     }
 
-    // ── Recommender Search ── 실제 API 연동
+    // ── Recommender Search ── 실시간 자동검색 (2자 이상)
     let searchTimer = null;
     async function searchRecommender() {
       const q = document.getElementById('recommend-input').value.trim();
       const resultEl = document.getElementById('recommend-result');
       if (!q || q.length < 2) { resultEl.classList.remove('open'); return; }
 
-      try {
-        const res  = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`);
-        const found = await res.json();
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(async () => {
+        try {
+          const res  = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`);
+          const found = await res.json();
 
-        if (!Array.isArray(found) || found.length === 0) {
-          resultEl.innerHTML = `<div class="recommend-item"><span class="uname">검색 결과 없음</span></div>`;
-        } else {
-          resultEl.innerHTML = found.map(m => `
-            <div class="recommend-item" onclick="selectRecommender('${m.user_id}', '${m.user_id}', '${m.name}', '${m.rank}')">
-              <span class="uid">${m.user_id}</span>
-              <span class="uname">${m.name} · ${m.rank}</span>
-            </div>
-          `).join('');
+          if (!Array.isArray(found) || found.length === 0) {
+            resultEl.innerHTML = `<div class="recommend-item"><span class="uname">검색 결과 없음</span></div>`;
+          } else {
+            resultEl.innerHTML = found.map(m => `
+              <div class="recommend-item" onclick="selectRecommender('${m.id}', '${m.user_id}', '${m.name}', '${m.rank}')">
+                <span class="uid">${m.user_id}</span>
+                <span class="uname">${m.name} · ${m.rank}</span>
+              </div>
+            `).join('');
+          }
+          resultEl.classList.add('open');
+        } catch {
+          resultEl.classList.remove('open');
         }
-        resultEl.classList.add('open');
-      } catch {
-        resultEl.classList.remove('open');
-      }
+      }, 300);
     }
 
+    // 입력할 때마다 자동검색 실행
+    document.getElementById('recommend-input').addEventListener('input', searchRecommender);
+
+    // id = DB의 숫자 id, userId = 표시용 아이디
     function selectRecommender(id, userId, name, rank) {
-      document.getElementById('reg-recommender-id').value = userId;
+      document.getElementById('reg-recommender-id').value = id;   // DB id 저장
       document.getElementById('recommend-result').classList.remove('open');
       document.getElementById('recommend-input').value = userId;
       const selEl = document.getElementById('selected-recommender');
       document.getElementById('selected-recommender-text').textContent = `✓ ${userId} (${name}) · ${rank}`;
-      selEl.classList.add('show');
+      if (selEl) selEl.classList.add('show');
     }
 
     function clearRecommender() {
       document.getElementById('reg-recommender-id').value = '';
       document.getElementById('recommend-input').value = '';
-      document.getElementById('selected-recommender').classList.remove('show');
+      const selEl = document.getElementById('selected-recommender');
+      if (selEl) selEl.classList.remove('show');
     }
 
-    // 검색 입력 이벤트 (debounce)
-    document.getElementById('recommend-input')?.addEventListener('input', function() {
-      clearTimeout(searchTimer);
-      searchTimer = setTimeout(searchRecommender, 400);
-    });
+    // Enter 키로도 검색
     document.getElementById('recommend-input')?.addEventListener('keypress', e => {
       if (e.key === 'Enter') { e.preventDefault(); searchRecommender(); }
     });

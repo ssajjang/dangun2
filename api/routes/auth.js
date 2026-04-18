@@ -18,11 +18,21 @@ router.post('/register', async (req, res) => {
     const dup = await db.get('SELECT id FROM members WHERE user_id=? OR email=? OR phone=?', [user_id, email, phone]);
     if (dup) return res.status(409).json({ error: '이미 사용 중인 아이디/이메일/전화번호입니다.' });
 
+    // 추천인 user_id로 id 조회 (프론트에서 user_id 혹은 id 둘 다 허용)
+    let resolvedRecommenderId = null;
+    if (recommender_id) {
+      // 숫자면 id, 문자면 user_id로 조회
+      const recRow = isNaN(recommender_id)
+        ? await db.get('SELECT id FROM members WHERE user_id=?', [recommender_id])
+        : await db.get('SELECT id FROM members WHERE id=?', [recommender_id]);
+      if (recRow) resolvedRecommenderId = recRow.id;
+    }
+
     const hashed = bcrypt.hashSync(password, 10);
     const result = await db.run(
-      `INSERT INTO members (user_id,password,name,email,phone,bank_name,account_number,account_holder,recommender_id)
-       VALUES (?,?,?,?,?,?,?,?,?)`,
-      [user_id, hashed, name, email, phone, bank_name||'', account_number||'', account_holder||'', recommender_id||null]
+      `INSERT INTO members (user_id,password,name,email,phone,bank_name,account_number,account_holder,recommender_id,status)
+       VALUES (?,?,?,?,?,?,?,?,?,'active')`,
+      [user_id, hashed, name, email, phone, bank_name||'', account_number||'', account_holder||'', resolvedRecommenderId]
     );
     const memberId = result.lastID;
 
@@ -31,8 +41,8 @@ router.post('/register', async (req, res) => {
 
     // 추천 계보 등록
     await db.run('INSERT INTO referral_tree (member_id, ancestor_id, depth) VALUES (?,?,0)', [memberId, memberId]);
-    if (recommender_id) {
-      const ancestors = await db.all('SELECT ancestor_id, depth FROM referral_tree WHERE member_id=?', [recommender_id]);
+    if (resolvedRecommenderId) {
+      const ancestors = await db.all('SELECT ancestor_id, depth FROM referral_tree WHERE member_id=?', [resolvedRecommenderId]);
       for (const a of ancestors) {
         await db.run('INSERT OR IGNORE INTO referral_tree (member_id, ancestor_id, depth) VALUES (?,?,?)',
           [memberId, a.ancestor_id, a.depth + 1]);
@@ -42,7 +52,7 @@ router.post('/register', async (req, res) => {
     await db.run(`INSERT INTO activity_logs (actor_type,actor_id,action,description) VALUES ('member',?,'register',?)`,
       [memberId, `회원가입: ${user_id}`]);
 
-    return res.status(201).json({ message: '회원가입 완료. 관리자 승인 후 로그인 가능합니다.', user_id });
+    return res.status(201).json({ message: '회원가입이 완료되었습니다. 바로 로그인 가능합니다.', user_id });
   } catch (e) {
     console.error(e);
     return res.status(500).json({ error: e.message });
@@ -114,7 +124,7 @@ router.get('/members/search', async (req, res) => {
     if (!q) return res.json([]);
     const db = await getDb();
     const rows = await db.all(
-      `SELECT id, user_id, name, rank FROM members WHERE status='active' AND (user_id LIKE ? OR name LIKE ?) LIMIT 10`,
+      `SELECT id, user_id, name, rank FROM members WHERE (user_id LIKE ? OR name LIKE ?) LIMIT 20`,
       [`%${q}%`, `%${q}%`]
     );
     return res.json(rows);

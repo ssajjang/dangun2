@@ -34,8 +34,10 @@
         <a class="nav-item" href="deposit.html"><span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금</a>
         <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
         <a class="nav-item" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
+        <a class="nav-item" href="simulate.html"><span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션</a>
+        <a class="nav-item" href="reset.html"><span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가</a>
         <div class="nav-section" style="margin-top:16px;">설정</div>
-        <a class="nav-item" href="../index.html"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+        <a class="nav-item" href="#" onclick="doLogout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
       </nav>
       <div class="sidebar-footer">
         <div class="sidebar-user">
@@ -49,6 +51,9 @@
       <header class="topbar">
         <span class="topbar-title"><i class="fas fa-users" style="color:var(--accent-gold);margin-right:8px;"></i> 회원 정보 관리</span>
         <div class="topbar-actions">
+          <button class="btn btn-gold btn-sm" onclick="openModal('modal-add-member')" style="margin-right:8px;">
+            <i class="fas fa-user-plus"></i> 회원 추가
+          </button>
           <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
             <i class="fas fa-moon" id="theme-icon"></i><span id="theme-label">라이트</span>
           </button>
@@ -134,6 +139,97 @@
     </main>
   </div>
 
+  <!-- Add Member Modal -->
+  <div class="modal-overlay" id="modal-add-member">
+    <div class="modal" style="max-width:640px;max-height:90vh;overflow-y:auto;">
+      <div class="modal-header">
+        <span class="modal-title"><i class="fas fa-user-plus" style="color:var(--accent-gold);margin-right:8px;"></i> 회원 추가</span>
+        <button class="modal-close" onclick="closeModal('modal-add-member')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <form id="add-member-form" onsubmit="submitAddMember(event)">
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div class="form-group">
+              <label class="form-label">아이디 <span style="color:#e74c3c;">*</span></label>
+              <input type="text" class="form-control" id="am-user-id" placeholder="영문+숫자 6~20자" required minlength="6" maxlength="20" autocomplete="off">
+            </div>
+            <div class="form-group">
+              <label class="form-label">이름 <span style="color:#e74c3c;">*</span></label>
+              <input type="text" class="form-control" id="am-name" placeholder="실명 입력" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">비밀번호 <span style="color:#e74c3c;">*</span></label>
+              <input type="password" class="form-control" id="am-password" placeholder="8자 이상" required minlength="8">
+            </div>
+            <div class="form-group">
+              <label class="form-label">핸드폰 <span style="color:#e74c3c;">*</span></label>
+              <input type="tel" class="form-control" id="am-phone" placeholder="010-0000-0000" required>
+            </div>
+            <div class="form-group">
+              <label class="form-label">이메일</label>
+              <input type="email" class="form-control" id="am-email" placeholder="(optional)">
+            </div>
+            <div class="form-group">
+              <label class="form-label">은행명</label>
+              <select class="form-control" id="am-bank">
+                <option value="">은행 선택</option>
+                <option>국민은행</option><option>신한은행</option><option>우리은행</option>
+                <option>하나은행</option><option>농협은행</option><option>기업은행</option>
+                <option>SC제일은행</option><option>카카오백크</option><option>토스뱅크</option>
+                <option>케이뱅크</option><option>새마을금고</option><option>수협은행</option>
+                <option>우체국</option><option>씨티은행</option><option>기타</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">계좌번호</label>
+              <input type="text" class="form-control" id="am-account" placeholder="- 없이 입력">
+            </div>
+            <div class="form-group">
+              <label class="form-label">예금주 성명</label>
+              <input type="text" class="form-control" id="am-holder" placeholder="예금주 이름">
+            </div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;">
+            <div class="form-group">
+              <label class="form-label">직급</label>
+              <select class="form-control" id="am-rank">
+                <option value="일반회원">일반회원</option>
+                <option value="팀장">팀장</option>
+                <option value="본부장">본부장</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label class="form-label">상태</label>
+              <select class="form-control" id="am-status">
+                <option value="active">활성 (즉시승인)</option>
+                <option value="inactive">대기</option>
+              </select>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:12px;">
+            <label class="form-label">추천인 검색 (선택)</label>
+            <div style="display:flex;gap:8px;">
+              <input type="text" class="form-control" id="am-recommender-input" placeholder="아이디 또는 이름 검색 (2자 이상)" oninput="searchAdminRecommender()">
+              <input type="hidden" id="am-recommender-id">
+            </div>
+            <div id="am-recommender-result" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;margin-top:4px;display:none;max-height:160px;overflow-y:auto;"></div>
+            <div id="am-recommender-selected" style="display:none;margin-top:6px;padding:8px 12px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;font-size:13px;">
+              ✓ <span id="am-recommender-text"></span>
+              <span onclick="clearAdminRecommender()" style="cursor:pointer;margin-left:8px;color:var(--text-muted);"><i class="fas fa-times"></i></span>
+            </div>
+          </div>
+          <div id="add-member-error" style="display:none;padding:10px;background:rgba(231,76,60,0.1);border:1px solid rgba(231,76,60,0.3);border-radius:8px;font-size:13px;color:#e74c3c;margin-bottom:12px;"></div>
+          <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button type="button" class="btn btn-outline" onclick="closeModal('modal-add-member')">취소</button>
+            <button type="submit" class="btn btn-gold" id="add-member-submit-btn">
+              <i class="fas fa-user-plus"></i> 회원 등록
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
   <!-- Detail Modal -->
   <div class="modal-overlay" id="modal-member-detail">
     <div class="modal" style="max-width:580px;">
@@ -153,6 +249,7 @@
   <script src="../js/api.js"></script>
   <script>
     if (!requireAdminAuth()) { /* redirect */ }
+    function doLogout() { Auth.clear(); window.location.href = '../index.html'; }
 
     let currentPage = 1;
     let totalCount  = 0;
@@ -400,6 +497,99 @@
       document.body.insertAdjacentHTML('beforeend', html);
       setTimeout(() => document.getElementById('new-pw-input')?.focus(), 100);
     }
+
+    // ── 관리자 회원 추가 ─────────────────────────────────────
+    let _amSearchTimer = null;
+    function searchAdminRecommender() {
+      const q = document.getElementById('am-recommender-input').value.trim();
+      const resultEl = document.getElementById('am-recommender-result');
+      if (!q || q.length < 2) { resultEl.style.display = 'none'; return; }
+      clearTimeout(_amSearchTimer);
+      _amSearchTimer = setTimeout(async () => {
+        try {
+          const token = Auth.getToken();
+          const res = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+          const found = await res.json();
+          if (!Array.isArray(found) || found.length === 0) {
+            resultEl.innerHTML = `<div style="padding:10px;font-size:13px;color:var(--text-muted);">검색 결과 없음</div>`;
+          } else {
+            resultEl.innerHTML = found.map(m => `
+              <div onclick="selectAdminRecommender('${m.id}','${m.user_id}','${m.name}','${m.rank}')"
+                style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:13px;display:flex;justify-content:space-between;"
+                onmouseover="this.style.background='rgba(212,160,23,0.1)'" onmouseout="this.style.background=''">
+                <span style="font-weight:700;">${m.user_id}</span>
+                <span style="color:var(--text-muted);">${m.name} · ${m.rank}</span>
+              </div>
+            `).join('');
+          }
+          resultEl.style.display = 'block';
+        } catch { resultEl.style.display = 'none'; }
+      }, 300);
+    }
+
+    function selectAdminRecommender(id, userId, name, rank) {
+      document.getElementById('am-recommender-id').value = userId; // user_id로 API 전달
+      document.getElementById('am-recommender-input').value = userId;
+      document.getElementById('am-recommender-result').style.display = 'none';
+      document.getElementById('am-recommender-text').textContent = `${userId} (${name}) · ${rank}`;
+      document.getElementById('am-recommender-selected').style.display = 'block';
+    }
+
+    function clearAdminRecommender() {
+      document.getElementById('am-recommender-id').value = '';
+      document.getElementById('am-recommender-input').value = '';
+      document.getElementById('am-recommender-selected').style.display = 'none';
+    }
+
+    async function submitAddMember(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('add-member-error');
+      errEl.style.display = 'none';
+
+      const body = {
+        user_id:              document.getElementById('am-user-id').value.trim(),
+        password:             document.getElementById('am-password').value,
+        name:                 document.getElementById('am-name').value.trim(),
+        phone:                document.getElementById('am-phone').value.trim(),
+        email:                document.getElementById('am-email').value.trim() || undefined,
+        bank_name:            document.getElementById('am-bank').value || undefined,
+        account_number:       document.getElementById('am-account').value.trim() || undefined,
+        account_holder:       document.getElementById('am-holder').value.trim() || undefined,
+        recommender_user_id:  document.getElementById('am-recommender-id').value || undefined,
+        rank:                 document.getElementById('am-rank').value,
+        status:               document.getElementById('am-status').value,
+      };
+
+      const btn = document.getElementById('add-member-submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...';
+
+      try {
+        const token = Auth.getToken();
+        const res = await fetch('/api/admin/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '등록 실패');
+
+        showToast(`${data.name}(${data.user_id}) 회원이 등록되었습니다.`, 'success');
+        closeModal('modal-add-member');
+        document.getElementById('add-member-form').reset();
+        clearAdminRecommender();
+        loadMembers();
+      } catch(err) {
+        errEl.textContent = '오류: ' + err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> 회원 등록';
+      }
+    }
+    // ─────────────────────────────────────────────────────────
 
     async function submitPasswordChange(memberId) {
       const pw  = document.getElementById('new-pw-input')?.value || '';

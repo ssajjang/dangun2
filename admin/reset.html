@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN 관리자 - 데이터 초기화 / 회원추가</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    .page-header { padding: 32px 0 20px; }
+    .page-title  { font-family:'Orbitron',sans-serif; font-size:22px; font-weight:700; color:var(--accent-gold-light); }
+    .page-sub    { font-size:13px; color:var(--text-muted); margin-top:4px; }
+
+    .section-card {
+      background: var(--gradient-dark);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-xl);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-size:16px; font-weight:700; margin-bottom:20px;
+      display:flex; align-items:center; gap:10px;
+    }
+
+    /* 초기화 대상 카드 */
+    .reset-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+      margin-bottom: 24px;
+    }
+    .reset-card {
+      background: rgba(255,255,255,0.04);
+      border: 2px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-lg);
+      padding: 20px 16px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      position: relative;
+    }
+    .reset-card:hover  { border-color: rgba(212,160,23,0.4); background: rgba(212,160,23,0.05); }
+    .reset-card.active { border-color: var(--accent-gold); background: rgba(212,160,23,0.12); }
+    .reset-card .icon  { font-size:28px; margin-bottom:10px; }
+    .reset-card .label { font-size:13px; font-weight:600; color:var(--text-primary); }
+    .reset-card .count { font-size:22px; font-weight:700; color:var(--accent-gold-light); font-family:'Orbitron',sans-serif; margin:4px 0; }
+    .reset-card .sub   { font-size:11px; color:var(--text-muted); }
+    .reset-card .chk   {
+      position:absolute; top:10px; right:10px;
+      width:20px; height:20px; border-radius:50%;
+      border:2px solid rgba(255,255,255,0.2);
+      display:flex; align-items:center; justify-content:center;
+      font-size:10px; color:transparent;
+    }
+    .reset-card.active .chk { background:var(--accent-gold); border-color:var(--accent-gold); color:#000; }
+
+    .danger-zone {
+      border-color: rgba(239,68,68,0.3) !important;
+    }
+    .danger-title { color: #f87171 !important; }
+
+    /* 확인 입력 */
+    .confirm-row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .confirm-input {
+      flex:1; min-width:200px;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: var(--radius-md);
+      padding: 10px 16px;
+      color: var(--text-primary);
+      font-size:14px;
+    }
+    .confirm-input::placeholder { color:var(--text-muted); }
+
+    /* 회원추가 폼 */
+    .form-grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    @media(max-width:640px){ .form-grid-2 { grid-template-columns:1fr; } }
+    .form-group label { font-size:12px; color:var(--text-muted); display:block; margin-bottom:6px; }
+    .form-control {
+      width:100%; box-sizing:border-box;
+      background: rgba(255,255,255,0.06);
+      border: 1px solid rgba(255,255,255,0.12);
+      border-radius: var(--radius-md);
+      padding: 10px 14px;
+      color: var(--text-primary);
+      font-size:14px;
+    }
+    .form-control:focus { outline:none; border-color:var(--accent-gold); }
+    select.form-control option { background:#1a1d2e; }
+
+    /* 검색 결과 드롭다운 */
+    .search-result {
+      background: rgba(15,17,35,0.98);
+      border: 1px solid rgba(212,160,23,0.3);
+      border-radius: var(--radius-md);
+      max-height:200px; overflow-y:auto;
+      margin-top:4px;
+      display:none;
+    }
+    .search-result.open { display:block; }
+    .search-item {
+      padding:10px 14px; cursor:pointer; display:flex; gap:10px; align-items:center;
+      border-bottom:1px solid rgba(255,255,255,0.05);
+      font-size:13px; transition:background 0.15s;
+    }
+    .search-item:hover { background:rgba(212,160,23,0.1); }
+    .search-item .uid  { color:var(--accent-gold-light); font-weight:600; min-width:80px; }
+    .search-item .nm   { color:var(--text-muted); }
+
+    /* 결과 테이블 */
+    .result-table { width:100%; border-collapse:collapse; font-size:13px; margin-top:16px; }
+    .result-table th { background:rgba(255,255,255,0.05); padding:10px 12px; text-align:left; color:var(--text-muted); font-weight:600; }
+    .result-table td { padding:10px 12px; border-bottom:1px solid rgba(255,255,255,0.05); }
+    .result-table tr:last-child td { border-bottom:none; }
+    .badge { display:inline-block; padding:2px 8px; border-radius:12px; font-size:11px; font-weight:600; }
+    .badge-green { background:rgba(34,197,94,0.15); color:#4ade80; }
+    .badge-yellow { background:rgba(234,179,8,0.15); color:#fbbf24; }
+
+    .toast-fixed {
+      position:fixed; bottom:24px; right:24px; z-index:9999;
+      display:flex; flex-direction:column; gap:10px;
+    }
+    .toast {
+      padding:12px 20px; border-radius:10px; font-size:14px; font-weight:500;
+      min-width:240px; box-shadow:0 4px 20px rgba(0,0,0,0.4);
+      animation: slideIn 0.3s ease;
+    }
+    .toast-success { background:#166534; border:1px solid #4ade80; color:#4ade80; }
+    .toast-error   { background:#7f1d1d; border:1px solid #f87171; color:#f87171; }
+    .toast-info    { background:#1e3a5f; border:1px solid #60a5fa; color:#93c5fd; }
+    @keyframes slideIn { from{opacity:0;transform:translateX(40px)} to{opacity:1;transform:none} }
+
+    .spinner { display:inline-block; width:14px; height:14px; border:2px solid rgba(255,255,255,0.3); border-top-color:#fff; border-radius:50%; animation:spin .6s linear infinite; }
+    @keyframes spin { to{transform:rotate(360deg)} }
+  </style>
+</head>
+<body>
+
+<!-- Sidebar (공통) -->
+<div class="sidebar" id="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon"><i class="fas fa-coins"></i></div>
+    <div class="logo-text">DANGUN<span>관리자</span></div>
+  </div>
+  <nav class="sidebar-nav">
+    <a href="dashboard.html"  class="nav-item"><i class="fas fa-chart-line"></i><span>대시보드</span></a>
+    <a href="members.html"    class="nav-item"><i class="fas fa-users"></i><span>회원관리</span></a>
+    <a href="deposit.html"    class="nav-item"><i class="fas fa-arrow-circle-down"></i><span>투자금 입금</span></a>
+    <a href="withdrawal.html" class="nav-item"><i class="fas fa-arrow-circle-up"></i><span>출금관리</span></a>
+    <a href="commission.html" class="nav-item"><i class="fas fa-percentage"></i><span>직급수당</span></a>
+    <a href="simulate.html"   class="nav-item"><i class="fas fa-play-circle"></i><span>지급 시뮬레이션</span></a>
+    <a href="reset.html"      class="nav-item active"><i class="fas fa-trash-alt"></i><span>초기화/회원추가</span></a>
+  </nav>
+  <div class="sidebar-footer">
+    <button class="btn btn-outline btn-sm w-full" onclick="logout()"><i class="fas fa-sign-out-alt"></i> 로그아웃</button>
+  </div>
+</div>
+
+<div class="main-content">
+  <header class="top-header">
+    <button class="menu-toggle" onclick="toggleSidebar()"><i class="fas fa-bars"></i></button>
+    <div class="header-title">데이터 관리</div>
+    <div class="header-actions">
+      <span id="admin-name-display" style="font-size:13px;color:var(--text-muted);"></span>
+    </div>
+  </header>
+
+  <div style="padding:0 28px 40px;">
+    <div class="page-header">
+      <div class="page-title"><i class="fas fa-database" style="color:var(--accent-gold);margin-right:10px;"></i>데이터 초기화 / 회원 추가</div>
+      <div class="page-sub">데이터 초기화는 되돌릴 수 없습니다. 신중하게 사용하세요.</div>
+    </div>
+
+    <!-- ── 섹션 1: 관리자 회원 추가 ── -->
+    <div class="section-card">
+      <div class="section-title"><i class="fas fa-user-plus" style="color:var(--accent-gold);"></i> 회원 직접 추가</div>
+
+      <form id="add-member-form" onsubmit="handleAddMember(event)">
+        <div class="form-grid-2">
+          <div class="form-group">
+            <label>아이디 <span style="color:#f87171">*</span></label>
+            <input type="text" class="form-control" id="am-id" placeholder="영문+숫자 조합" required>
+          </div>
+          <div class="form-group">
+            <label>비밀번호 <span style="color:#f87171">*</span></label>
+            <input type="password" class="form-control" id="am-pw" placeholder="6자 이상" required minlength="6">
+          </div>
+          <div class="form-group">
+            <label>이름 <span style="color:#f87171">*</span></label>
+            <input type="text" class="form-control" id="am-name" placeholder="실명">
+          </div>
+          <div class="form-group">
+            <label>전화번호 <span style="color:#f87171">*</span></label>
+            <input type="text" class="form-control" id="am-phone" placeholder="010-0000-0000">
+          </div>
+          <div class="form-group">
+            <label>이메일</label>
+            <input type="email" class="form-control" id="am-email" placeholder="선택사항">
+          </div>
+          <div class="form-group">
+            <label>직급</label>
+            <select class="form-control" id="am-rank">
+              <option value="일반회원">일반회원</option>
+              <option value="팀장">팀장</option>
+              <option value="본부장">본부장</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>은행</label>
+            <input type="text" class="form-control" id="am-bank" placeholder="은행명">
+          </div>
+          <div class="form-group">
+            <label>계좌번호</label>
+            <input type="text" class="form-control" id="am-account" placeholder="계좌번호">
+          </div>
+        </div>
+
+        <div class="form-group" style="position:relative;">
+          <label>추천인 아이디 (선택)</label>
+          <input type="text" class="form-control" id="am-recommender-input"
+            placeholder="아이디 2자 이상 입력 후 자동검색"
+            oninput="searchRecommender(this.value, 'am-recommender-result', 'am-recommender-id', 'am-recommender-input')">
+          <div class="search-result" id="am-recommender-result"></div>
+          <input type="hidden" id="am-recommender-id">
+          <div id="am-recommender-selected" style="font-size:12px;color:var(--accent-gold-light);margin-top:4px;display:none;">
+            ✓ <span id="am-recommender-selected-text"></span>
+            <span style="cursor:pointer;margin-left:8px;color:var(--text-muted);" onclick="clearRecommender('am-recommender-id','am-recommender-input','am-recommender-selected')">✕ 해제</span>
+          </div>
+        </div>
+
+        <div style="display:flex;gap:12px;margin-top:8px;">
+          <button type="submit" class="btn btn-gold" style="min-width:160px;">
+            <i class="fas fa-user-plus"></i> 회원 추가
+          </button>
+          <button type="reset" class="btn btn-outline" onclick="resetAddForm()">초기화</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- ── 섹션 2: 데이터 초기화 ── -->
+    <div class="section-card danger-zone">
+      <div class="section-title danger-title"><i class="fas fa-exclamation-triangle" style="color:#f87171;"></i> 데이터 초기화</div>
+
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:20px;">
+        초기화할 항목을 선택 후 확인 문구를 입력하고 실행하세요. <strong style="color:#f87171;">되돌릴 수 없습니다.</strong>
+      </p>
+
+      <div class="reset-grid" id="reset-grid">
+        <div class="reset-card" data-target="members" onclick="toggleResetCard(this)">
+          <div class="chk"><i class="fas fa-check"></i></div>
+          <div class="icon">👥</div>
+          <div class="label">회원 전체</div>
+          <div class="count" id="cnt-members">-</div>
+          <div class="sub">명</div>
+        </div>
+        <div class="reset-card" data-target="investments" onclick="toggleResetCard(this)">
+          <div class="chk"><i class="fas fa-check"></i></div>
+          <div class="icon">💰</div>
+          <div class="label">투자금 내역</div>
+          <div class="count" id="cnt-investments">-</div>
+          <div class="sub">건</div>
+        </div>
+        <div class="reset-card" data-target="payouts" onclick="toggleResetCard(this)">
+          <div class="chk"><i class="fas fa-check"></i></div>
+          <div class="icon">📅</div>
+          <div class="label">이자 스케줄</div>
+          <div class="count" id="cnt-payouts">-</div>
+          <div class="sub">건</div>
+        </div>
+        <div class="reset-card" data-target="commissions" onclick="toggleResetCard(this)">
+          <div class="chk"><i class="fas fa-check"></i></div>
+          <div class="icon">🏆</div>
+          <div class="label">직급수당</div>
+          <div class="count" id="cnt-commissions">-</div>
+          <div class="sub">건</div>
+        </div>
+        <div class="reset-card" data-target="withdrawals" onclick="toggleResetCard(this)">
+          <div class="chk"><i class="fas fa-check"></i></div>
+          <div class="icon">💸</div>
+          <div class="label">출금신청</div>
+          <div class="count" id="cnt-withdrawals">-</div>
+          <div class="sub">건</div>
+        </div>
+        <div class="reset-card" data-target="logs" onclick="toggleResetCard(this)">
+          <div class="chk"><i class="fas fa-check"></i></div>
+          <div class="icon">📋</div>
+          <div class="label">활동 로그</div>
+          <div class="count" id="cnt-logs">-</div>
+          <div class="sub">건</div>
+        </div>
+      </div>
+
+      <!-- 전체 선택 / 전체 초기화 -->
+      <div style="display:flex;gap:10px;margin-bottom:20px;flex-wrap:wrap;">
+        <button class="btn btn-outline btn-sm" onclick="selectAll()">전체 선택</button>
+        <button class="btn btn-outline btn-sm" onclick="selectNone()">선택 해제</button>
+        <button class="btn btn-sm" style="background:rgba(239,68,68,0.15);border:1px solid rgba(239,68,68,0.4);color:#f87171;" onclick="selectAll(); document.getElementById('confirm-input').value=''; document.getElementById('confirm-input').focus();">
+          <i class="fas fa-bomb"></i> 전체 초기화 준비
+        </button>
+      </div>
+
+      <div class="confirm-row">
+        <input type="text" class="confirm-input" id="confirm-input" placeholder="확인 문구 'RESET' 을 입력하세요" autocomplete="off">
+        <button class="btn btn-sm" style="background:rgba(239,68,68,0.8);color:#fff;border:none;padding:10px 24px;" onclick="executeReset()">
+          <i class="fas fa-trash-alt"></i> 선택 항목 초기화
+        </button>
+      </div>
+
+      <div id="reset-result" style="margin-top:20px;display:none;">
+        <div style="font-size:13px;font-weight:600;color:#4ade80;margin-bottom:10px;">✅ 초기화 결과</div>
+        <table class="result-table" id="reset-result-table"></table>
+      </div>
+    </div>
+
+  </div><!-- /padding -->
+</div><!-- /main-content -->
+
+<!-- Toast -->
+<div class="toast-fixed" id="toast-container"></div>
+
+<script>
+/* ── Auth ── */
+const token = localStorage.getItem('dangun_token');
+const _adminData = (() => { try { return JSON.parse(localStorage.getItem('dangun_admin') || 'null'); } catch { return null; } })();
+if (!token || !_adminData?.id) { localStorage.removeItem('dangun_token'); localStorage.removeItem('dangun_admin'); location.href = '../index.html'; }
+
+function authHeader() { return { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }; }
+
+function logout() { localStorage.removeItem('dangun_token'); localStorage.removeItem('dangun_user'); localStorage.removeItem('dangun_admin'); location.href = '../index.html'; }
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+
+/* ── Toast ── */
+function showToast(msg, type='info', duration=3500) {
+  const c = document.getElementById('toast-container');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), duration);
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   초기화: 건수 로드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+async function loadCounts() {
+  try {
+    const res  = await fetch('/api/admin/reset-targets', { headers: authHeader() });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error);
+    document.getElementById('cnt-members').textContent     = data.members;
+    document.getElementById('cnt-investments').textContent = data.investments;
+    document.getElementById('cnt-payouts').textContent     = data.payouts;
+    document.getElementById('cnt-commissions').textContent = data.commissions;
+    document.getElementById('cnt-withdrawals').textContent = data.withdrawals;
+    document.getElementById('cnt-logs').textContent        = data.logs;
+  } catch(e) { showToast('건수 로드 실패: ' + e.message, 'error'); }
+}
+
+function toggleResetCard(el) { el.classList.toggle('active'); }
+function selectAll()  { document.querySelectorAll('.reset-card').forEach(c => c.classList.add('active')); }
+function selectNone() { document.querySelectorAll('.reset-card').forEach(c => c.classList.remove('active')); }
+
+async function executeReset() {
+  const selected = [...document.querySelectorAll('.reset-card.active')].map(c => c.dataset.target);
+  const confirmText = document.getElementById('confirm-input').value.trim();
+
+  if (selected.length === 0) { showToast('초기화할 항목을 선택하세요.', 'error'); return; }
+  if (confirmText !== 'RESET') { showToast("확인 문구 'RESET'을 정확히 입력하세요.", 'error'); return; }
+
+  if (!confirm(`[${selected.join(', ')}] 데이터를 삭제합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
+
+  const allResults = {};
+  for (const target of selected) {
+    try {
+      const res  = await fetch('/api/admin/reset', {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify({ target, confirm_text: 'RESET' })
+      });
+      const data = await res.json();
+      if (!res.ok) { allResults[target] = `오류: ${data.error}`; continue; }
+      Object.assign(allResults, data.deleted || {});
+      allResults[`[${target}]`] = '✅ 완료';
+    } catch(e) {
+      allResults[target] = `오류: ${e.message}`;
+    }
+  }
+
+  // 결과 표시
+  const tbl = document.getElementById('reset-result-table');
+  tbl.innerHTML = `<tr><th>항목</th><th>결과</th></tr>` +
+    Object.entries(allResults).map(([k,v]) =>
+      `<tr><td>${k}</td><td><span class="badge badge-green">${v}</span></td></tr>`
+    ).join('');
+  document.getElementById('reset-result').style.display = 'block';
+
+  showToast('초기화 완료!', 'success');
+  document.getElementById('confirm-input').value = '';
+  selectNone();
+  loadCounts();
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   회원추가: 추천인 검색
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+let searchTimer = null;
+function searchRecommender(q, resultId, hiddenId, inputId) {
+  clearTimeout(searchTimer);
+  const resultEl = document.getElementById(resultId);
+  if (!q || q.length < 2) { resultEl.classList.remove('open'); return; }
+
+  searchTimer = setTimeout(async () => {
+    try {
+      const res  = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`, { headers: authHeader() });
+      const rows = await res.json();
+      if (!Array.isArray(rows) || rows.length === 0) {
+        resultEl.innerHTML = `<div class="search-item"><span class="nm">검색 결과 없음</span></div>`;
+      } else {
+        resultEl.innerHTML = rows.map(m => `
+          <div class="search-item" onclick="selectRecommender('${m.user_id}','${m.name}','${m.rank}','${resultId}','${hiddenId}','${inputId}')">
+            <span class="uid">${m.user_id}</span>
+            <span class="nm">${m.name} · ${m.rank}</span>
+          </div>
+        `).join('');
+      }
+      resultEl.classList.add('open');
+    } catch { resultEl.classList.remove('open'); }
+  }, 300);
+}
+
+function selectRecommender(userId, name, rank, resultId, hiddenId, inputId) {
+  document.getElementById(hiddenId).value = userId;
+  document.getElementById(inputId).value  = userId;
+  document.getElementById(resultId).classList.remove('open');
+
+  const selDiv  = document.getElementById('am-recommender-selected');
+  const selText = document.getElementById('am-recommender-selected-text');
+  if (selDiv) {
+    selText.textContent = `${userId} (${name} · ${rank})`;
+    selDiv.style.display = 'block';
+  }
+}
+
+function clearRecommender(hiddenId, inputId, selId) {
+  document.getElementById(hiddenId).value = '';
+  document.getElementById(inputId).value  = '';
+  const el = document.getElementById(selId);
+  if (el) el.style.display = 'none';
+}
+
+function resetAddForm() {
+  document.getElementById('am-recommender-id').value = '';
+  document.getElementById('am-recommender-selected').style.display = 'none';
+}
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   회원 추가 Submit
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+async function handleAddMember(e) {
+  e.preventDefault();
+  const btn = e.target.querySelector('button[type=submit]');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 처리 중...';
+
+  const body = {
+    user_id:              document.getElementById('am-id').value.trim(),
+    password:             document.getElementById('am-pw').value,
+    name:                 document.getElementById('am-name').value.trim(),
+    phone:                document.getElementById('am-phone').value.trim(),
+    email:                document.getElementById('am-email').value.trim() || undefined,
+    rank:                 document.getElementById('am-rank').value,
+    bank_name:            document.getElementById('am-bank').value.trim(),
+    account_number:       document.getElementById('am-account').value.trim(),
+    recommender_user_id:  document.getElementById('am-recommender-id').value || undefined,
+  };
+
+  try {
+    const res  = await fetch('/api/admin/members', {
+      method: 'POST',
+      headers: authHeader(),
+      body: JSON.stringify(body)
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '추가 실패');
+
+    showToast(data.message, 'success');
+    e.target.reset();
+    resetAddForm();
+    loadCounts();
+  } catch(err) {
+    showToast(err.message, 'error');
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = '<i class="fas fa-user-plus"></i> 회원 추가';
+  }
+}
+
+/* ── 관리자 이름 표시 ── */
+(async () => {
+  try {
+    const res  = await fetch('/api/auth/me', { headers: authHeader() });
+    if (!res.ok) throw new Error();
+    const d = await res.json();
+    document.getElementById('admin-name-display').textContent = d.name || '';
+  } catch {}
+})();
+
+/* ── 닫기 이벤트 ── */
+document.addEventListener('click', e => {
+  if (!e.target.closest('[id$="-result"]') && !e.target.closest('input')) {
+    document.querySelectorAll('.search-result').forEach(el => el.classList.remove('open'));
+  }
+});
+
+loadCounts();
+</script>
+</body>
+</html>
