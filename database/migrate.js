@@ -197,6 +197,9 @@ async function migrate() {
   // ── 컬럼 추가 마이그레이션 (이미 존재해도 오류 무시) ──
   const alterQueries = [
     `ALTER TABLE rank_commissions ADD COLUMN withdraw_status TEXT NOT NULL DEFAULT 'pending'`,
+    // withdrawal_requests: 주간 지급 정보 컬럼 추가
+    `ALTER TABLE withdrawal_requests ADD COLUMN week_number INTEGER DEFAULT NULL`,
+    `ALTER TABLE withdrawal_requests ADD COLUMN investment_amount REAL DEFAULT 0`,
   ];
   for (const q of alterQueries) {
     try { await db.run(q); } catch(e) { /* 이미 존재하는 컬럼 - 무시 */ }

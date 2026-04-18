@@ -191,7 +191,7 @@
             <div class="stat-icon"><i class="fas fa-clock"></i></div>
             <div class="stat-value" id="kpi-pending">-</div>
             <div class="stat-label">출금 대기 건수</div>
-            <div class="stat-change down"><i class="fas fa-exclamation-circle"></i> 승인 필요</div>
+            <div class="stat-change down" id="kpi-pending-sub"><i class="fas fa-exclamation-circle"></i> 승인 필요</div>
           </div>
         </div>
 
@@ -429,13 +429,20 @@
     }
 
     function renderKPIs(d) {
-      const totalInvest    = d.invest_stats?.total_amount   || 0;
-      const weeklyPaid     = d.payout_stats?.paid_amount    || 0;
-      const commission     = d.comm_stats?.total_amount     || d.comm_stats?.total || 0;
-      const pendingCount   = d.withdraw_stats?.pending_count || d.payout_stats?.pending_count || 0;
-      const totalMembers   = d.member_stats?.total          || 0;
-      const activeMembers  = d.member_stats?.active_count   || 0;
-      const inactiveMembers= d.member_stats?.inactive_count || 0;
+      const totalInvest      = d.invest_stats?.total_amount   || 0;
+      const weeklyPaid       = d.payout_stats?.paid_amount    || 0;
+      const commission       = d.comm_stats?.total_amount     || d.comm_stats?.total || 0;
+      const withdrawPending  = d.withdraw_stats?.pending_count || 0;
+      const payoutPending    = d.payout_stats?.pending_count  || 0;
+      // 직급수당 출금 대기 건수 (백엔드에서 새로 추가된 필드)
+      const commPending      = d.comm_stats?.pending_comm_count || 0;
+      const commPendingAmt   = d.comm_stats?.pending_comm_amount || 0;
+      // 전체 출금대기 = 투자 출금 + 직급수당 출금대기
+      const pendingCount     = withdrawPending + commPending;
+
+      const totalMembers     = d.member_stats?.total          || 0;
+      const activeMembers    = d.member_stats?.active         || 0;
+      const inactiveMembers  = d.member_stats?.inactive       || 0;
 
       // 전체 회원
       const totalEl = document.getElementById('kpi-total-members');
@@ -443,9 +450,21 @@
       const activeBadge = document.getElementById('kpi-active-badge');
       if (activeBadge) activeBadge.innerHTML = `<i class="fas fa-user-check"></i> 활성 ${activeMembers}명`;
 
-      // 출금 대기
+      // 출금 대기 (투자 출금 + 직급수당 출금대기 합산)
       const pendingEl = document.getElementById('kpi-pending');
       if (pendingEl) pendingEl.textContent = pendingCount;
+
+      // 출금 대기 상세 (직급수당 출금대기 강조)
+      const pendingSubEl = document.getElementById('kpi-pending-sub');
+      if (pendingSubEl) {
+        if (commPending > 0) {
+          pendingSubEl.innerHTML = `<i class="fas fa-exclamation-circle"></i> 직급수당 ${commPending}건 대기`;
+          pendingSubEl.style.color = 'var(--accent-gold)';
+        } else {
+          pendingSubEl.innerHTML = `<i class="fas fa-exclamation-circle"></i> 승인 필요`;
+          pendingSubEl.style.color = '';
+        }
+      }
 
       document.getElementById('kpi-invest').textContent     = totalInvest >= 100000000
         ? '₩' + (totalInvest / 100000000).toFixed(1) + '억'
@@ -455,10 +474,10 @@
         ? '₩' + (commission / 10000).toFixed(0) + '만'
         : formatMoney(commission);
 
-      // 사이드바 맹원자 회원 배지
+      // 사이드바 미승인 회원 배지
       const mBadge = document.getElementById('badge-pending-members');
       if (mBadge) mBadge.textContent = inactiveMembers || 0;
-      // 출금 대기 배지
+      // 출금 대기 배지 (전체 합산)
       const wBadge = document.getElementById('badge-pending-withdraw');
       if (wBadge) wBadge.textContent = pendingCount || 0;
     }

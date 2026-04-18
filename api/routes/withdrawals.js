@@ -83,8 +83,15 @@ router.get('/', authAdmin, async (req, res) => {
     const where = conds.join(' AND ');
 
     const rows = await db.all(
-      `SELECT wr.*, m.user_id, m.name, m.rank
-       FROM withdrawal_requests wr JOIN members m ON m.id = wr.member_id
+      `SELECT wr.*,
+              m.user_id, m.name, m.rank, m.bank_name, m.account_number,
+              i.amount AS investment_amount,
+              (SELECT week_number FROM weekly_payouts wp
+               WHERE wp.member_id=wr.member_id AND wp.status='paid'
+               ORDER BY wp.week_number DESC LIMIT 1) AS week_number
+       FROM withdrawal_requests wr
+       JOIN members m ON m.id = wr.member_id
+       LEFT JOIN investments i ON i.member_id = wr.member_id AND i.status IN ('active','completed')
        WHERE ${where} ORDER BY wr.created_at DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );

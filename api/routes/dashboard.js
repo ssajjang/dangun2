@@ -45,7 +45,9 @@ router.get('/admin', authAdmin, async (req, res) => {
     const commStats = await db.get(
       `SELECT SUM(commission_amount) as total,
               SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END) as teamjang,
-              SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END) as bonbujang
+              SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END) as bonbujang,
+              SUM(CASE WHEN withdraw_status='pending' THEN commission_amount ELSE 0 END) as pending_comm_amount,
+              SUM(CASE WHEN withdraw_status='pending' THEN 1 ELSE 0 END) as pending_comm_count
        FROM rank_commissions WHERE status='paid'`
     );
 

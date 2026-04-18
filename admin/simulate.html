@@ -155,11 +155,18 @@
           <label>기준 날짜 (이 날짜까지 pending 건 처리)</label>
           <input type="date" class="form-control" id="target-date">
         </div>
-        <div class="control-group">
+        <div class="control-group" style="display:flex;flex-direction:column;justify-content:flex-end;">
+          <label style="display:flex;align-items:center;gap:8px;cursor:pointer;margin-bottom:10px;">
+            <input type="checkbox" id="force-all-check" style="accent-color:var(--accent-gold);width:16px;height:16px;">
+            <span style="font-size:13px;color:var(--accent-gold);font-weight:700;">전체 pending 처리 (날짜 무시)</span>
+          </label>
           <button class="btn-dry" id="btn-action" onclick="runAction()">
             <i class="fas fa-search"></i> 지급 예정 조회
           </button>
         </div>
+      </div>
+      <div id="force-all-warning" style="display:none;margin-top:12px;padding:10px 14px;background:rgba(234,179,8,0.1);border:1px solid rgba(234,179,8,0.3);border-radius:var(--radius-md);font-size:12px;color:#fbbf24;">
+        ⚠️ <strong>전체 pending 처리</strong>: 날짜 조건 없이 모든 미지급 건을 처리합니다. 테스트/시뮬레이션 용도로만 사용하세요.
       </div>
     </div>
 
@@ -245,6 +252,21 @@ function fmt(n) { return '₩' + Number(n||0).toLocaleString('ko-KR'); }
 const today = new Date().toISOString().slice(0,10);
 document.getElementById('target-date').value = today;
 
+/* ── force_all 체크박스 이벤트 ── */
+document.getElementById('force-all-check').addEventListener('change', function() {
+  const dateInput  = document.getElementById('target-date');
+  const warning    = document.getElementById('force-all-warning');
+  if (this.checked) {
+    dateInput.disabled = true;
+    dateInput.style.opacity = '0.4';
+    warning.style.display = '';
+  } else {
+    dateInput.disabled = false;
+    dateInput.style.opacity = '1';
+    warning.style.display = 'none';
+  }
+});
+
 /* ── 모드 관리 ── */
 let currentMode = 'preview'; // preview | dryrun | execute
 
@@ -296,10 +318,13 @@ function switchMode(mode) {
 /* ── 실행 ── */
 async function runAction() {
   const targetDate = document.getElementById('target-date').value;
-  if (!targetDate) { showToast('기준 날짜를 선택하세요.', 'error'); return; }
+  const forceAll   = document.getElementById('force-all-check').checked;
+
+  if (!forceAll && !targetDate) { showToast('기준 날짜를 선택하거나 "전체 pending 처리"를 체크하세요.', 'error'); return; }
 
   if (currentMode === 'execute') {
-    if (!confirm(`${targetDate}까지 지급 예정 건을 실제로 처리합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
+    const dateLabel = forceAll ? '(날짜 무관 전체)' : targetDate;
+    if (!confirm(`${dateLabel} 지급 예정 건을 실제로 처리합니다.\n이 작업은 되돌릴 수 없습니다. 계속하시겠습니까?`)) return;
   }
 
   const btn = document.getElementById('btn-action');
@@ -310,18 +335,25 @@ async function runAction() {
     let data;
 
     if (currentMode === 'preview') {
-      /* 미리보기: GET payout-preview */
-      const res = await fetch(`/api/admin/payout-preview?date=${targetDate}`, { headers: authHeader() });
+      /* 미리보기: GET payout-preview (force_all이면 먼 미래 날짜로 조회) */
+      const dateParam = forceAll ? '2099-12-31' : targetDate;
+      const res = await fetch(`/api/admin/payout-preview?date=${dateParam}`, { headers: authHeader() });
       data = await res.json();
       if (!res.ok) throw new Error(data.error);
-      renderPreview(data, targetDate);
+      renderPreview(data, forceAll ? '전체(날짜무관)' : targetDate);
     } else {
       /* 드라이런 or 실제 지급 */
       const dry_run = currentMode === 'dryrun';
+      const body = { dry_run };
+      if (forceAll) {
+        body.force_all = true;        // 날짜 무관 전체 pending
+      } else {
+        body.date_override = targetDate;
+      }
       const res = await fetch('/api/admin/simulate-payout', {
         method: 'POST',
         headers: authHeader(),
-        body: JSON.stringify({ date_override: targetDate, dry_run })
+        body: JSON.stringify(body)
       });
       data = await res.json();
       if (!res.ok) throw new Error(data.error);

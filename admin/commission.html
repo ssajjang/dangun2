@@ -165,6 +165,11 @@
                 <option value="paid">지급완료</option>
                 <option value="pending">대기</option>
               </select>
+              <select class="form-control" id="filter-withdraw-status-c" onchange="filterComm()" title="출금상태 필터">
+                <option value="">출금상태 전체</option>
+                <option value="pending">⏳ 출금대기</option>
+                <option value="done">✓ 출금완료</option>
+              </select>
               <button class="btn btn-outline btn-sm" onclick="clearFiltersC()"><i class="fas fa-redo"></i></button>
             </div>
             <!-- 전체선택 / 선택 출금 바 -->
@@ -222,18 +227,21 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
-      renderCharts();
+      // renderCharts는 오류 격리 처리 (Chart.js 로드 실패해도 테이블은 반드시 로드)
+      try { renderCharts(); } catch(e) { console.warn('[commission] 차트 렌더링 오류 (무시됨):', e.message); }
       await loadCommissions();
     });
 
     async function loadCommissions() {
-      const q      = document.getElementById('search-c').value.trim();
-      const rank   = document.getElementById('filter-rank-c').value;
-      const status = document.getElementById('filter-status-c').value;
+      const q               = document.getElementById('search-c').value.trim();
+      const rank            = document.getElementById('filter-rank-c').value;
+      const status          = document.getElementById('filter-status-c').value;
+      const withdrawStatus  = document.getElementById('filter-withdraw-status-c')?.value || '';
       const params = { page: currentPageC, limit: PAGE_LIMIT_C };
-      if (q)      params.search = q;
-      if (rank)   params.rank   = rank;
-      if (status) params.status = status;
+      if (q)              params.search          = q;
+      if (rank)           params.rank            = rank;
+      if (status)         params.status          = status;
+      if (withdrawStatus) params.withdraw_status = withdrawStatus;
 
       try {
         const data = await CommissionsAPI.list(params);
@@ -257,6 +265,8 @@
       document.getElementById('search-c').value = '';
       document.getElementById('filter-rank-c').value = '';
       document.getElementById('filter-status-c').value = '';
+      const wsEl = document.getElementById('filter-withdraw-status-c');
+      if (wsEl) wsEl.value = '';
       currentPageC = 1;
       loadCommissions();
     }

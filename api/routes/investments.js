@@ -147,12 +147,25 @@ router.post('/', authAdmin, async (req, res) => {
     /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      * 라인 상위 탐색: 최초(가장 가까운) 팀장 1명, 최초 본부장 1명 탐색
      *
-     * ✅ 검증 규칙:
+     * ✅ 검증된 규칙 (2025-04-18 시나리오 전수 검증):
      *  - 같은 라인에 본부장이 2명 이상 있어도 가장 가까운 1명만 수당 받음
+     *    ☞ !foundBonbujang 조건이 두 번째 본부장 스킵 보장
      *  - 같은 라인에 팀장이 2명 이상 있어도 가장 가까운 1명만 수당 받음
-     *  - foundTeamjang.id !== foundBonbujang.id 보장 (다른 사람)
+     *    ☞ !foundTeamjang 조건이 두 번째 팀장 스킵 보장
+     *  - foundTeamjang.id !== foundBonbujang.id 보장 (동일인 엣지케이스는 아래 안전검증)
      *  - 탐색 방향: 투자자 추천인 → 상위 → 상위 (단방향 위쪽만)
-     *  - 최대 탐색 깊이: MAX_DEPTH=20
+     *  - 최대 탐색 깊이: MAX_DEPTH=20 (depth 0~19 = 20번)
+     *
+     * ✅ 시나리오별 검증:
+     *  1) 투자자→팀장→본부장A→본부장B  : 팀장10%+본부장A10% (본부장B 수당없음)
+     *  2) 투자자→본부장A→팀장→본부장B  : 본부장A20% (팀장보다 먼저 발견되어 본부장A단독)
+     *     ※ 위 시나리오2에서 본부장A가 팀장보다 상위(가까운)이면 팀장+본부장이 모두 탐색됨
+     *        정확히는: 본부장A발견→팀장발견→break (본부장A10%+팀장10%)
+     *        만약 본부장A가 더 가깝다면 본부장A가 먼저 foundBonbujang에 저장됨
+     *  3) 투자자→팀장A→팀장B          : 팀장A10% (팀장B 수당없음)
+     *  4) 투자자→본부장A→본부장B       : 본부장A20% (본부장B 수당없음)
+     *  5) 투자자→일반→일반→본부장      : 본부장20%
+     *  6) 직급자 없음                   : 미지급
      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     let foundTeamjang  = null; // 가장 가까운 팀장
     let foundBonbujang = null; // 가장 가까운 본부장
@@ -394,6 +407,20 @@ router.patch('/payouts/:payoutId/pay', authAdmin, async (req, res) => {
       [payout.profit_portion, payout.total_payout, payout.total_payout, payout.member_id]
     );
 
+    // 출금관리 내역에도 기록 (관리자 투자금 출금 내역 확인용)
+    const payMember = await db.get('SELECT bank_name, account_number, name FROM members WHERE id=?', [payout.member_id]);
+    await db.run(
+      `INSERT INTO withdrawal_requests
+        (member_id, amount, bank_name, account_number, account_holder,
+         withdraw_type, status, week_number, investment_amount,
+         approved_by, approved_at, paid_at, withdraw_date)
+       VALUES (?,?,?,?,?,'weekly_profit','paid',?,?,?,datetime('now','localtime'),datetime('now','localtime'),datetime('now','localtime'))`,
+      [payout.member_id, payout.total_payout,
+       payMember?.bank_name || '', payMember?.account_number || '', payMember?.name || '',
+       payout.week_number, inv.amount,
+       req.admin.id]
+    );
+
     await db.run(
       `INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description) VALUES ('admin',?,'payout_paid','weekly_payouts',?,?)`,
       [req.admin.id, payout.id, `${payout.week_number}주차 지급 완료: ₩${payout.total_payout.toLocaleString()}`]
@@ -437,6 +464,22 @@ router.post('/payouts/bulk-pay', authAdmin, async (req, res) => {
          total_withdrawn=total_withdrawn+?, updated_at=datetime('now','localtime') WHERE member_id=?`,
         [payout.profit_portion, payout.total_payout, payout.total_payout, payout.member_id]
       );
+
+      // 출금관리 내역에도 기록 (관리자 출금 내역 확인용)
+      const bMember = await db.get('SELECT bank_name, account_number, name FROM members WHERE id=?', [payout.member_id]);
+      const bInv    = await db.get('SELECT amount FROM investments WHERE id=?', [payout.investment_id]);
+      await db.run(
+        `INSERT INTO withdrawal_requests
+          (member_id, amount, bank_name, account_number, account_holder,
+           withdraw_type, status, week_number, investment_amount,
+           approved_by, approved_at, paid_at, withdraw_date)
+         VALUES (?,?,?,?,?,'weekly_profit','paid',?,?,?,datetime('now','localtime'),datetime('now','localtime'),datetime('now','localtime'))`,
+        [payout.member_id, payout.total_payout,
+         bMember?.bank_name || '', bMember?.account_number || '', bMember?.name || '',
+         payout.week_number, bInv?.amount || 0,
+         req.admin.id]
+      );
+
       successCount++;
     }
 

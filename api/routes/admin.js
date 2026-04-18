@@ -179,17 +179,30 @@ router.post('/simulate-payout', authAdmin, async (req, res) => {
     const { date_override, dry_run } = req.body;
     const isDryRun = dry_run === true;
 
+    // force_all=true 이면 날짜 무관하게 전체 pending 처리 (시뮬레이션 편의용)
+    const forceAll = req.body.force_all === true;
+
     // 기준 날짜: 요청한 날짜 or 오늘
     const targetDate = date_override || new Date().toISOString().slice(0, 10);
 
-    // 지급 대상 조회
-    const duePayouts = await db.all(
-      `SELECT wp.*, m.user_id, m.name, m.bank_name, m.account_number
-       FROM weekly_payouts wp JOIN members m ON m.id = wp.member_id
-       WHERE wp.status = 'pending' AND wp.scheduled_date <= ?
-       ORDER BY wp.scheduled_date, wp.member_id`,
-      [targetDate]
-    );
+    // 지급 대상 조회 (force_all=true 이면 날짜 조건 없이 전체 pending)
+    let duePayouts;
+    if (forceAll) {
+      duePayouts = await db.all(
+        `SELECT wp.*, m.user_id, m.name, m.bank_name, m.account_number
+         FROM weekly_payouts wp JOIN members m ON m.id = wp.member_id
+         WHERE wp.status = 'pending'
+         ORDER BY wp.scheduled_date, wp.member_id`
+      );
+    } else {
+      duePayouts = await db.all(
+        `SELECT wp.*, m.user_id, m.name, m.bank_name, m.account_number
+         FROM weekly_payouts wp JOIN members m ON m.id = wp.member_id
+         WHERE wp.status = 'pending' AND wp.scheduled_date <= ?
+         ORDER BY wp.scheduled_date, wp.member_id`,
+        [targetDate]
+      );
+    }
 
     if (duePayouts.length === 0) {
       return res.json({
@@ -220,7 +233,7 @@ router.post('/simulate-payout', authAdmin, async (req, res) => {
       };
 
       if (!isDryRun) {
-        // 실제 지급 처리
+        // 실제 지급 처리 ① weekly_payouts 상태 업데이트
         await db.run(
           `UPDATE weekly_payouts SET status='paid', paid_date=datetime('now','localtime'),
            approved_by=?, approved_at=datetime('now','localtime'), updated_at=datetime('now','localtime')
@@ -228,10 +241,11 @@ router.post('/simulate-payout', authAdmin, async (req, res) => {
           [adminId, payout.id]
         );
 
+        // ② investments 업데이트
         const newWeek    = Math.max(inv.current_week, payout.week_number);
         const paidAmount = inv.paid_amount + payout.total_payout;
         const remaining  = Math.max(inv.remaining_amount - payout.total_payout, 0);
-        const status     = newWeek >= inv.total_weeks ? 'completed' : 'active';
+        const invStatus  = newWeek >= inv.total_weeks ? 'completed' : 'active';
 
         const nextP = await db.get(
           `SELECT scheduled_date FROM weekly_payouts WHERE investment_id=? AND week_number>? AND status='pending' ORDER BY week_number LIMIT 1`,
@@ -240,19 +254,36 @@ router.post('/simulate-payout', authAdmin, async (req, res) => {
 
         await db.run(
           `UPDATE investments SET current_week=?, paid_amount=?, remaining_amount=?, next_pay_date=?, status=?, updated_at=datetime('now','localtime') WHERE id=?`,
-          [newWeek, paidAmount, remaining, nextP?.scheduled_date || null, status, payout.investment_id]
+          [newWeek, paidAmount, remaining, nextP?.scheduled_date || null, invStatus, payout.investment_id]
         );
 
+        // ③ 지갑: 이익 누적 + 가용 잔액 증가 + 대기 지급액 감소
         await db.run(
           `UPDATE member_wallets SET total_profit=total_profit+?, available_balance=available_balance+?,
            pending_payout=MAX(pending_payout-?,0), updated_at=datetime('now','localtime') WHERE member_id=?`,
           [payout.profit_portion, payout.total_payout, payout.total_payout, payout.member_id]
         );
 
+        // ④ withdrawal_requests에 지급 내역 기록 (투자금 주간 지급 자동 기록)
+        //    - 관리자 출금관리 화면에서 지급완료 내역 확인 가능하도록 기록
+        const member = await db.get('SELECT bank_name, account_number, name FROM members WHERE id=?', [payout.member_id]);
+        await db.run(
+          `INSERT INTO withdrawal_requests
+            (member_id, amount, bank_name, account_number, account_holder,
+             withdraw_type, status, week_number, investment_amount,
+             approved_by, approved_at, paid_at, withdraw_date)
+           VALUES (?,?,?,?,?,'weekly_profit','paid',?,?,?,datetime('now','localtime'),datetime('now','localtime'),datetime('now','localtime'))`,
+          [payout.member_id, payout.total_payout,
+           member?.bank_name || '', member?.account_number || '', member?.name || '',
+           payout.week_number, inv.amount,
+           adminId]
+        );
+
+        // ⑤ 활동 로그
         await db.run(
           `INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description)
            VALUES ('admin',?,'sim_payout','weekly_payouts',?,?)`,
-          [req.admin.id, payout.id, `[시뮬레이션] ${payout.week_number}주차 지급: ${payout.user_id} ₩${payout.total_payout.toLocaleString()}`]
+          [req.admin.id, payout.id, `${payout.week_number}주차 지급 완료: ${payout.user_id} ₩${payout.total_payout.toLocaleString()}`]
         );
       }
 
