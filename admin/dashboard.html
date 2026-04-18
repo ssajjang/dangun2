@@ -341,8 +341,18 @@
     }
 
     async function loadDashboard() {
+      // API 객체 존재 여부 확인
+      if (typeof DashboardAPI === 'undefined') {
+        showToast('API 모듈이 로드되지 않았습니다. 페이지를 새로고침하세요.', 'error');
+        console.error('[dashboard] DashboardAPI is not defined - api.js 로드 확인 필요');
+        return;
+      }
       try {
         const data = await DashboardAPI.admin();
+        if (!data) {
+          showToast('대시보드 데이터를 불러올 수 없습니다.', 'error');
+          return;
+        }
         _dashData = data;
         renderKPIs(data);
         renderCharts(data);
@@ -350,9 +360,32 @@
         renderActivityLog(data);
         renderWeeklyPayouts(data);
       } catch(err) {
-        showToast('대시보드 데이터 로드 오류: ' + err.message, 'error');
-        console.error(err);
+        console.error('[dashboard] loadDashboard error:', err);
+        const msg = err.message || '알 수 없는 오류';
+        if (msg.includes('401') || msg.includes('403') || msg.includes('인증')) {
+          showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+          setTimeout(() => { Auth.clear(); location.replace('/index.html'); }, 2000);
+        } else if (msg.includes('404') || msg.includes('경로')) {
+          showToast('API 서버에 연결할 수 없습니다. 서버 상태를 확인하세요.', 'error');
+          renderEmptyDashboard();
+        } else {
+          showToast('대시보드 데이터 로드 오류: ' + msg, 'error');
+          renderEmptyDashboard();
+        }
       }
+    }
+
+    function renderEmptyDashboard() {
+      // 빈 데이터로 UI 초기화
+      const emptyData = {
+        member_stats: {}, invest_stats: {}, payout_stats: {}, comm_stats: {},
+        withdraw_stats: {}, monthly_invest: [], recent_activities: [],
+        weekly_pending: [], withdraw_pending: [], pending_members: []
+      };
+      try { renderKPIs(emptyData); } catch(e) {}
+      try { renderPendingLists(emptyData); } catch(e) {}
+      try { renderActivityLog(emptyData); } catch(e) {}
+      try { renderWeeklyPayouts(emptyData); } catch(e) {}
     }
 
     function renderKPIs(d) {

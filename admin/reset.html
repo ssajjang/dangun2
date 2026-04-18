@@ -320,16 +320,21 @@
 
 <!-- Toast -->
 <div class="toast-fixed" id="toast-container"></div>
+<script src="../js/app.js"></script>
+<script src="../js/api.js"></script>
 
 <script>
 /* ── Auth ── */
+// ── 초기화 / 회원추가 페이지 스크립트 ──
+// app.js / api.js는 위에서 <script src> 태그로 로드됨
 const token = localStorage.getItem('dangun_token');
 function authHeader() { return { 'Content-Type':'application/json', 'Authorization':'Bearer ' + token }; }
-// doLogout()은 api.js에서 전역으로 등록됨
+// doLogout()은 api.js에서 전역으로 등록됨 (위의 <script src="../js/api.js">에서 로드)
 function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
 
 /* ── Toast ── */
-function showToast(msg, type='info', duration=3500) {
+// showToast()는 app.js에서 전역으로 등록됨
+function _showToast_reset_unused(msg, type='info', duration=3500) {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;

@@ -220,14 +220,17 @@
 </div>
 
 <div class="toast-fixed" id="toast-container"></div>
+<script src="../js/app.js"></script>
+<script src="../js/api.js"></script>
 
 <script>
 const token = localStorage.getItem('dangun_token');
 function authHeader() { return { 'Content-Type':'application/json','Authorization':'Bearer '+token }; }
-// doLogout()은 api.js에서 전역으로 등록됨
+// doLogout()은 api.js에서 전역으로 등록됨 (위의 <script src="../js/api.js">에서 로드)
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
 
-function showToast(msg, type='info', dur=3500) {
+// showToast()는 app.js에서 전역으로 등록됨
+function _showToast_sim_unused(msg, type='info', dur=3500) {
   const c = document.getElementById('toast-container');
   const t = document.createElement('div');
   t.className = `toast toast-${type}`;

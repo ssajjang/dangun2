@@ -1,9 +1,8 @@
 /**
  * DANGUN 금융플랫폼 - 공통 JavaScript
  * theme, toast, sidebar, formatting, API helpers
+ * ※ 'use strict' 제거: api.js와 동일 전역 스코프에서 로드되어 const 재선언 충돌 방지
  */
-
-'use strict';
 
 // ============================================================
 // Theme Management
@@ -288,121 +287,13 @@ function renderPagination(containerId, total, current, limit, onPage) {
 }
 
 // ============================================================
-// PHP API Configuration
-// (PHP 개발자가 실제 서버 URL로 교체)
-// ============================================================
-const API_BASE = window.API_BASE || '/api';
-
-async function apiGet(endpoint, params = {}) {
-  const qs = new URLSearchParams(params).toString();
-  const url = `${API_BASE}${endpoint}${qs ? '?' + qs : ''}`;
-  try {
-    const res = await fetch(url, {
-      headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' }
-    });
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
-  } catch (err) {
-    console.warn('[API GET]', url, err.message);
-    return null;
-  }
-}
-
-async function apiPost(endpoint, body = {}) {
-  const url = `${API_BASE}${endpoint}`;
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    return await res.json();
-  } catch (err) {
-    console.warn('[API POST]', url, err.message);
-    return null;
-  }
-}
-
-async function apiPatch(endpoint, body = {}) {
-  const url = `${API_BASE}${endpoint}`;
-  try {
-    const res = await fetch(url, {
-      method: 'PATCH',
-      headers: { 'Authorization': `Bearer ${getToken()}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify(body)
-    });
-    return await res.json();
-  } catch (err) {
-    console.warn('[API PATCH]', url, err.message);
-    return null;
-  }
-}
-
-function getToken() {
-  return localStorage.getItem('dangun_token') || '';
-}
-
-function setToken(token) {
-  localStorage.setItem('dangun_token', token);
-}
-
-function clearToken() {
-  localStorage.removeItem('dangun_token');
-  localStorage.removeItem('dangun_user');
-}
-
-function getUser() {
-  try { return JSON.parse(localStorage.getItem('dangun_user') || '{}'); } catch { return {}; }
-}
-
-function setUser(user) {
-  localStorage.setItem('dangun_user', JSON.stringify(user));
-}
-
-// ============================================================
-// Demo Data (PHP 연동 전 UI 확인용)
-// ============================================================
-const DEMO_DATA = {
-  member: {
-    id: 1, user_id: 'kim2024', name: '김철수',
-    rank: '팀장', investment_total: 5000000,
-    investment_date: '2025-01-10',
-    bank_name: '국민은행', account_number: '123-456-789012',
-    email: 'kim@example.com', phone: '010-1234-5678',
-    current_week: 8, total_weeks: 15,
-    paid_amount: 2933333, remaining_amount: 2566667,
-    weekly_payout: 366667,
-  },
-  payouts: Array.from({length: 15}, (_, i) => ({
-    id: i+1,
-    week_number: i+1,
-    principal_portion: 333333,
-    profit_portion: 33333,
-    total_payout: 366666,
-    balance_before: 5500000 - i * 366666,
-    balance_after: 5500000 - (i+1) * 366666,
-    scheduled_date: new Date(2025, 0, 10 + (i+1)*7).toISOString().slice(0,10),
-    paid_date: i < 8 ? new Date(2025, 0, 10 + (i+1)*7).toISOString() : null,
-    status: i < 8 ? 'paid' : 'pending',
-    is_partial: 0,
-  })),
-  referrals: [
-    { id: 2, user_id: 'lee2024', name: '이영희', rank: '일반회원', investment_total: 2000000, investment_date: '2025-01-15', recommender_id: 1, children: [
-      { id: 4, user_id: 'son2024', name: '손나은', rank: '일반회원', investment_total: 1000000, investment_date: '2025-01-20', recommender_id: 2, children: [] },
-      { id: 5, user_id: 'kang2024', name: '강민재', rank: '일반회원', investment_total: 3000000, investment_date: '2025-01-22', recommender_id: 2, children: [] },
-    ]},
-    { id: 3, user_id: 'park2024', name: '박민준', rank: '일반회원', investment_total: 1500000, investment_date: '2025-01-18', recommender_id: 1, children: [
-      { id: 6, user_id: 'oh2024', name: '오세진', rank: '일반회원', investment_total: 800000, investment_date: '2025-01-25', recommender_id: 3, children: [] },
-    ]},
-  ],
-};
-
-// ============================================================
-// Logout
+// Logout (레거시 호환 - doLogout()으로 위임)
 // ============================================================
 function logout() {
-  clearToken();
-  window.location.href = '/index.html';
+  localStorage.removeItem('dangun_token');
+  localStorage.removeItem('dangun_user');
+  localStorage.removeItem('dangun_admin');
+  window.location.replace('/index.html');
 }
 
 // ============================================================

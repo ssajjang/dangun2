@@ -316,138 +316,159 @@
   </div>
 
   <script src="../js/app.js"></script>
+  <script src="../js/api.js"></script>
   <script>
-    const member = DEMO_DATA.member;
-    const payouts = DEMO_DATA.payouts;
+    // 인증 체크
+    (function(){
+      var t=localStorage.getItem('dangun_token');
+      var u=null;try{u=JSON.parse(localStorage.getItem('dangun_user')||'null');}catch(e){}
+      if(!t||!u||!u.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_user');localStorage.removeItem('dangun_admin');location.replace('/index.html');}
+    })();
 
-    document.addEventListener('DOMContentLoaded', () => {
+    let _memberData = null;
+    let _payoutsData = [];
+    let _chartInstance = null;
+
+    document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
-      renderBanner();
-      renderChart();
-      renderSummaryTable();
-      renderTimeline();
+      await loadPayouts();
     });
 
-    function renderBanner() {
-      document.getElementById('ban-invest').textContent = formatMoney(member.investment_total);
-      document.getElementById('ban-weekly').textContent = formatMoney(member.weekly_payout);
-      document.getElementById('ban-paid').textContent = formatMoney(member.paid_amount);
-      document.getElementById('ban-remain').textContent = formatMoney(member.remaining_amount);
-      document.getElementById('ban-subs').textContent = '6명';
+    async function loadPayouts() {
+      try {
+        // 내 투자 정보
+        const invData = await InvestmentsAPI.my();
+        const investments = (invData && invData.investments) ? invData.investments : (Array.isArray(invData) ? invData : []);
+        const inv = investments[0] || null;
+
+        // 내 지급 스케줄
+        const memberInfo = Auth.getUser();
+        _memberData = memberInfo;
+
+        if (inv) {
+          _payoutsData = await InvestmentsAPI.payouts(inv.id).catch(()=>[]);
+          if (!Array.isArray(_payoutsData)) _payoutsData = _payoutsData.payouts || [];
+        }
+
+        // 사이드바 회원정보 업데이트
+        const nameEl = document.querySelector('.sidebar .user-name');
+        const rankEl = document.querySelector('.sidebar .user-rank');
+        if (nameEl) nameEl.textContent = memberInfo.name || '-';
+        if (rankEl) rankEl.textContent = memberInfo.rank || '-';
+
+        renderBanner(inv);
+        renderChart(inv);
+        renderSummaryTable();
+        renderTimeline(inv);
+      } catch(err) {
+        showToast('지급 내역 로드 실패: ' + err.message, 'error');
+        console.error(err);
+      }
     }
 
-    function renderChart() {
+    function renderBanner(inv) {
+      if (!inv) {
+        document.getElementById('ban-invest').textContent = '-';
+        document.getElementById('ban-weekly').textContent = '-';
+        document.getElementById('ban-paid').textContent = '-';
+        document.getElementById('ban-remain').textContent = '-';
+        document.getElementById('ban-subs').textContent = '-';
+        return;
+      }
+      const weeklyPayout = inv.total_amount ? Math.round(inv.total_amount * 1.1 / 15) : 0;
+      document.getElementById('ban-invest').textContent = formatMoney(inv.amount || inv.total_amount || 0);
+      document.getElementById('ban-weekly').textContent = formatMoney(weeklyPayout);
+      document.getElementById('ban-paid').textContent = formatMoney(inv.paid_amount || 0);
+      document.getElementById('ban-remain').textContent = formatMoney(inv.remaining_amount || 0);
+      document.getElementById('ban-subs').textContent = '-';
+    }
+
+    function renderChart(inv) {
+      const payouts = _payoutsData;
+      if (!payouts || payouts.length === 0) return;
       const ctx = document.getElementById('payoutChart').getContext('2d');
-      const labels = payouts.map(p => `${p.week_number}주`);
-      const paidData = payouts.map(p => p.status === 'paid' ? p.total_payout : 0);
-      const pendingData = payouts.map(p => p.status === 'pending' ? p.total_payout : 0);
-      const balanceData = payouts.map(p => p.balance_after);
+      const labels = payouts.map(p => p.week_number + '주');
+      const paidData = payouts.map(p => p.status === 'paid' ? (p.total_payout || 0) : 0);
+      const pendingData = payouts.map(p => p.status === 'pending' ? (p.total_payout || 0) : 0);
+      const balanceData = payouts.map(p => p.balance_after || 0);
 
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
       const textColor = isDark ? 'rgba(200,200,230,0.7)' : 'rgba(50,50,80,0.7)';
 
-      new Chart(ctx, {
+      if (_chartInstance) _chartInstance.destroy();
+      _chartInstance = new Chart(ctx, {
         type: 'bar',
         data: {
-          labels,
+          labels: labels,
           datasets: [
-            {
-              label: '지급 완료',
-              data: paidData,
-              backgroundColor: 'rgba(39,174,96,0.7)',
-              borderColor: 'rgba(39,174,96,1)',
-              borderWidth: 1,
-              borderRadius: 4,
-            },
-            {
-              label: '지급 예정',
-              data: pendingData,
-              backgroundColor: 'rgba(212,160,23,0.3)',
-              borderColor: 'rgba(212,160,23,0.6)',
-              borderWidth: 1,
-              borderRadius: 4,
-            },
-            {
-              label: '잔고',
-              data: balanceData,
-              type: 'line',
-              borderColor: 'rgba(90,123,255,0.8)',
-              backgroundColor: 'rgba(90,123,255,0.05)',
-              borderWidth: 2,
-              pointRadius: 3,
-              fill: false,
-              yAxisID: 'y2',
-              tension: 0.4,
-            }
+            { label: '지급 완료', data: paidData, backgroundColor: 'rgba(39,174,96,0.7)', borderColor: 'rgba(39,174,96,1)', borderWidth: 1, borderRadius: 4 },
+            { label: '지급 예정', data: pendingData, backgroundColor: 'rgba(212,160,23,0.3)', borderColor: 'rgba(212,160,23,0.6)', borderWidth: 1, borderRadius: 4 },
+            { label: '잔고', data: balanceData, type: 'line', borderColor: 'rgba(90,123,255,0.8)', backgroundColor: 'rgba(90,123,255,0.05)', borderWidth: 2, pointRadius: 3, fill: false, yAxisID: 'y2', tension: 0.4 }
           ]
         },
         options: {
           responsive: true, maintainAspectRatio: false,
           plugins: {
             legend: { position: 'top', labels: { color: textColor, font: { size: 11 }, boxWidth: 12 } },
-            tooltip: {
-              callbacks: {
-                label: ctx => ` ${ctx.dataset.label}: ${Number(ctx.raw).toLocaleString()}원`
-              }
-            }
+            tooltip: { callbacks: { label: function(c) { return ' ' + c.dataset.label + ': ' + Number(c.raw).toLocaleString() + '원'; } } }
           },
           scales: {
             x: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 } } },
-            y: {
-              grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 },
-              callback: v => (v / 1000).toFixed(0) + 'K' },
-              stacked: false,
-            },
-            y2: {
-              position: 'right',
-              grid: { display: false },
-              ticks: { color: textColor, font: { size: 10 }, callback: v => (v/10000).toFixed(0)+'만' }
-            }
+            y: { grid: { color: gridColor }, ticks: { color: textColor, font: { size: 10 }, callback: function(v){ return (v/1000).toFixed(0)+'K'; } }, stacked: false },
+            y2: { position: 'right', grid: { display: false }, ticks: { color: textColor, font: { size: 10 }, callback: function(v){ return (v/10000).toFixed(0)+'만'; } } }
           }
         }
       });
 
-      document.getElementById('chart-week-badge').textContent = `${member.current_week}/${member.total_weeks}주`;
+      const currentWeek = inv ? (inv.current_week || 0) : 0;
+      const totalWeeks  = inv ? (inv.total_weeks || 15) : 15;
+      document.getElementById('chart-week-badge').textContent = currentWeek + '/' + totalWeeks + '주';
     }
 
     function renderSummaryTable() {
+      const payouts = _payoutsData;
       const tbody = document.getElementById('payout-summary-tbody');
-      tbody.innerHTML = payouts.map(p => `
+      if (!payouts || payouts.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">투자 내역이 없습니다</td></tr>';
+        return;
+      }
+      tbody.innerHTML = payouts.map(function(p) { return `
         <tr>
-          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">
-            ${p.week_number}주
-          </td>
+          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${p.week_number}주</td>
           <td style="font-size:12px;">${formatDate(p.scheduled_date)}</td>
           <td style="font-weight:700;">${formatMoney(p.total_payout)}</td>
           <td style="font-size:12px;color:var(--text-muted);">${formatMoney(p.balance_after)}</td>
           <td>${statusBadge(p.status)}</td>
         </tr>
-      `).join('');
+      `; }).join('');
     }
 
-    function renderTimeline() {
+    function renderTimeline(inv) {
+      const payouts = _payoutsData;
       const container = document.getElementById('payout-timeline');
-      const totalPayout = member.investment_total + Math.round(member.investment_total * 0.1);
+      const currentWeek = inv ? (inv.current_week || 0) : 0;
 
-      container.innerHTML = payouts.map((p, i) => {
-        let cls = 'pending';
+      if (!payouts || payouts.length === 0) {
+        container.innerHTML = '<div style="text-align:center;padding:30px;color:var(--text-muted);">투자 지급 내역이 없습니다</div>';
+        return;
+      }
+
+      container.innerHTML = payouts.map(function(p, i) {
+        var cls = 'pending';
         if (p.status === 'paid') cls = 'paid';
-        else if (i === member.current_week) cls = 'current';
+        else if (p.week_number === currentWeek + 1) cls = 'current';
 
-        return `
-          <div class="tl-item ${cls}" style="animation-delay:${i * 0.05}s;">
+        return `<div class="tl-item ${cls}" style="animation-delay:${i * 0.05}s;">
             <div class="tl-dot"></div>
             <div class="tl-card">
               <div class="tl-week">${p.week_number}W</div>
               <div class="tl-content">
-                <div class="tl-date">
-                  ${formatDate(p.scheduled_date)}
-                  ${p.status === 'paid' && p.paid_date ? `<span style="font-size:10px;color:var(--accent-green);margin-left:8px;">✓ 지급완료</span>` : ''}
-                  ${cls === 'current' ? `<span style="font-size:10px;color:var(--accent-gold);margin-left:8px;animation:pulse 1.5s infinite;">● 다음 지급</span>` : ''}
+                <div class="tl-date">${formatDate(p.scheduled_date)}
+                  ${p.status === 'paid' && p.paid_date ? '<span style="font-size:10px;color:var(--accent-green);margin-left:8px;">✓ 지급완료</span>' : ''}
+                  ${cls === 'current' ? '<span style="font-size:10px;color:var(--accent-gold);margin-left:8px;">● 다음 지급</span>' : ''}
                 </div>
-                <div class="tl-sub">
-                  원금 ${formatMoney(p.principal_portion)} + 수익 <span style="color:var(--accent-green);">${formatMoney(p.profit_portion)}</span>
+                <div class="tl-sub">원금 ${formatMoney(p.principal_portion)} + 수익 <span style="color:var(--accent-green);">${formatMoney(p.profit_portion)}</span>
                   ${p.is_partial ? '<span class="badge badge-orange" style="font-size:10px;padding:2px 6px;">부분지급</span>' : ''}
                 </div>
               </div>
@@ -457,8 +478,7 @@
               </div>
               <div style="margin-left:8px;">${statusBadge(p.status)}</div>
             </div>
-          </div>
-        `;
+          </div>`;
       }).join('');
     }
   </script>

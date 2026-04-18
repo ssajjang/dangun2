@@ -261,6 +261,13 @@
     });
 
     async function loadMembers() {
+      // API 객체 존재 여부 확인
+      if (typeof MembersAPI === 'undefined') {
+        showToast('API 모듈이 로드되지 않았습니다. 페이지를 새로고침하세요.', 'error');
+        console.error('[members] MembersAPI is not defined - api.js 로드 순서 확인 필요');
+        return;
+      }
+
       const q      = document.getElementById('search-input').value.trim();
       const rank   = document.getElementById('filter-rank').value;
       const status = document.getElementById('filter-status').value;
@@ -272,6 +279,7 @@
 
       try {
         const data = await MembersAPI.list(params);
+        if (!data) return;
         totalCount = data.total || 0;
         renderTable(data.data || []);
 
@@ -283,7 +291,16 @@
         setEl('stat-teamjang', (s.teamjang_count  || 0) + (s.bonbujang_count || 0));
         setEl('stat-inactive', s.inactive_count   || 0);
       } catch(err) {
-        showToast('회원 목록 로드 실패: ' + err.message, 'error');
+        console.error('[members] loadMembers error:', err);
+        const msg = err.message || '알 수 없는 오류';
+        if (msg.includes('401') || msg.includes('403') || msg.includes('인증')) {
+          showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+          setTimeout(() => { Auth.clear(); location.replace('/index.html'); }, 2000);
+        } else if (msg.includes('404')) {
+          showToast('API 서버에 연결할 수 없습니다. 서버 상태를 확인하세요.', 'error');
+        } else {
+          showToast('회원 목록 로드 실패: ' + msg, 'error');
+        }
       }
     }
 
