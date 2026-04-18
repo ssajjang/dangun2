@@ -117,38 +117,70 @@ router.patch('/:id/password', authAdmin, async (req, res) => {
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
+/* ── 추천 계보 (회원 본인) ─ /my/referrals 를 /:id/referrals 보다 먼저 등록해야 함 ── */
+router.get('/my/referrals', authMember, async (req, res) => {
+  try {
+    const db = await getDb();
+    const myId = req.user.id;
+
+    const descendants = await db.all(`
+      SELECT m.id, m.user_id, m.name, m.rank, m.investment_total, m.investment_date,
+             m.status, m.recommender_id, rt.depth
+      FROM referral_tree rt JOIN members m ON m.id = rt.member_id
+      WHERE rt.ancestor_id = ? AND rt.depth > 0
+      ORDER BY rt.depth, m.id
+    `, [myId]);
+
+    const directCount  = descendants.filter(d => d.depth === 1).length;
+    const maxDepth     = descendants.reduce((a, d) => Math.max(a, d.depth), 0);
+    const totalInvest  = descendants.reduce((a, d) => a + (d.investment_total || 0), 0);
+
+    function buildTree(nodes, parentId) {
+      return nodes
+        .filter(n => n.recommender_id == parentId)
+        .map(n => ({ ...n, children: buildTree(nodes, n.id) }));
+    }
+
+    return res.json({
+      tree:          buildTree(descendants, myId),
+      flat:          descendants,
+      total:         descendants.length,
+      direct_count:  directCount,
+      max_depth:     maxDepth,
+      total_invest:  totalInvest,
+    });
+  } catch (e) { return res.status(500).json({ error: e.message }); }
+});
+
 /* ── 추천 계보 (관리자) ── */
 router.get('/:id/referrals', authAdmin, async (req, res) => {
   try {
     const db = await getDb();
+    const targetId = parseInt(req.params.id, 10);
+    if (isNaN(targetId)) return res.status(400).json({ error: '유효하지 않은 회원 ID' });
+
     const descendants = await db.all(`
       SELECT m.id, m.user_id, m.name, m.rank, m.investment_total, m.investment_date,
              m.status, m.recommender_id, rt.depth
       FROM referral_tree rt JOIN members m ON m.id = rt.member_id
       WHERE rt.ancestor_id = ? AND rt.depth > 0 ORDER BY rt.depth, m.id
-    `, [req.params.id]);
+    `, [targetId]);
+
+    const directCount = descendants.filter(d => d.depth === 1).length;
+    const maxDepth    = descendants.reduce((a, d) => Math.max(a, d.depth), 0);
+    const totalInvest = descendants.reduce((a, d) => a + (d.investment_total || 0), 0);
 
     function buildTree(nodes, parentId) {
       return nodes.filter(n => n.recommender_id == parentId).map(n => ({ ...n, children: buildTree(nodes, n.id) }));
     }
-    return res.json({ tree: buildTree(descendants, parseInt(req.params.id)), flat: descendants, total: descendants.length });
-  } catch (e) { return res.status(500).json({ error: e.message }); }
-});
-
-/* ── 추천 계보 (회원 본인) ── */
-router.get('/my/referrals', authMember, async (req, res) => {
-  try {
-    const db = await getDb();
-    const descendants = await db.all(`
-      SELECT m.id, m.user_id, m.name, m.rank, m.investment_total, m.recommender_id, rt.depth
-      FROM referral_tree rt JOIN members m ON m.id = rt.member_id
-      WHERE rt.ancestor_id = ? AND rt.depth > 0 ORDER BY rt.depth, m.id
-    `, [req.user.id]);
-
-    function buildTree(nodes, parentId) {
-      return nodes.filter(n => n.recommender_id == parentId).map(n => ({ ...n, children: buildTree(nodes, n.id) }));
-    }
-    return res.json({ tree: buildTree(descendants, req.user.id), flat: descendants, total: descendants.length });
+    return res.json({
+      tree:         buildTree(descendants, targetId),
+      flat:         descendants,
+      total:        descendants.length,
+      direct_count: directCount,
+      max_depth:    maxDepth,
+      total_invest: totalInvest,
+    });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 

@@ -43,10 +43,16 @@ router.post('/', authAdmin, async (req, res) => {
     const member = await db.get('SELECT * FROM members WHERE id = ? AND status = "active"', [member_id]);
     if (!member) return res.status(404).json({ error: '활성 회원을 찾을 수 없습니다.' });
 
-    const profit_rate       = 0.10;
+    /* ━━ 지급 계산 규칙 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     * 매출(투자금) N원 → 15주간 1.5N원 지급
+     * 이자 = 매출의 50%  (profit_rate = 0.50)
+     * 총 지급 = 원금 N + 이자 0.5N = 1.5N
+     * 매주 지급 = floor(원금/15) + floor(이자/15)  (마지막 주에 나머지 처리)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+    const profit_rate       = 0.50;   // 50% 이자 (원금의 50%)
     const total_weeks       = 15;
-    const total_profit      = Math.round(amt * profit_rate);
-    const total_payout      = amt + total_profit;
+    const total_profit      = Math.round(amt * profit_rate);   // 이자 금액
+    const total_payout      = amt + total_profit;              // 총 지급 = 1.5배
     const principal_per_week = Math.floor(amt / total_weeks);
     const profit_per_week    = Math.floor(total_profit / total_weeks);
     const first_friday       = nextFriday(investment_date);

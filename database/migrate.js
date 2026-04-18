@@ -194,6 +194,14 @@ async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_activity_actor       ON activity_logs(actor_type, actor_id);
   `);
 
+  // ── 컬럼 추가 마이그레이션 (이미 존재해도 오류 무시) ──
+  const alterQueries = [
+    `ALTER TABLE rank_commissions ADD COLUMN withdraw_status TEXT NOT NULL DEFAULT 'pending'`,
+  ];
+  for (const q of alterQueries) {
+    try { await db.run(q); } catch(e) { /* 이미 존재하는 컬럼 - 무시 */ }
+  }
+
   // 시스템 설정 기본값
   const settings = [
     ['weekly_profit_rate',    '10',  '주간 수익률 (%)'],

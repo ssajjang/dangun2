@@ -270,13 +270,19 @@
         const user = Auth.getUser();
         if (!user || !user.id) { location.replace('/index.html'); return; }
 
-        // 대시보드 API로 기본 정보 + 추천 통계
-        const dashData = await DashboardAPI.member();
-        const me = dashData.member || {};
-        const refStats = dashData.referral_stats || {};
-
-        // 추천 트리 API
+        // 추천 트리 API - /api/members/my/referrals (회원 전용, 관리자 전용 아님)
         const treeData = await MembersAPI.myReferrals();
+
+        // 대시보드에서 본인 정보 로드
+        let me = user;
+        try {
+          const dashData = await DashboardAPI.member();
+          me = dashData.member || user;
+        } catch(dashErr) {
+          console.warn('[referrals] 대시보드 로드 실패, user 캐시 사용:', dashErr.message);
+        }
+
+        flatMembers = treeData.flat || [];
 
         // 본인 노드 구성 (루트)
         rootMember = {
@@ -286,25 +292,38 @@
           rank:             me.rank || user.rank || '일반회원',
           investment_total: me.investment_total || 0,
           investment_date:  me.investment_date || null,
-          children:         buildTree(treeData.flat || [], me.id || user.id),
+          children:         buildTree(flatMembers, me.id || user.id),
           isRoot:           true,
         };
 
-        flatMembers = treeData.flat || [];
+        // API 응답에서 통계 데이터 사용 (백엔드에서 미리 계산)
+        const refStats = {
+          total:        treeData.total        || 0,
+          direct_count: treeData.direct_count || 0,
+          max_depth:    treeData.max_depth    || 0,
+          total_invest: treeData.total_invest || 0,
+        };
 
         renderStats(refStats);
         renderMemberList();
         initCanvas();
       } catch(e) {
         console.error('[referrals] 로드 오류:', e);
-        showToast('추천 트리 로드 실패: ' + e.message, 'error');
+        let errMsg = e.message || '알 수 없는 오류';
+        // 권한 오류 메시지 개선
+        if (errMsg.includes('관리자') || errMsg.includes('403') || errMsg.includes('401')) {
+          errMsg = 'API 연결 오류. 로그인 상태를 확인하세요.';
+        }
+        showToast('추천 트리 로드 실패: ' + errMsg, 'error');
         // 빈 상태로 표시
+        const u = Auth.getUser() || {};
         rootMember = {
-          id: 0, user_id: Auth.getUser().user_id || '', name: Auth.getUser().name || '',
-          rank: '일반회원', investment_total: 0, investment_date: null, children: [], isRoot: true
+          id: u.id || 0, user_id: u.user_id || '', name: u.name || '',
+          rank: u.rank || '일반회원', investment_total: 0, investment_date: null,
+          children: [], isRoot: true
         };
         flatMembers = [];
-        renderStats({});
+        renderStats({ total: 0, direct_count: 0, max_depth: 0, total_invest: 0 });
         renderMemberList();
         initCanvas();
       }
@@ -340,16 +359,18 @@
     }
 
     function renderStats(refStats) {
-      const refs  = rootMember ? (rootMember.children || []) : [];
-      const total = refStats.total ?? countAll(refs);
-      const direct= refStats.direct ?? refs.length;
-      const depth = maxDepth(refs);
-      const invest= sumInvest(refs);
-      document.getElementById('sc-total').textContent  = total;
-      document.getElementById('sc-direct').textContent = direct;
-      document.getElementById('sc-depth').textContent  = depth;
+      const refs   = rootMember ? (rootMember.children || []) : [];
+      // API가 미리 계산한 값 우선 사용, 없으면 클라이언트 계산
+      const total  = (refStats.total        != null) ? refStats.total        : countAll(refs);
+      const direct = (refStats.direct_count != null) ? refStats.direct_count : refs.length;
+      const depth  = (refStats.max_depth    != null) ? refStats.max_depth    : maxDepth(refs);
+      const invest = (refStats.total_invest != null) ? refStats.total_invest : sumInvest(refs);
+
+      document.getElementById('sc-total').textContent  = total.toLocaleString('ko-KR');
+      document.getElementById('sc-direct').textContent = direct.toLocaleString('ko-KR');
+      document.getElementById('sc-depth').textContent  = depth + '단계';
       document.getElementById('sc-invest').textContent = '₩' + invest.toLocaleString('ko-KR');
-      document.getElementById('list-count-el').textContent = `총 ${total}명`;
+      document.getElementById('list-count-el').textContent = `총 ${total.toLocaleString('ko-KR')}명`;
     }
 
     // ── Member List (하부 전체, 본인 제외) ──

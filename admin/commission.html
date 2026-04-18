@@ -21,6 +21,36 @@
       font-size: 11px;
       font-weight: 700;
     }
+    .bulk-action-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 16px;
+      background: rgba(212,160,23,0.06);
+      border-radius: var(--radius-md);
+      margin-bottom: 10px;
+      border: 1px solid rgba(212,160,23,0.2);
+    }
+    .bulk-action-bar .selected-count {
+      font-size: 12px;
+      color: var(--text-muted);
+      min-width: 80px;
+    }
+    .comm-checkbox { width:15px; height:15px; cursor:pointer; accent-color: var(--accent-gold); }
+    .account-num { font-family: monospace; font-size: 11px; color: var(--text-secondary); }
+    .withdraw-done-btn {
+      background: rgba(39,174,96,0.15);
+      border: 1px solid rgba(39,174,96,0.4);
+      color: var(--accent-green);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .withdraw-done-btn:hover { background: rgba(39,174,96,0.3); }
+    .withdraw-done-btn:disabled { opacity:0.4; cursor:not-allowed; }
   </style>
 </head>
 <body>
@@ -115,6 +145,9 @@
         <div class="card anim-fadeInUp">
           <div class="card-header">
             <span class="card-title"><i class="fas fa-table icon"></i> 직급 수당 내역</span>
+            <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);" onclick="bulkWithdraw()">
+              <i class="fas fa-check-double"></i> 선택 출금완료
+            </button>
           </div>
           <div class="card-body" style="padding:16px 20px 0;">
             <div class="filter-bar">
@@ -134,19 +167,33 @@
               </select>
               <button class="btn btn-outline btn-sm" onclick="clearFiltersC()"><i class="fas fa-redo"></i></button>
             </div>
+            <!-- 전체선택 / 선택 출금 바 -->
+            <div class="bulk-action-bar" id="bulk-bar">
+              <input type="checkbox" class="comm-checkbox" id="select-all-cb" onchange="toggleSelectAll(this.checked)" title="전체선택">
+              <label for="select-all-cb" style="font-size:12px;color:var(--text-secondary);cursor:pointer;">전체선택</label>
+              <span class="selected-count" id="selected-count-label">0건 선택됨</span>
+              <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);" onclick="bulkWithdraw()">
+                <i class="fas fa-check-double"></i> 선택 출금완료
+              </button>
+              <button class="btn btn-outline btn-sm" onclick="deselectAll()">
+                <i class="fas fa-times"></i> 선택해제
+              </button>
+            </div>
           </div>
           <div class="card-body" style="padding:0 0 16px;">
             <div class="table-wrapper">
               <table>
                 <thead>
                   <tr>
+                    <th style="width:36px;"><input type="checkbox" class="comm-checkbox" id="select-all-cb2" onchange="toggleSelectAll(this.checked)"></th>
                     <th>ID</th>
                     <th>수당 수령자</th>
+                    <th>출금 계좌번호</th>
                     <th>직급</th>
-                    <th>투자자 (제공)</th>
+                    <th>제공 투자자</th>
                     <th>투자금액</th>
                     <th>수당 요율</th>
-                    <th>지급 수당</th>
+                    <th>소개수당</th>
                     <th>지급 전 잔고</th>
                     <th>지급 후 잔고</th>
                     <th>지급일자</th>
@@ -168,9 +215,10 @@
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
   <script>
-    let currentPageC = 1;
-    let totalCountC  = 0;
+    let currentPageC  = 1;
+    let totalCountC   = 0;
     const PAGE_LIMIT_C = 10;
+    let _currentRows  = [];   // 현재 렌더링된 행 데이터
 
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
@@ -213,18 +261,74 @@
       loadCommissions();
     }
 
+    // ── 선택 관리 ──
+    function toggleSelectAll(checked) {
+      document.querySelectorAll('.row-cb').forEach(cb => cb.checked = checked);
+      // 두 헤더 체크박스 동기화
+      document.querySelectorAll('#select-all-cb,#select-all-cb2').forEach(cb => cb.checked = checked);
+      updateSelectedCount();
+    }
+    function deselectAll() {
+      document.querySelectorAll('.row-cb,#select-all-cb,#select-all-cb2').forEach(cb => cb.checked = false);
+      updateSelectedCount();
+    }
+    function updateSelectedCount() {
+      const cnt = document.querySelectorAll('.row-cb:checked').length;
+      const lbl = document.getElementById('selected-count-label');
+      if (lbl) lbl.textContent = `${cnt}건 선택됨`;
+    }
+
+    // ── 선택 출금완료 ──
+    async function bulkWithdraw() {
+      const checked = [...document.querySelectorAll('.row-cb:checked')];
+      if (!checked.length) { showToast('출금완료 처리할 항목을 선택하세요.', 'warning'); return; }
+      const ids = checked.map(cb => cb.dataset.id);
+      if (!confirm(`${ids.length}건의 수당 출금을 완료 처리하시겠습니까?\n※ 지갑 잔고에서 해당 금액이 차감됩니다.`)) return;
+
+      let ok = 0, fail = 0;
+      for (const id of ids) {
+        try {
+          await CommissionsAPI.withdraw(id);
+          ok++;
+        } catch(e) { fail++; console.error('withdraw fail:', e.message); }
+      }
+      showToast(`출금완료: ${ok}건 처리${fail ? `, ${fail}건 실패` : ''}`, ok > 0 ? 'success' : 'error');
+      await loadCommissions();
+    }
+
+    // ── 단건 출금완료 ──
+    async function markWithdraw(id, name, amount) {
+      const fmt = Number(amount).toLocaleString('ko-KR');
+      if (!confirm(`${name} 님의 수당 ₩${fmt}을 출금완료 처리하시겠습니까?`)) return;
+      try {
+        const data = await CommissionsAPI.withdraw(id);
+        showToast(data.message || '출금완료 처리되었습니다.', 'success');
+        await loadCommissions();
+      } catch(err) { showToast('처리 실패: ' + err.message, 'error'); }
+    }
+
     function renderCommTable(rows) {
+      _currentRows = rows;
+      // 전체선택 체크박스 초기화
+      document.querySelectorAll('#select-all-cb,#select-all-cb2').forEach(cb => cb.checked = false);
+      updateSelectedCount();
+
       if (!rows.length) {
         document.getElementById('commission-tbody').innerHTML =
-          `<tr><td colspan="11" style="text-align:center;padding:24px;color:var(--text-muted);">수당 내역이 없습니다.</td></tr>`;
+          `<tr><td colspan="14" style="text-align:center;padding:24px;color:var(--text-muted);">수당 내역이 없습니다.</td></tr>`;
       } else {
         document.getElementById('commission-tbody').innerHTML = rows.map(c => {
           const rate    = c.commission_rate || 0;
           const rateTag = rate >= 20
             ? `<span class="flow-tag" style="background:rgba(142,68,173,0.15);color:#9b59b6;">20% 단독</span>`
             : `<span class="flow-tag" style="background:rgba(212,160,23,0.15);color:var(--accent-gold);">10% 분배</span>`;
+          const acct = [c.receiver_bank_name, c.receiver_account_number].filter(Boolean).join(' ');
+          const isWithdrawn = c.withdraw_status === 'done';
           return `
             <tr>
+              <td style="text-align:center;">
+                <input type="checkbox" class="comm-checkbox row-cb" data-id="${c.id}" onchange="updateSelectedCount()" ${isWithdrawn ? 'disabled' : ''}>
+              </td>
               <td style="color:var(--text-muted);font-size:11px;">#${c.id}</td>
               <td>
                 <div style="display:flex;align-items:center;gap:8px;">
@@ -235,6 +339,12 @@
                   </div>
                 </div>
               </td>
+              <td>
+                ${acct
+                  ? `<div class="account-num"><i class="fas fa-university" style="margin-right:4px;color:var(--text-muted);"></i>${acct}</div>`
+                  : `<span style="color:var(--text-muted);font-size:11px;">-</span>`
+                }
+              </td>
               <td>${rankBadge(c.receiver_rank)}</td>
               <td>
                 <div style="font-size:12px;font-weight:600;">${c.investor_user_id}</div>
@@ -244,11 +354,20 @@
               <td>${rateTag}</td>
               <td style="font-weight:900;color:var(--accent-gold);font-family:'Orbitron',sans-serif;">${formatMoney(c.commission_amount)}</td>
               <td style="font-size:12px;color:var(--text-muted);">${formatMoney(c.balance_before)}</td>
-              <td style="font-size:12px;font-weight:700;">${formatMoney(c.balance_after)}</td>
+              <td style="font-size:12px;font-weight:700;color:${c.balance_after > 0 ? 'var(--accent-green)' : 'var(--text-muted)'}">${formatMoney(c.balance_after)}</td>
               <td style="font-size:12px;">${c.paid_at ? formatDateTime(c.paid_at) : '<span style="color:var(--text-muted);">-</span>'}</td>
-              <td>${statusBadge(c.status)}</td>
               <td>
-                <button onclick="deleteCommission(${c.id}, '${c.receiver_name}', ${c.commission_amount})"
+                ${isWithdrawn
+                  ? `<span style="padding:2px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:6px;font-size:10px;font-weight:700;">출금완료</span>`
+                  : statusBadge(c.status)
+                }
+              </td>
+              <td style="display:flex;gap:6px;">
+                ${!isWithdrawn ? `
+                <button class="withdraw-done-btn" onclick="markWithdraw(${c.id}, '${(c.receiver_name||'').replace(/'/g,'\\'')}', ${c.commission_amount})">
+                  <i class="fas fa-check"></i> 출금완료
+                </button>` : ''}
+                <button onclick="deleteCommission(${c.id}, '${(c.receiver_name||'').replace(/'/g,'\\'')}', ${c.commission_amount})"
                   style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
                   🗑️ 삭제
                 </button>

@@ -181,8 +181,9 @@
   // COMMISSIONS API
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   var CommissionsAPI = {
-    list: function (params) { return get('/commissions', params); },
-    my:   function ()       { return get('/commissions/my'); },
+    list:     function (params) { return get('/commissions', params); },
+    my:       function ()       { return get('/commissions/my'); },
+    withdraw: function (id)     { return patch('/commissions/' + id + '/withdraw', {}); },
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -91,6 +91,59 @@ router.get('/my', authMember, async (req, res) => {
 });
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PATCH /api/commissions/:id/withdraw  ── 관리자: 수당 출금완료 처리
+   (지갑 available_balance → total_withdrawn 이동, withdraw_status='done')
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+router.patch('/:id/withdraw', authAdmin, async (req, res) => {
+  try {
+    const db   = await getDb();
+    const comm = await db.get(
+      `SELECT rc.*, rcv.name AS receiver_name, rcv.user_id AS receiver_user_id,
+              rcv.bank_name AS bank_name, rcv.account_number AS account_number
+       FROM rank_commissions rc JOIN members rcv ON rcv.id = rc.receiver_id
+       WHERE rc.id = ?`,
+      [req.params.id]
+    );
+    if (!comm) return res.status(404).json({ error: '수당 내역을 찾을 수 없습니다.' });
+    if (comm.withdraw_status === 'done') return res.status(409).json({ error: '이미 출금완료 처리된 항목입니다.' });
+
+    const amt = comm.commission_amount || 0;
+
+    // 지갑: available_balance 차감, total_withdrawn 증가
+    await db.run(
+      `UPDATE member_wallets
+       SET available_balance = MAX(available_balance - ?, 0),
+           total_withdrawn   = total_withdrawn + ?,
+           updated_at        = datetime('now','localtime')
+       WHERE member_id = ?`,
+      [amt, amt, comm.receiver_id]
+    );
+
+    // 수당 행: withdraw_status = 'done' 마크
+    await db.run(
+      `UPDATE rank_commissions SET withdraw_status='done', updated_at=datetime('now','localtime') WHERE id=?`,
+      [comm.id]
+    );
+
+    await db.run(
+      `INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description)
+       VALUES ('admin',?,'commission_withdraw','rank_commissions',?,?)`,
+      [req.admin.id, comm.id,
+       `수당 출금완료: ${comm.receiver_user_id}(${comm.receiver_name}) ₩${amt.toLocaleString()} [계좌: ${comm.bank_name} ${comm.account_number}]`]
+    );
+
+    return res.json({
+      message: `출금완료 처리되었습니다. (${comm.receiver_name}: ₩${amt.toLocaleString()})`,
+      commission_id: comm.id,
+      withdrawn_amount: amt,
+    });
+  } catch(e) {
+    console.error('PATCH /commissions/:id/withdraw error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
    DELETE /api/commissions/:id  ── 관리자: 직급수당 삭제 (잔고 복원)
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 router.delete('/:id', authAdmin, async (req, res) => {
