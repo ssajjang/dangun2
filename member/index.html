@@ -368,6 +368,10 @@
 
           <div class="hero-stats">
             <div class="hero-stat">
+              <div class="val" id="stat-total-payout">0</div>
+              <div class="lbl">총 지급액 (원금+이자)</div>
+            </div>
+            <div class="hero-stat">
               <div class="val" id="stat-weekly">0</div>
               <div class="lbl">주당 지급액</div>
             </div>
@@ -472,8 +476,13 @@
             <span class="badge badge-gold" id="my-rank-badge">-</span>
           </div>
           <div class="card-body">
-            <!-- 수당 통계 -->
-            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+            <!-- 수당 요약 통계 (4칸) -->
+            <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
+              <div style="text-align:center;padding:14px;background:rgba(231,76,60,0.07);border-radius:var(--radius-md);border:1px solid rgba(231,76,60,0.25);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">⏳ 대기중 수당</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:#e74c3c;" id="comm-pending">₩0</div>
+                <div style="font-size:10px;color:var(--text-muted);margin-top:2px;">출금대기 합산</div>
+              </div>
               <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border-color);">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">오늘 소개수당</div>
                 <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--accent-gold);" id="comm-today">₩0</div>
@@ -490,8 +499,8 @@
 
             <!-- 소개수당 내역 테이블 -->
             <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:8px;">
-              <i class="fas fa-list" style="color:var(--accent-gold);"></i> 최근 소개수당 내역
-              <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(제공아이디·투자금·수당금액·지급일자)</span>
+              <i class="fas fa-list" style="color:var(--accent-gold);"></i> 소개수당 내역
+              <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(제공아이디 · 투자금 · 수당금액 · 지급일자 · 출금상태)</span>
             </div>
             <div class="table-wrapper" style="margin:0;">
               <table style="font-size:12px;">
@@ -502,7 +511,7 @@
                     <th>수당 요율</th>
                     <th>소개수당금액</th>
                     <th>지급일자</th>
-                    <th>상태</th>
+                    <th>출금상태</th>
                   </tr>
                 </thead>
                 <tbody id="comm-list-body">
@@ -516,7 +525,7 @@
         <!-- 최근 지급내역 -->
         <div class="card mb-24 anim-fadeInUp delay-2">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-history icon"></i> 최근 지급 내역</span>
+            <span class="card-title"><i class="fas fa-history icon"></i> 최근 지급 내역 <span style="font-size:11px;color:var(--accent-green);font-weight:400;">(승인 완료만 표시)</span></span>
             <a href="payouts.html" class="btn btn-outline btn-sm"><i class="fas fa-arrow-right"></i> 전체보기</a>
           </div>
           <div class="card-body" style="padding:0;">
@@ -559,13 +568,13 @@
           <div class="desc-section">
             <div class="desc-item">
               <div class="icon"><i class="fas fa-percent"></i></div>
-              <div class="title">주 10% 고정 수익</div>
-              <div class="desc">투자금 대비 매주 10%의 고정 수익을 안정적으로 지급합니다</div>
+              <div class="title">50% 이자 · 15주 분할</div>
+              <div class="desc">투자금의 50% 이자를 포함한 원금+이자 150%를 15주에 걸쳐 매주 균등 지급합니다</div>
             </div>
             <div class="desc-item">
               <div class="icon"><i class="fas fa-calendar-alt"></i></div>
               <div class="title">15주 분할 지급</div>
-              <div class="desc">원금과 수익을 합산하여 15주에 걸쳐 매주 금요일 지급됩니다</div>
+              <div class="desc">예) 100만원 투자 시 → 총 지급 150만원, 주당 10만원(원금+이자) 15주 지급</div>
             </div>
             <div class="desc-item">
               <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
@@ -725,7 +734,12 @@
       document.getElementById('week-progress').innerHTML = renderWeekProgress(investment.current_week || 0, investment.total_weeks || 15);
 
       // Stats
-      animateCounter(document.getElementById('stat-weekly'), investment.weekly_profit || 0, 1200, '₩');
+      // 총 지급액 = 원금 * 1.5 (50% 이자)
+      const totalPayout = Math.round((investment.amount || member.investment_total || 0) * 1.5);
+      // 주당 지급액 = 총지급액 / 15
+      const weeklyAmt   = totalPayout > 0 ? Math.round(totalPayout / 15) : (investment.weekly_profit || 0);
+      animateCounter(document.getElementById('stat-total-payout'), totalPayout, 1000, '₩');
+      animateCounter(document.getElementById('stat-weekly'), weeklyAmt, 1200, '₩');
       animateCounter(document.getElementById('stat-paid'), investment.paid_amount || 0, 1400, '₩');
       animateCounter(document.getElementById('stat-remain'), investment.remaining_amount || 0, 1600, '₩');
 
@@ -749,8 +763,9 @@
       document.getElementById('referral-direct').textContent = directRefs;
       document.getElementById('referral-total').textContent = totalRefs;
 
-      // Recent Payouts (last 5)
-      renderRecentPayouts(payouts.slice(0, 5));
+      // Recent Payouts: 관리자 승인(paid) 완료 건만 최근 5건
+      const paidPayouts = (payouts || []).filter(p => p.status === 'paid').slice(0, 5);
+      renderRecentPayouts(paidPayouts);
 
       // Profile modal
       document.getElementById('pi-userid').textContent = member.user_id  || '-';
@@ -772,6 +787,10 @@
         commSection.style.display = isRanked ? '' : 'none';
         if (isRanked) {
           document.getElementById('my-rank-badge').textContent = member.rank;
+          // 대기중 수당 (dashboard API에서 바로 반영)
+          const pcs = data.pending_comm_stats || {};
+          const pendingEl = document.getElementById('comm-pending');
+          if (pendingEl) pendingEl.textContent = '₩' + Math.round(pcs.pending_amount || 0).toLocaleString('ko-KR');
           loadCommissionStats();
         }
       }
@@ -806,6 +825,14 @@
         // 최근 10건 소개수당 테이블 표시
         const recent = list.slice(0, 10);
         const tbody  = document.getElementById('comm-list-body');
+
+        // 대기중 수당 합산 업데이트 (CommissionsAPI.my에서도 재계산)
+        const totalPending = list
+          .filter(c => (c.withdraw_status || 'pending') === 'pending')
+          .reduce((s, c) => s + Number(c.commission_amount || 0), 0);
+        const pendingEl = document.getElementById('comm-pending');
+        if (pendingEl) pendingEl.textContent = '₩' + Math.round(totalPending).toLocaleString('ko-KR');
+
         if (recent.length === 0) {
           tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--text-muted);">소개수당 내역이 없습니다.</td></tr>`;
         } else {
@@ -814,6 +841,12 @@
             return r >= 20
               ? `<span style="padding:2px 8px;background:rgba(142,68,173,0.15);color:#9b59b6;border-radius:8px;font-size:11px;font-weight:700;">20% 단독</span>`
               : `<span style="padding:2px 8px;background:rgba(212,160,23,0.15);color:var(--accent-gold);border-radius:8px;font-size:11px;font-weight:700;">10% 분배</span>`;
+          };
+          const withdrawBadge = (ws) => {
+            if (ws === 'done') {
+              return `<span style="padding:3px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:8px;font-size:11px;font-weight:700;">✓ 출금완료</span>`;
+            }
+            return `<span style="padding:3px 8px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:8px;font-size:11px;font-weight:700;">⏳ 출금대기</span>`;
           };
           tbody.innerHTML = recent.map(c => `
             <tr>
@@ -825,9 +858,7 @@
               <td>${rateTag(c.commission_rate)}</td>
               <td style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--accent-gold);">+${formatMoney(c.commission_amount)}</td>
               <td style="font-size:11px;">${formatDate(c.paid_at || c.created_at)}</td>
-              <td>
-                <span style="padding:2px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:8px;font-size:10px;font-weight:700;">즉시지급</span>
-              </td>
+              <td>${withdrawBadge(c.withdraw_status)}</td>
             </tr>
           `).join('');
         }
@@ -846,18 +877,24 @@
     function renderRecentPayouts(data) {
       const tbody = document.getElementById('recent-payout-tbody');
       if (!data || data.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px;">투자 지급 내역이 없습니다.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:24px;">
+          <i class="fas fa-check-circle" style="font-size:28px;color:var(--accent-green);display:block;margin-bottom:8px;"></i>
+          관리자 승인 완료된 지급 내역이 없습니다.
+        </td></tr>`;
         return;
       }
       tbody.innerHTML = data.map(p => `
         <tr class="payout-row">
-          <td>${p.week_number}주차</td>
-          <td>${formatDate(p.scheduled_date)}</td>
-          <td>${formatMoney(p.principal_portion)}</td>
-          <td style="color:var(--accent-green);">${formatMoney(p.profit_portion)}</td>
-          <td style="font-weight:700;color:var(--text-primary);">${formatMoney(p.total_payout)}</td>
-          <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${formatMoney(p.balance_after)}</td>
-          <td>${statusBadge(p.status)}</td>
+          <td style="font-weight:700;color:var(--accent-gold);">${p.week_number}주차</td>
+          <td style="font-size:12px;">
+            <div>${formatDate(p.scheduled_date)}</div>
+            ${p.paid_date ? `<div style="font-size:10px;color:var(--accent-green);">✓ ${formatDate(p.paid_date)} 승인</div>` : ''}
+          </td>
+          <td style="font-size:12px;">${formatMoney(p.principal_portion)}</td>
+          <td style="color:var(--accent-green);font-size:12px;">${formatMoney(p.profit_portion)}</td>
+          <td style="font-weight:900;color:var(--text-primary);font-family:'Orbitron',sans-serif;font-size:13px;">${formatMoney(p.total_payout)}</td>
+          <td style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text-muted);">${formatMoney(p.balance_after)}</td>
+          <td><span style="padding:2px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;">✓ 지급완료</span></td>
         </tr>
       `).join('');
     }

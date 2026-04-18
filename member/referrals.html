@@ -369,7 +369,7 @@
       document.getElementById('sc-total').textContent  = total.toLocaleString('ko-KR');
       document.getElementById('sc-direct').textContent = direct.toLocaleString('ko-KR');
       document.getElementById('sc-depth').textContent  = depth + '단계';
-      document.getElementById('sc-invest').textContent = '₩' + invest.toLocaleString('ko-KR');
+      document.getElementById('sc-invest').textContent = '₩' + Math.round(invest).toLocaleString('ko-KR');
       document.getElementById('list-count-el').textContent = `총 ${total.toLocaleString('ko-KR')}명`;
     }
 
@@ -402,7 +402,7 @@
           <td>${m.name}</td>
           <td>${rankBadge(m.rank || '일반회원')}</td>
           <td style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--accent-gold);">
-            ${m.investment_total ? formatMoney(m.investment_total) : '-'}
+            ${m.investment_total ? '₩' + Math.round(m.investment_total).toLocaleString('ko-KR') : '-'}
           </td>
           <td style="font-size:12px;">${formatDate(m.investment_date)}</td>
           <td>
@@ -626,7 +626,7 @@
         tooltip.innerHTML = `
           <div style="font-weight:700;color:var(--accent-gold);margin-bottom:6px;">${m.name} (@${m.user_id})</div>
           <div style="font-size:11px;color:var(--text-muted);">직급: ${m.rank}</div>
-          <div style="font-size:11px;color:var(--text-muted);">투자금: ${formatMoney(m.investment_total)}</div>
+          <div style="font-size:11px;color:var(--text-muted);">투자금: ₩${Math.round(m.investment_total || 0).toLocaleString('ko-KR')}</div>
           <div style="font-size:11px;color:var(--text-muted);">하부회원: ${m.children ? m.children.length : 0}명</div>
         `;
         canvas.style.cursor = 'pointer';

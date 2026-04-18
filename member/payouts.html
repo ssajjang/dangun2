@@ -238,24 +238,24 @@
         <!-- Summary Banner -->
         <div class="payout-banner anim-fadeInDown">
           <div class="banner-stat">
-            <div class="banner-val" id="ban-invest">₩5,000,000</div>
-            <div class="banner-lbl">총 투자금액</div>
+            <div class="banner-val" id="ban-invest">-</div>
+            <div class="banner-lbl">원금 (투자금)</div>
           </div>
           <div class="banner-stat">
-            <div class="banner-val" id="ban-weekly">₩366,667</div>
-            <div class="banner-lbl">주당 지급액</div>
+            <div class="banner-val" style="color:var(--accent-gold);" id="ban-total-payout">-</div>
+            <div class="banner-lbl">총 지급액 (원금+이자150%)</div>
           </div>
           <div class="banner-stat">
-            <div class="banner-val" id="ban-paid">₩2,933,336</div>
+            <div class="banner-val" style="color:#7ec8e3;" id="ban-weekly">-</div>
+            <div class="banner-lbl">주당 지급액 (÷15)</div>
+          </div>
+          <div class="banner-stat">
+            <div class="banner-val" style="color:var(--accent-green);" id="ban-paid">-</div>
             <div class="banner-lbl">누적 지급액</div>
           </div>
           <div class="banner-stat">
-            <div class="banner-val" id="ban-remain">₩2,566,664</div>
+            <div class="banner-val" style="color:rgba(200,204,232,0.7);" id="ban-remain">-</div>
             <div class="banner-lbl">잔여 지급액</div>
-          </div>
-          <div class="banner-stat">
-            <div class="banner-val" style="color:var(--accent-blue);" id="ban-subs">6명</div>
-            <div class="banner-lbl">하부 회원 수</div>
           </div>
         </div>
 
@@ -367,20 +367,23 @@
     }
 
     function renderBanner(inv) {
+      const noData = (id) => { const el = document.getElementById(id); if (el) el.textContent = '-'; };
       if (!inv) {
-        document.getElementById('ban-invest').textContent = '-';
-        document.getElementById('ban-weekly').textContent = '-';
-        document.getElementById('ban-paid').textContent = '-';
-        document.getElementById('ban-remain').textContent = '-';
-        document.getElementById('ban-subs').textContent = '-';
+        ['ban-invest','ban-total-payout','ban-weekly','ban-paid','ban-remain'].forEach(noData);
         return;
       }
-      const weeklyPayout = inv.total_amount ? Math.round(inv.total_amount * 1.1 / 15) : 0;
-      document.getElementById('ban-invest').textContent = formatMoney(inv.amount || inv.total_amount || 0);
-      document.getElementById('ban-weekly').textContent = formatMoney(weeklyPayout);
-      document.getElementById('ban-paid').textContent = formatMoney(inv.paid_amount || 0);
-      document.getElementById('ban-remain').textContent = formatMoney(inv.remaining_amount || 0);
-      document.getElementById('ban-subs').textContent = '-';
+      // 원금
+      const principal   = inv.amount || 0;
+      // 총지급액 = 원금 * 1.5 (50% 이자)
+      const totalPayout = Math.round(principal * 1.5);
+      // 주당지급액 = 총지급액 ÷ 15 (정수)
+      const weeklyAmt   = totalPayout > 0 ? Math.round(totalPayout / 15) : 0;
+
+      document.getElementById('ban-invest').textContent       = formatMoney(principal);
+      document.getElementById('ban-total-payout').textContent = formatMoney(totalPayout);
+      document.getElementById('ban-weekly').textContent       = formatMoney(weeklyAmt);
+      document.getElementById('ban-paid').textContent         = formatMoney(inv.paid_amount || 0);
+      document.getElementById('ban-remain').textContent       = formatMoney(inv.remaining_amount || 0);
     }
 
     function renderChart(inv) {

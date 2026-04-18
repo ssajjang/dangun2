@@ -142,9 +142,22 @@ router.get('/member', authMember, async (req, res) => {
     }
 
     const commissions = await db.all(
-      `SELECT rc.*, inv_m.user_id AS investor_user_id, inv_m.name AS investor_name
-       FROM rank_commissions rc JOIN members inv_m ON inv_m.id=rc.investor_id
-       WHERE rc.receiver_id=? ORDER BY rc.created_at DESC LIMIT 5`,
+      `SELECT rc.*,
+              inv_m.user_id AS investor_user_id,
+              inv_m.name    AS investor_name
+       FROM rank_commissions rc
+       JOIN members inv_m ON inv_m.id = rc.investor_id
+       WHERE rc.receiver_id = ?
+       ORDER BY rc.created_at DESC LIMIT 10`,
+      [mid]
+    );
+
+    // 대기중 수당 합산 (withdraw_status='pending')
+    const pendingCommStats = await db.get(
+      `SELECT COALESCE(SUM(commission_amount),0) as pending_amount,
+              COUNT(*) as pending_count
+       FROM rank_commissions
+       WHERE receiver_id=? AND withdraw_status='pending'`,
       [mid]
     );
 
@@ -161,13 +174,14 @@ router.get('/member', authMember, async (req, res) => {
     );
 
     return res.json({
-      member:             { ...member, password: undefined },
+      member:               { ...member, password: undefined },
       investment,
       payouts,
-      next_payout:        nextPayout,
+      next_payout:          nextPayout,
       commissions,
-      referral_stats:     referralStats,
-      recent_withdrawals: withdrawals,
+      pending_comm_stats:   pendingCommStats,   // 대기중 수당 합산
+      referral_stats:       referralStats,
+      recent_withdrawals:   withdrawals,
     });
   } catch (e) {
     console.error('GET /dashboard/member error:', e);

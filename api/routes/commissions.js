@@ -34,8 +34,9 @@ router.get('/', authAdmin, async (req, res) => {
 
     const rows = await db.all(
       `SELECT rc.*,
-              rcv.user_id   AS receiver_user_id, rcv.name   AS receiver_name,
-              inv_m.user_id AS investor_user_id, inv_m.name AS investor_name
+              rcv.user_id       AS receiver_user_id,   rcv.name         AS receiver_name,
+              rcv.bank_name     AS receiver_bank_name, rcv.account_number AS receiver_account_number,
+              inv_m.user_id     AS investor_user_id,   inv_m.name       AS investor_name
        FROM rank_commissions rc
        JOIN members rcv   ON rcv.id   = rc.receiver_id
        JOIN members inv_m ON inv_m.id = rc.investor_id

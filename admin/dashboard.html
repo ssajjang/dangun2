@@ -261,12 +261,51 @@
           </div>
         </div>
 
+        <!-- ── 직급수당 출금 대기 (신규 발생 즉시 표시) ── -->
+        <div class="card mb-24 anim-fadeInUp delay-1" style="border:1px solid rgba(212,160,23,0.3);">
+          <div class="card-header" style="background:rgba(212,160,23,0.04);">
+            <span class="card-title">
+              <i class="fas fa-hand-holding-usd icon" style="color:var(--accent-gold);"></i>
+              직급수당 출금 대기
+              <span class="badge badge-orange" id="comm-pending-badge" style="margin-left:8px;">0건</span>
+            </span>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);" onclick="bulkApproveComm()">
+                <i class="fas fa-check-double"></i> 선택 출금완료
+              </button>
+              <a href="commission.html" class="btn btn-outline btn-sm">전체보기</a>
+            </div>
+          </div>
+          <div class="card-body" style="padding:0;">
+            <div class="table-wrapper">
+              <table style="font-size:12px;">
+                <thead>
+                  <tr>
+                    <th style="width:36px;"><input type="checkbox" id="comm-check-all" onchange="toggleCommAll(this)" style="accent-color:var(--accent-gold);"></th>
+                    <th>수령자</th>
+                    <th>출금계좌</th>
+                    <th>직급</th>
+                    <th>투자자(제공)</th>
+                    <th>투자금</th>
+                    <th>소개수당</th>
+                    <th>발생일시</th>
+                    <th>처리</th>
+                  </tr>
+                </thead>
+                <tbody id="comm-pending-tbody">
+                  <tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted);">불러오는 중...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
         <!-- ── Weekly Payout Preview ── -->
         <div class="card anim-fadeInUp delay-2">
           <div class="card-header">
             <span class="card-title"><i class="fas fa-calendar-week icon"></i> 이번 주 금요일 지급 예정 내역</span>
             <div style="display:flex;gap:8px;align-items:center;">
-              <span class="badge badge-orange anim-pulse">승인 대기 5건</span>
+              <span class="badge badge-orange anim-pulse" id="weekly-pending-badge">승인 대기 0건</span>
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
                 <i class="fas fa-check-double"></i> 일괄 승인
               </button>
@@ -359,6 +398,7 @@
         renderPendingLists(data);
         renderActivityLog(data);
         renderWeeklyPayouts(data);
+        await renderCommPending();   // 직급수당 출금대기 목록
       } catch(err) {
         console.error('[dashboard] loadDashboard error:', err);
         const msg = err.message || '알 수 없는 오류';
@@ -690,9 +730,108 @@
       document.querySelectorAll('.row-check').forEach(cb => cb.checked = el.checked);
     }
 
+    // ── 주간지급 배지 업데이트 ──
+    function updateWeeklyBadge(list) {
+      const badge = document.getElementById('weekly-pending-badge');
+      if (badge) badge.textContent = `승인 대기 ${(list||[]).length}건`;
+    }
+
     function executeConfirm() {
       if (confirmCallback) { confirmCallback(); confirmCallback = null; }
       closeModal('modal-confirm');
+    }
+
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // 직급수당 출금대기 목록 렌더링 + 출금완료 처리
+    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    async function renderCommPending() {
+      const tbody = document.getElementById('comm-pending-tbody');
+      const badge = document.getElementById('comm-pending-badge');
+      try {
+        const data = await CommissionsAPI.list({ limit: 50, status: 'paid' });
+        // withdraw_status = 'pending' 인 것만 필터
+        const rows = (data.data || []).filter(c => (c.withdraw_status || 'pending') === 'pending');
+
+        if (badge) badge.textContent = rows.length + '건';
+
+        if (rows.length === 0) {
+          tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted);">
+            <i class="fas fa-check-circle" style="color:var(--accent-green);margin-right:6px;"></i>대기중인 수당 출금이 없습니다.
+          </td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = rows.map(c => {
+          const acct = [c.receiver_bank_name, c.receiver_account_number].filter(Boolean).join(' ') || '-';
+          const rateTag = Number(c.commission_rate||0) >= 20
+            ? `<span style="padding:2px 6px;background:rgba(142,68,173,0.15);color:#9b59b6;border-radius:6px;font-size:10px;font-weight:700;">본부장 20%</span>`
+            : `<span style="padding:2px 6px;background:rgba(212,160,23,0.15);color:var(--accent-gold);border-radius:6px;font-size:10px;font-weight:700;">${c.receiver_rank} 10%</span>`;
+          return `
+            <tr id="cpr-${c.id}">
+              <td style="text-align:center;">
+                <input type="checkbox" class="comm-row-cb" data-id="${c.id}" style="accent-color:var(--accent-gold);">
+              </td>
+              <td>
+                <div style="font-weight:700;font-size:12px;">${c.receiver_user_id}</div>
+                <div style="font-size:10px;color:var(--text-muted);">${c.receiver_name}</div>
+              </td>
+              <td style="font-family:monospace;font-size:11px;color:var(--text-secondary);">${acct}</td>
+              <td>${rankBadge(c.receiver_rank)}</td>
+              <td>
+                <div style="font-size:11px;font-weight:700;">${c.investor_user_id}</div>
+                <div style="font-size:10px;color:var(--text-muted);">${c.investor_name}</div>
+              </td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">${formatMoney(c.investment_amount)}</td>
+              <td style="font-family:'Orbitron',sans-serif;font-weight:900;color:var(--accent-gold);">${formatMoney(c.commission_amount)}</td>
+              <td style="font-size:11px;">${formatDateTime ? formatDateTime(c.paid_at||c.created_at) : (c.paid_at||c.created_at||'').slice(0,16)}</td>
+              <td>
+                <button onclick="approveCommWithdraw(${c.id})"
+                  style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
+                  <i class="fas fa-check"></i> 출금완료
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) {
+        if (tbody) tbody.innerHTML = `<tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted);">수당 목록 로드 실패: ${e.message}</td></tr>`;
+        console.error('[comm-pending]', e);
+      }
+    }
+
+    // 단건 수당 출금완료
+    async function approveCommWithdraw(id) {
+      if (!confirm('이 수당을 출금완료 처리하시겠습니까?\n(수령자 지갑에서 출금 처리됩니다.)')) return;
+      try {
+        const res = await CommissionsAPI.withdraw(id);
+        showToast(res.message || '출금완료 처리되었습니다.', 'success');
+        const row = document.getElementById(`cpr-${id}`);
+        if (row) {
+          row.style.opacity = '0.4';
+          row.querySelector('button').disabled = true;
+          row.querySelector('button').textContent = '✓ 완료';
+        }
+        // 배지 숫자 갱신
+        await renderCommPending();
+      } catch(err) { showToast('처리 실패: ' + err.message, 'error'); }
+    }
+
+    // 선택 일괄 출금완료
+    function toggleCommAll(el) {
+      document.querySelectorAll('.comm-row-cb').forEach(cb => cb.checked = el.checked);
+    }
+
+    async function bulkApproveComm() {
+      const checked = [...document.querySelectorAll('.comm-row-cb:checked')];
+      if (!checked.length) { showToast('출금완료 처리할 항목을 선택하세요.', 'warning'); return; }
+      if (!confirm(`${checked.length}건의 수당을 일괄 출금완료 처리하시겠습니까?`)) return;
+      let ok = 0, fail = 0;
+      for (const cb of checked) {
+        try { await CommissionsAPI.withdraw(cb.dataset.id); ok++; }
+        catch(e) { fail++; }
+      }
+      showToast(`${ok}건 완료${fail ? `, ${fail}건 실패` : ''}`, ok > 0 ? 'success' : 'error');
+      await renderCommPending();
     }
 
     // ── 시간 경과 표시 ──

@@ -106,13 +106,14 @@ function initSidebar() {
 // ============================================================
 function formatMoney(amount, currency = '원') {
   if (amount === null || amount === undefined) return '-';
-  return Number(amount).toLocaleString('ko-KR') + currency;
+  return Math.round(Number(amount) || 0).toLocaleString('ko-KR') + currency;
 }
 
 function formatMoneyK(amount) {
-  if (amount >= 100000000) return (amount / 100000000).toFixed(1) + '억';
-  if (amount >= 10000)     return (amount / 10000).toFixed(1) + '만원';
-  return formatMoney(amount);
+  const v = Math.round(Number(amount) || 0);
+  if (v >= 100000000) return Math.round(v / 100000000 * 10) / 10 + '억';
+  if (v >= 10000)     return Math.round(v / 10000) + '만원';
+  return Math.round(v).toLocaleString('ko-KR') + '원';
 }
 
 function formatDate(dateStr) {

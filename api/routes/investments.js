@@ -132,11 +132,14 @@ router.post('/', authAdmin, async (req, res) => {
       );
     };
     const insertComm = async (receiverId, receiverRank, rate, commAmt, walBefore) => {
+      // withdraw_status = 'pending' (출금대기 - 관리자 승인 후 출금완료)
+      // balance_before / balance_after: 수당 발생 시점 지갑 잔고 기준
       await db.run(
         `INSERT INTO rank_commissions
           (investment_id, investor_id, receiver_id, receiver_rank, commission_rate,
-           investment_amount, commission_amount, balance_before, balance_after, paid_at, status)
-         VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'),'paid')`,
+           investment_amount, commission_amount, balance_before, balance_after,
+           paid_at, status, withdraw_status)
+         VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'),'paid','pending')`,
         [invId, member_id, receiverId, receiverRank, rate, amt, commAmt, walBefore, walBefore + commAmt]
       );
     };
