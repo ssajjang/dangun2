@@ -99,59 +99,101 @@ router.post('/', authAdmin, async (req, res) => {
       [member_id, amt, total_payout, amt, total_payout]
     );
 
-    /* ⑤ 직급수당 자동 계산 및 즉시 지급 */
+    /* ⑤ 직급수당 자동 계산 - 라인 상위 탐색 방식
+     *
+     * 규칙:
+     *  - 투자금 발생 회원의 추천 라인(상위)을 따라 올라가며 최초 직급자를 탐색
+     *  - 본부장만 존재 → 20% 지급
+     *  - 팀장+본부장 존재 → 각 10% 지급
+     *  - 팀장만 존재 → 10% 지급, 나머지(10%)는 미지급(flush)
+     *  - 직급자 없음 → 미지급
+     *  - 유니레벨: 라인 상위 방향으로만 탐색 (무한 루프 방지, 최대 20단계)
+     */
     const commissions = [];
-    if (member.recommender_id) {
-      const parentMember = await db.get('SELECT id, rank, recommender_id FROM members WHERE id = ?', [member.recommender_id]);
 
-      if (parentMember) {
-        const getWalletBal = async (mid) => {
-          const w = await db.get('SELECT available_balance FROM member_wallets WHERE member_id = ?', [mid]);
-          return (w || { available_balance: 0 }).available_balance;
-        };
-        const updWallet = async (commAmt, mid) => {
-          await db.run(
-            `UPDATE member_wallets SET available_balance=available_balance+?, total_commission=total_commission+?,
-             updated_at=datetime('now','localtime') WHERE member_id=?`,
-            [commAmt, commAmt, mid]
-          );
-        };
-        const insertComm = async (receiverId, receiverRank, rate, commAmt, walBefore) => {
-          await db.run(
-            `INSERT INTO rank_commissions
-              (investment_id, investor_id, receiver_id, receiver_rank, commission_rate,
-               investment_amount, commission_amount, balance_before, balance_after, paid_at, status)
-             VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'),'paid')`,
-            [invId, member_id, receiverId, receiverRank, rate, amt, commAmt, walBefore, walBefore + commAmt]
-          );
-        };
+    const getWalletBal = async (mid) => {
+      const w = await db.get('SELECT available_balance FROM member_wallets WHERE member_id = ?', [mid]);
+      return (w && w.available_balance != null) ? w.available_balance : 0;
+    };
+    const updWallet = async (commAmt, mid) => {
+      await db.run(
+        `UPDATE member_wallets
+         SET available_balance = available_balance + ?,
+             total_commission  = total_commission  + ?,
+             updated_at = datetime('now','localtime')
+         WHERE member_id = ?`,
+        [commAmt, commAmt, mid]
+      );
+    };
+    const insertComm = async (receiverId, receiverRank, rate, commAmt, walBefore) => {
+      await db.run(
+        `INSERT INTO rank_commissions
+          (investment_id, investor_id, receiver_id, receiver_rank, commission_rate,
+           investment_amount, commission_amount, balance_before, balance_after, paid_at, status)
+         VALUES (?,?,?,?,?,?,?,?,?,datetime('now','localtime'),'paid')`,
+        [invId, member_id, receiverId, receiverRank, rate, amt, commAmt, walBefore, walBefore + commAmt]
+      );
+    };
 
-        if (parentMember.rank === '팀장') {
-          const commAmt  = Math.round(amt * 0.10);
-          const walBefore = await getWalletBal(parentMember.id);
-          await insertComm(parentMember.id, '팀장', 10.0, commAmt, walBefore);
-          await updWallet(commAmt, parentMember.id);
-          commissions.push({ receiver_id: parentMember.id, rank: '팀장', amount: commAmt });
+    // 라인 상위 탐색: 최초 팀장, 최초 본부장 탐색
+    let foundTeamjang  = null; // 가장 가까운 팀장
+    let foundBonbujang = null; // 가장 가까운 본부장
+    let cursor = member.recommender_id;
+    let depth  = 0;
+    const MAX_DEPTH = 20;
 
-          if (parentMember.recommender_id) {
-            const grandpa = await db.get('SELECT id, rank FROM members WHERE id = ?', [parentMember.recommender_id]);
-            if (grandpa && grandpa.rank === '본부장') {
-              const commAmt2  = Math.round(amt * 0.10);
-              const walBefore2 = await getWalletBal(grandpa.id);
-              await insertComm(grandpa.id, '본부장', 10.0, commAmt2, walBefore2);
-              await updWallet(commAmt2, grandpa.id);
-              commissions.push({ receiver_id: grandpa.id, rank: '본부장', amount: commAmt2 });
-            }
-          }
-        } else if (parentMember.rank === '본부장') {
-          const commAmt  = Math.round(amt * 0.20);
-          const walBefore = await getWalletBal(parentMember.id);
-          await insertComm(parentMember.id, '본부장', 20.0, commAmt, walBefore);
-          await updWallet(commAmt, parentMember.id);
-          commissions.push({ receiver_id: parentMember.id, rank: '본부장', amount: commAmt });
-        }
+    while (cursor && depth < MAX_DEPTH) {
+      const ancestor = await db.get(
+        'SELECT id, rank, recommender_id FROM members WHERE id = ?',
+        [cursor]
+      );
+      if (!ancestor) break;
+
+      if (ancestor.rank === '팀장' && !foundTeamjang) {
+        foundTeamjang = ancestor;
       }
+      if (ancestor.rank === '본부장' && !foundBonbujang) {
+        foundBonbujang = ancestor;
+      }
+      // 둘 다 찾으면 조기 종료
+      if (foundTeamjang && foundBonbujang) break;
+
+      cursor = ancestor.recommender_id;
+      depth++;
     }
+
+    // 수당 지급 결정
+    if (foundBonbujang && foundTeamjang) {
+      // 팀장 + 본부장 둘 다 존재 → 각 10%
+      const commAmt1   = Math.round(amt * 0.10);
+      const walBefore1 = await getWalletBal(foundTeamjang.id);
+      await insertComm(foundTeamjang.id, '팀장', 10.0, commAmt1, walBefore1);
+      await updWallet(commAmt1, foundTeamjang.id);
+      commissions.push({ receiver_id: foundTeamjang.id, rank: '팀장', amount: commAmt1 });
+
+      const commAmt2   = Math.round(amt * 0.10);
+      const walBefore2 = await getWalletBal(foundBonbujang.id);
+      await insertComm(foundBonbujang.id, '본부장', 10.0, commAmt2, walBefore2);
+      await updWallet(commAmt2, foundBonbujang.id);
+      commissions.push({ receiver_id: foundBonbujang.id, rank: '본부장', amount: commAmt2 });
+
+    } else if (foundBonbujang && !foundTeamjang) {
+      // 본부장만 존재 → 20%
+      const commAmt   = Math.round(amt * 0.20);
+      const walBefore = await getWalletBal(foundBonbujang.id);
+      await insertComm(foundBonbujang.id, '본부장', 20.0, commAmt, walBefore);
+      await updWallet(commAmt, foundBonbujang.id);
+      commissions.push({ receiver_id: foundBonbujang.id, rank: '본부장', amount: commAmt });
+
+    } else if (foundTeamjang && !foundBonbujang) {
+      // 팀장만 존재 → 10% 지급, 나머지 10%는 flush (미지급)
+      const commAmt   = Math.round(amt * 0.10);
+      const walBefore = await getWalletBal(foundTeamjang.id);
+      await insertComm(foundTeamjang.id, '팀장', 10.0, commAmt, walBefore);
+      await updWallet(commAmt, foundTeamjang.id);
+      commissions.push({ receiver_id: foundTeamjang.id, rank: '팀장', amount: commAmt });
+    }
+    // 직급자 없음 → 미지급 (flush)
 
     /* ⑥ 활동 로그 */
     await db.run(

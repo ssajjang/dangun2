@@ -167,14 +167,15 @@
 
             <input type="hidden" id="dep-member-id">
 
-            <!-- 투자금 입력 -->
+            <!-- 투자금 입력 (콤마 자동 표기) -->
             <div class="form-group mt-16">
               <label class="form-label">투자금액 <span style="color:var(--accent-red)">*</span></label>
               <div style="position:relative;">
-                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--accent-gold);">₩</span>
-                <input type="number" class="form-control" id="dep-amount" placeholder="0" min="100000" step="100000"
-                  oninput="calcPreview()" style="padding-left:32px;font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;">
+                <span style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-weight:700;color:var(--accent-gold);z-index:1;">₩</span>
+                <input type="text" inputmode="numeric" class="form-control" id="dep-amount" placeholder="0"
+                  oninput="onAmountInput(this)" style="padding-left:32px;font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;">
               </div>
+              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" id="amount-preview-text"></div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" onclick="setAmount(500000)">50만</button>
                 <button class="btn btn-outline btn-sm" onclick="setAmount(1000000)">100만</button>
@@ -227,7 +228,7 @@
               </div>
             </div>
 
-            <button class="btn btn-gold w-full btn-lg mt-16" onclick="submitDeposit()">
+            <button class="btn btn-gold w-full btn-lg mt-16" id="submit-btn" onclick="submitDeposit()">
               <i class="fas fa-paper-plane"></i> 투자금 등록 처리
             </button>
           </div>
@@ -267,6 +268,27 @@
   <script>
     let selectedMember = null;
     let searchTimer    = null;
+    let _rawAmount     = 0; // 실제 숫자값 저장
+
+    // ── 투자금 입력 - 콤마 자동 포맷 ──
+    function onAmountInput(el) {
+      const raw = el.value.replace(/[^0-9]/g, '');
+      _rawAmount = raw ? parseInt(raw, 10) : 0;
+      el.value = _rawAmount > 0 ? _rawAmount.toLocaleString('ko-KR') : '';
+      // 커서를 맨 끝으로
+      const len = el.value.length;
+      el.setSelectionRange(len, len);
+      // 한글 단위 표기
+      const preview = document.getElementById('amount-preview-text');
+      if (preview) {
+        if (_rawAmount >= 100000000) preview.textContent = `= ${(_rawAmount/100000000).toFixed(2)}억원`;
+        else if (_rawAmount >= 10000000) preview.textContent = `= ${(_rawAmount/10000).toFixed(0)}만원`;
+        else if (_rawAmount >= 10000) preview.textContent = `= ${(_rawAmount/10000).toFixed(1)}만원`;
+        else if (_rawAmount > 0) preview.textContent = `= ${_rawAmount.toLocaleString('ko-KR')}원`;
+        else preview.textContent = '';
+      }
+      calcPreview();
+    }
 
     document.addEventListener('DOMContentLoaded', () => {
       applyTheme(getTheme());
@@ -354,13 +376,21 @@
 
     // ── 금액 프리셋 ──
     function setAmount(v) {
-      document.getElementById('dep-amount').value = v;
+      _rawAmount = v;
+      const el = document.getElementById('dep-amount');
+      el.value = v.toLocaleString('ko-KR');
+      const preview = document.getElementById('amount-preview-text');
+      if (preview) {
+        if (v >= 100000000) preview.textContent = `= ${(v/100000000).toFixed(2)}억원`;
+        else if (v >= 10000000) preview.textContent = `= ${(v/10000).toFixed(0)}만원`;
+        else preview.textContent = `= ${(v/10000).toFixed(1)}만원`;
+      }
       calcPreview();
     }
 
     // ── 계산 미리보기 ──
     function calcPreview() {
-      const amount  = parseInt(document.getElementById('dep-amount').value) || 0;
+      const amount  = _rawAmount || 0;
       const dateStr = document.getElementById('dep-date').value;
       const preview = document.getElementById('calc-preview');
       if (!amount || amount < 100000) { preview.classList.remove('show'); return; }
@@ -393,7 +423,7 @@
     // ── 투자금 등록 (실제 API) ──
     async function submitDeposit() {
       const memberId = document.getElementById('dep-member-id').value;
-      const amount   = parseInt(document.getElementById('dep-amount').value) || 0;
+      const amount   = _rawAmount || 0;
       const date     = document.getElementById('dep-date').value;
       const memo     = document.getElementById('dep-memo').value;
 
@@ -402,6 +432,7 @@
       if (!date)           { showToast('투자 입금일을 입력하세요.', 'warning'); return; }
 
       const btn = document.getElementById('submit-btn');
+      if (!btn) { showToast('버튼 오류. 새로고침 후 재시도하세요.', 'error'); return; }
       btn.disabled = true;
       btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...';
 
@@ -413,10 +444,22 @@
           memo
         });
 
+        // 수당 상세 표시
+        let commMsg = '';
+        if (result.commissions_paid > 0) {
+          commMsg = result.commissions.map(c =>
+            `• ${c.rank}: ₩${Number(c.amount).toLocaleString('ko-KR')}`
+          ).join('\n');
+        } else {
+          commMsg = '• 직급자 없음 (수당 미지급)';
+        }
+
         showToast(
-          `${selectedMember?.name||''} 투자금 ${formatMoney(amount)} 등록 완료!\n` +
-          `수당 ${result.commissions_paid}건 즉시 지급, 15주 스케줄 생성`,
-          'success'
+          `✅ ${selectedMember?.name||''} 투자금 등록 완료!\n` +
+          `입금액: ${formatMoney(amount)}\n` +
+          `첫 지급일: ${result.first_pay_date}\n직급수당:\n${commMsg}`,
+          'success',
+          6000
         );
 
         // 폼 초기화
@@ -424,16 +467,19 @@
         document.getElementById('dep-member-id').value = '';
         document.getElementById('dep-amount').value = '';
         document.getElementById('dep-memo').value = '';
+        document.getElementById('amount-preview-text').textContent = '';
         document.getElementById('member-preview').classList.remove('show');
         document.getElementById('calc-preview').classList.remove('show');
         selectedMember = null;
+        _rawAmount = 0;
 
         await loadDepositHistory();
+        await loadDepositKPIs();
       } catch(err) {
-        showToast(err.message, 'error');
+        showToast('❌ 등록 실패: ' + (err.message || '알 수 없는 오류'), 'error');
       } finally {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-paper-plane"></i> 투자금 등록 완료';
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i> 투자금 등록 처리';
       }
     }
 

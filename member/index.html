@@ -411,13 +411,27 @@
             <div class="card-header">
               <span class="card-title"><i class="fas fa-calendar-check icon"></i> 다음 지급 예정</span>
             </div>
-            <div class="card-body" style="text-align:center;padding:20px;">
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">다음 금요일 지급</div>
-              <div style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--accent-gold);" id="next-pay-date">-</div>
-              <div style="font-size:24px;font-weight:900;margin-top:12px;color:var(--text-primary);" id="next-pay-amount">-</div>
-              <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">원금 + 수익 합산</div>
-              <div style="margin-top:16px;">
-                <span class="badge badge-orange anim-pulse" id="next-pay-badge">9주차 지급 대기</span>
+            <div class="card-body" style="text-align:center;padding:20px;" id="next-pay-body">
+              <!-- 투자 있을 때 -->
+              <div id="next-pay-has-investment" style="display:none;">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">다음 금요일 지급</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--accent-gold);" id="next-pay-date">-</div>
+                <div style="font-size:24px;font-weight:900;margin-top:12px;color:var(--text-primary);" id="next-pay-amount">-</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">원금 + 수익 합산</div>
+                <div style="margin-top:16px;">
+                  <span class="badge badge-orange anim-pulse" id="next-pay-badge">-주차 지급 대기</span>
+                </div>
+              </div>
+              <!-- 투자 없을 때 -->
+              <div id="next-pay-no-investment" style="display:none;">
+                <i class="fas fa-info-circle" style="font-size:32px;color:var(--text-muted);margin-bottom:12px;"></i>
+                <div style="font-size:13px;color:var(--text-muted);">투자 내역이 없습니다.</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">관리자에게 투자금 입금을 요청하세요.</div>
+              </div>
+              <!-- 로딩 -->
+              <div id="next-pay-loading">
+                <div class="spinner" style="margin:0 auto 8px;"></div>
+                <div style="font-size:12px;color:var(--text-muted);">불러오는 중...</div>
               </div>
             </div>
           </div>
@@ -444,6 +458,36 @@
               <a href="referrals.html" class="btn btn-outline btn-sm w-full mt-16" style="font-size:11px;">
                 <i class="fas fa-sitemap"></i> 계보 보기
               </a>
+            </div>
+          </div>
+        </div>
+
+        <!-- 직급자 전용 추천수당 섹션 (팀장 이상만 표시) -->
+        <div class="card mb-24 anim-fadeInUp delay-1" id="commission-section" style="display:none;border:1px solid rgba(212,160,23,0.3);">
+          <div class="card-header" style="background:rgba(212,160,23,0.05);">
+            <span class="card-title"><i class="fas fa-hand-holding-usd icon" style="color:var(--accent-gold);"></i> 추천 수당 현황</span>
+            <span class="badge badge-gold" id="my-rank-badge">-</span>
+          </div>
+          <div class="card-body">
+            <!-- 수당 통계 -->
+            <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:20px;">
+              <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border-color);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">오늘 수당</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--accent-gold);" id="comm-today">₩0</div>
+              </div>
+              <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border-color);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">이번 주 수당</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--accent-blue);" id="comm-week">₩0</div>
+              </div>
+              <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border-color);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">이번 달 수당</div>
+                <div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--accent-purple);" id="comm-month">₩0</div>
+              </div>
+            </div>
+            <!-- 최근 수당 내역 -->
+            <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:8px;">최근 수당 내역</div>
+            <div id="comm-list-body">
+              <div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px;">수당 내역 없음</div>
             </div>
           </div>
         </div>
@@ -664,11 +708,17 @@
       animateCounter(document.getElementById('stat-paid'), investment.paid_amount || 0, 1400, '₩');
       animateCounter(document.getElementById('stat-remain'), investment.remaining_amount || 0, 1600, '₩');
 
-      // Next Payout
-      if (nextPayout) {
-        document.getElementById('next-pay-date').textContent = formatDate(nextPayout.scheduled_date);
+      // Next Payout - 로딩 숨기고 상태에 따라 표시
+      document.getElementById('next-pay-loading').style.display = 'none';
+      if (nextPayout && nextPayout.scheduled_date) {
+        document.getElementById('next-pay-has-investment').style.display = 'block';
+        document.getElementById('next-pay-no-investment').style.display  = 'none';
+        document.getElementById('next-pay-date').textContent   = formatDate(nextPayout.scheduled_date);
         document.getElementById('next-pay-amount').textContent = formatMoney(nextPayout.total_payout);
-        document.getElementById('next-pay-badge').textContent = `${nextPayout.week_number}주차 지급 대기`;
+        document.getElementById('next-pay-badge').textContent  = `${nextPayout.week_number}주차 지급 대기`;
+      } else {
+        document.getElementById('next-pay-has-investment').style.display = 'none';
+        document.getElementById('next-pay-no-investment').style.display  = 'block';
       }
 
       // Referral counts
@@ -693,6 +743,68 @@
       document.getElementById('sidebar-name').textContent   = member.name   || '회원';
       document.getElementById('sidebar-rank').textContent   = `⭐ ${member.rank || '일반회원'}`;
       document.getElementById('sidebar-avatar').textContent = (member.name || 'U')[0];
+
+      // 직급자 추천수당 섹션 (팀장 or 본부장만 표시)
+      const isRanked = member.rank === '팀장' || member.rank === '본부장';
+      const commSection = document.getElementById('commission-section');
+      if (commSection) {
+        commSection.style.display = isRanked ? '' : 'none';
+        if (isRanked) {
+          document.getElementById('my-rank-badge').textContent = member.rank;
+          loadCommissionStats();
+        }
+      }
+    }
+
+    // ── 직급자 수당 통계 로드 ──
+    async function loadCommissionStats() {
+      try {
+        const data = await CommissionsAPI.my();
+        const list = Array.isArray(data) ? data : (data.data || []);
+
+        const now   = new Date();
+        const today = now.toISOString().slice(0, 10);
+        const weekStart = new Date(now);
+        weekStart.setDate(now.getDate() - now.getDay());
+        const weekStr = weekStart.toISOString().slice(0, 10);
+        const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+
+        let todayAmt = 0, weekAmt = 0, monthAmt = 0;
+        list.forEach(c => {
+          const paidAt = (c.paid_at || c.created_at || '').slice(0, 10);
+          const amt = Number(c.commission_amount || 0);
+          if (paidAt === today)               todayAmt += amt;
+          if (paidAt >= weekStr)              weekAmt  += amt;
+          if (paidAt.startsWith(monthStr))    monthAmt += amt;
+        });
+
+        document.getElementById('comm-today').textContent = '₩' + todayAmt.toLocaleString('ko-KR');
+        document.getElementById('comm-week').textContent  = '₩' + weekAmt.toLocaleString('ko-KR');
+        document.getElementById('comm-month').textContent = '₩' + monthAmt.toLocaleString('ko-KR');
+
+        // 최근 5건 표시
+        const recent = list.slice(0, 5);
+        const listEl = document.getElementById('comm-list-body');
+        if (recent.length === 0) {
+          listEl.innerHTML = `<div style="text-align:center;padding:16px;color:var(--text-muted);font-size:12px;">수당 내역 없음</div>`;
+        } else {
+          listEl.innerHTML = recent.map(c => `
+            <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color);">
+              <div>
+                <div style="font-size:12px;font-weight:700;color:var(--text-secondary);">
+                  ${c.investor_user_id || c.investor_name || '-'} 투자 발생
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);">${formatDate(c.paid_at || c.created_at)} · ${c.receiver_rank || ''} ${c.commission_rate || 0}%</div>
+              </div>
+              <div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--accent-gold);">
+                +${formatMoney(c.commission_amount)}
+              </div>
+            </div>
+          `).join('');
+        }
+      } catch(e) {
+        console.error('[commission] 수당 로드 실패:', e);
+      }
     }
 
     function countAllReferrals(arr) {

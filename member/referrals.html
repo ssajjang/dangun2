@@ -222,14 +222,18 @@
   </div>
 
   <script src="../js/app.js"></script>
+  <script src="../js/api.js"></script>
   <script>
-    // ── Tree Data ──
-    const rootMember = {
-      id: 1, user_id: 'kim2024', name: '김철수',
-      rank: '팀장', investment_total: 5000000,
-      investment_date: '2025-01-10',
-      children: DEMO_DATA.referrals
-    };
+    // ── 인증 가드 ──
+    (function(){
+      var t=localStorage.getItem('dangun_token');
+      var u=null;try{u=JSON.parse(localStorage.getItem('dangun_user')||'null');}catch(e){}
+      if(!t||!u||!u.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_user');location.replace('/index.html');}
+    })();
+
+    // ── Tree Data (DB 연동) ──
+    let rootMember = null;   // 로그인 회원 (본인)
+    let flatMembers = [];    // 하부 회원 평탄화 목록
 
     // ── Canvas Variables ──
     const canvas = document.getElementById('treeCanvas');
@@ -239,73 +243,153 @@
     let isDragging = false, lastX = 0, lastY = 0;
     const nodeMap = [];
 
-    const NODE_W = 140, NODE_H = 68, NODE_GAP_H = 100, NODE_GAP_V = 90;
+    const NODE_W = 148, NODE_H = 72, NODE_GAP_H = 110, NODE_GAP_V = 95;
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
-      renderStats();
-      renderMemberList();
+      initSidebarUser();
+      await loadReferralData();
       initCanvas();
       canvas.addEventListener('mousemove', onMouseMove);
     });
 
-    // ── Statistics ──
-    function countAll(arr) {
-      return arr.reduce((a, m) => a + 1 + countAll(m.children), 0);
-    }
-    function maxDepth(arr, depth = 1) {
-      if (!arr.length) return 0;
-      return Math.max(...arr.map(m => 1 + maxDepth(m.children)));
-    }
-    function sumInvest(arr) {
-      return arr.reduce((a, m) => a + m.investment_total + sumInvest(m.children), 0);
+    // ── 사이드바 사용자 정보 ──
+    function initSidebarUser() {
+      const user = Auth ? Auth.getUser() : {};
+      const nameEl = document.querySelector('.sidebar-footer .user-name');
+      const rankEl = document.querySelector('.sidebar-footer .user-rank');
+      const avEl   = document.querySelector('.sidebar-footer .user-avatar');
+      if (nameEl) nameEl.textContent = user.name || '-';
+      if (rankEl) rankEl.textContent = user.rank || '';
+      if (avEl)   avEl.textContent   = (user.name||'?')[0];
     }
 
-    function renderStats() {
-      const refs = rootMember.children;
-      const total = countAll(refs);
-      document.getElementById('sc-total').textContent = total;
-      document.getElementById('sc-direct').textContent = refs.length;
-      document.getElementById('sc-depth').textContent = maxDepth(refs);
-      document.getElementById('sc-invest').textContent = formatMoney(sumInvest(refs));
+    // ── DB 데이터 로드 ──
+    async function loadReferralData() {
+      try {
+        const user = Auth.getUser();
+        if (!user || !user.id) { location.replace('/index.html'); return; }
+
+        // 대시보드 API로 기본 정보 + 추천 통계
+        const dashData = await DashboardAPI.member();
+        const me = dashData.member || {};
+        const refStats = dashData.referral_stats || {};
+
+        // 추천 트리 API
+        const treeData = await MembersAPI.myReferrals();
+
+        // 본인 노드 구성 (루트)
+        rootMember = {
+          id:               me.id || user.id,
+          user_id:          me.user_id || user.user_id || '',
+          name:             me.name || user.name || '',
+          rank:             me.rank || user.rank || '일반회원',
+          investment_total: me.investment_total || 0,
+          investment_date:  me.investment_date || null,
+          children:         buildTree(treeData.flat || [], me.id || user.id),
+          isRoot:           true,
+        };
+
+        flatMembers = treeData.flat || [];
+
+        renderStats(refStats);
+        renderMemberList();
+        initCanvas();
+      } catch(e) {
+        console.error('[referrals] 로드 오류:', e);
+        showToast('추천 트리 로드 실패: ' + e.message, 'error');
+        // 빈 상태로 표시
+        rootMember = {
+          id: 0, user_id: Auth.getUser().user_id || '', name: Auth.getUser().name || '',
+          rank: '일반회원', investment_total: 0, investment_date: null, children: [], isRoot: true
+        };
+        flatMembers = [];
+        renderStats({});
+        renderMemberList();
+        initCanvas();
+      }
+    }
+
+    // flat 배열 → 트리 구조 변환 (recommender_id 기준)
+    function buildTree(flatArr, rootId) {
+      const childrenOf = {};
+      flatArr.forEach(m => {
+        const pid = m.recommender_id;
+        if (!childrenOf[pid]) childrenOf[pid] = [];
+        childrenOf[pid].push(m);
+      });
+      function children(pid) {
+        return (childrenOf[pid] || []).map(m => ({
+          ...m,
+          children: children(m.id),
+        }));
+      }
+      return children(rootId);
+    }
+
+    // ── Statistics ──
+    function countAll(arr) {
+      return arr.reduce((a, m) => a + 1 + countAll(m.children || []), 0);
+    }
+    function maxDepth(arr) {
+      if (!arr || !arr.length) return 0;
+      return 1 + Math.max(0, ...arr.map(m => maxDepth(m.children || [])));
+    }
+    function sumInvest(arr) {
+      return arr.reduce((a, m) => a + (m.investment_total || 0) + sumInvest(m.children || []), 0);
+    }
+
+    function renderStats(refStats) {
+      const refs  = rootMember ? (rootMember.children || []) : [];
+      const total = refStats.total ?? countAll(refs);
+      const direct= refStats.direct ?? refs.length;
+      const depth = maxDepth(refs);
+      const invest= sumInvest(refs);
+      document.getElementById('sc-total').textContent  = total;
+      document.getElementById('sc-direct').textContent = direct;
+      document.getElementById('sc-depth').textContent  = depth;
+      document.getElementById('sc-invest').textContent = '₩' + invest.toLocaleString('ko-KR');
       document.getElementById('list-count-el').textContent = `총 ${total}명`;
     }
 
-    // ── Member List Flat ──
+    // ── Member List (하부 전체, 본인 제외) ──
     function flatList(arr, depth) {
       let result = [];
-      arr.forEach(m => {
-        result.push({...m, depth});
-        result = result.concat(flatList(m.children, depth + 1));
+      (arr || []).forEach(m => {
+        result.push({...m, _depth: depth});
+        result = result.concat(flatList(m.children || [], depth + 1));
       });
       return result;
     }
 
     function renderMemberList() {
-      const list = flatList(rootMember.children, 1);
+      if (!rootMember) return;
+      const list  = flatList(rootMember.children || [], 1);
       const tbody = document.getElementById('referral-list-tbody');
+      if (list.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted);">하부 회원이 없습니다.</td></tr>`;
+        return;
+      }
       tbody.innerHTML = list.map(m => `
         <tr>
           <td>
             <div class="member-card">
-              <div class="member-avatar-sm">${m.name[0]}</div>
-              <div>
-                <div style="font-weight:700;font-size:13px;">${m.user_id}</div>
-              </div>
+              <div class="member-avatar-sm">${(m.name||'?')[0]}</div>
+              <div><div style="font-weight:700;font-size:13px;">${m.user_id}</div></div>
             </div>
           </td>
           <td>${m.name}</td>
-          <td>${rankBadge(m.rank)}</td>
+          <td>${rankBadge(m.rank || '일반회원')}</td>
           <td style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--accent-gold);">
-            ${formatMoney(m.investment_total)}
+            ${m.investment_total ? formatMoney(m.investment_total) : '-'}
           </td>
           <td style="font-size:12px;">${formatDate(m.investment_date)}</td>
           <td>
             <span style="padding:3px 10px;background:rgba(90,123,255,0.15);color:var(--accent-blue);border-radius:8px;font-size:11px;font-weight:700;">
-              ${m.depth}단계
+              ${m._depth}단계
             </span>
           </td>
-          <td style="text-align:center;font-weight:700;">${m.children.length}</td>
+          <td style="text-align:center;font-weight:700;">${(m.children||[]).length}</td>
         </tr>
       `).join('');
     }
@@ -424,6 +508,7 @@
     }
 
     function drawTree() {
+      if (!rootMember) return;
       const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
       nodeMap.length = 0;
 
@@ -432,7 +517,7 @@
       ctx.translate(offsetX, offsetY);
       ctx.scale(scale, scale);
 
-      const layout = layoutTree(rootMember, canvas.width / 2 / scale, 50, 0);
+      const layout = layoutTree(rootMember, canvas.width / 2 / scale, 60, 0);
       drawLayout(layout, isDark);
 
       ctx.restore();
