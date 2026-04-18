@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DANGUN - 투자금 출금 관리</title>
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link rel="stylesheet" href="../css/theme.css">
@@ -55,23 +56,23 @@
       </header>
 
       <div class="page-content">
-        <!-- KPIs -->
+        <!-- KPIs (DB 연동) -->
         <div class="grid grid-4 mb-24" style="gap:14px;">
           <div class="stat-card anim-fadeInUp delay-1">
             <div class="stat-icon"><i class="fas fa-list"></i></div>
-            <div class="stat-value">24</div><div class="stat-label">전체 출금 건수</div>
+            <div class="stat-value" id="kpi-total-w">-</div><div class="stat-label">전체 출금 건수</div>
           </div>
           <div class="stat-card red anim-fadeInUp delay-2">
             <div class="stat-icon"><i class="fas fa-clock"></i></div>
-            <div class="stat-value" id="kpi-pending-w">5</div><div class="stat-label">대기 건수</div>
+            <div class="stat-value" id="kpi-pending-w">-</div><div class="stat-label">대기 건수</div>
           </div>
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
-            <div class="stat-value">18</div><div class="stat-label">처리 완료</div>
+            <div class="stat-value" id="kpi-done-w">-</div><div class="stat-label">처리 완료</div>
           </div>
           <div class="stat-card blue anim-fadeInUp delay-4">
             <div class="stat-icon"><i class="fas fa-coins"></i></div>
-            <div class="stat-value" style="font-size:18px;">₩38.5만</div><div class="stat-label">이번 주 출금 합계</div>
+            <div class="stat-value" id="kpi-amount-w" style="font-size:18px;">-</div><div class="stat-label">대기 합계</div>
           </div>
         </div>
 
@@ -157,9 +158,6 @@
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
   <script>
-    if (!requireAdminAuth()) { /* redirect */ }
-    function doLogout() { Auth.clear(); window.location.href = '../index.html'; }
-
     let currentPageW  = 1;
     let totalCountW   = 0;
     const PAGE_LIMIT_W = 10;
@@ -182,14 +180,13 @@
         totalCountW = data.total || 0;
         renderWithdrawalTable(data.data || []);
 
-        // 통계 카드 업데이트
+        // ── KPI 카드 DB 데이터로 업데이트 ──
         const s = data.stats || {};
-        const pendingEl = document.getElementById('stat-pending-count');
-        const pendingAmtEl = document.getElementById('stat-pending-amount');
-        const paidAmtEl = document.getElementById('stat-paid-amount');
-        if (pendingEl)    pendingEl.textContent    = s.pending_count || 0;
-        if (pendingAmtEl) pendingAmtEl.textContent = formatMoney(s.pending_amount || 0);
-        if (paidAmtEl)    paidAmtEl.textContent    = formatMoney(s.paid_amount    || 0);
+        const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
+        setEl('kpi-total-w',   s.total_count   || data.total || 0);
+        setEl('kpi-pending-w', s.pending_count || 0);
+        setEl('kpi-done-w',    s.paid_count    || 0);
+        setEl('kpi-amount-w',  formatMoney(s.pending_amount || 0));
       } catch(err) {
         showToast('출금 목록 로드 실패: ' + err.message, 'error');
       }

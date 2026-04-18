@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DANGUN - 투자금 입금 관리</title>
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link rel="stylesheet" href="../css/theme.css">
@@ -99,23 +100,23 @@
 
       <div class="page-content">
 
-        <!-- KPIs -->
+        <!-- KPIs (DB 연동) -->
         <div class="grid grid-4 mb-24" style="gap:14px;">
           <div class="stat-card anim-fadeInUp delay-1">
             <div class="stat-icon"><i class="fas fa-arrow-circle-down"></i></div>
-            <div class="stat-value">47</div><div class="stat-label">총 입금 건수</div>
+            <div class="stat-value" id="kpi-dep-total">-</div><div class="stat-label">전체 입금 건수</div>
           </div>
           <div class="stat-card blue anim-fadeInUp delay-2">
             <div class="stat-icon"><i class="fas fa-coins"></i></div>
-            <div class="stat-value" style="font-size:18px;">₩4.85억</div><div class="stat-label">총 입금액 누계</div>
+            <div class="stat-value" id="kpi-dep-sum" style="font-size:18px;">-</div><div class="stat-label">전체 입금액 누계</div>
           </div>
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-calendar-day"></i></div>
-            <div class="stat-value" style="font-size:18px;">₩3,200만</div><div class="stat-label">이번 달 입금</div>
+            <div class="stat-value" id="kpi-dep-month" style="font-size:18px;">-</div><div class="stat-label">이번 달 입금</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-4">
             <div class="stat-icon"><i class="fas fa-users"></i></div>
-            <div class="stat-value">47</div><div class="stat-label">투자 회원 수</div>
+            <div class="stat-value" id="kpi-dep-members">-</div><div class="stat-label">투자 회원 수</div>
           </div>
         </div>
 
@@ -264,9 +265,6 @@
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
   <script>
-    if (!requireAdminAuth()) { /* redirect */ }
-    function doLogout() { Auth.clear(); window.location.href = '../index.html'; }
-
     let selectedMember = null;
     let searchTimer    = null;
 
@@ -275,6 +273,7 @@
       const today = new Date().toISOString().slice(0, 10);
       document.getElementById('dep-date').value = today;
       loadDepositHistory();
+      loadDepositKPIs();
 
       // 검색 debounce
       document.getElementById('dep-search').addEventListener('input', () => {
@@ -282,6 +281,29 @@
         searchTimer = setTimeout(searchMemberDep, 350);
       });
     });
+
+    // ── 투자 KPI 로드 (DB 연동) ──
+    async function loadDepositKPIs() {
+      try {
+        const data = await InvestmentsAPI.list({ page: 1, limit: 1 });
+        const s = data.stats || {};
+        const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+        setEl('kpi-dep-total',   s.total_count || data.total || 0);
+        const sumRaw = s.total_amount || 0;
+        setEl('kpi-dep-sum', sumRaw >= 100000000
+          ? '₩' + (sumRaw / 100000000).toFixed(2) + '억'
+          : sumRaw >= 10000000
+            ? '₩' + (sumRaw / 10000).toFixed(0) + '만'
+            : formatMoney(sumRaw));
+        const monthRaw = s.month_amount || 0;
+        setEl('kpi-dep-month', monthRaw >= 10000000
+          ? '₩' + (monthRaw / 10000).toFixed(0) + '만'
+          : formatMoney(monthRaw));
+        setEl('kpi-dep-members', s.member_count || 0);
+      } catch(e) {
+        // KPI 로드 실패 시 -로 유지
+      }
+    }
 
     // ── 회원 검색 (실제 API) ──
     async function searchMemberDep() {

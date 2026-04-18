@@ -203,7 +203,20 @@ router.get('/', authAdmin, async (req, res) => {
       countParams
     );
 
-    return res.json({ data: rows, total, page, limit });
+    // ── KPI 통계 (전체 기준) ──
+    const now = new Date();
+    const monthStr = `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,'0')}`;
+    const stats = await db.get(`
+      SELECT
+        COUNT(*)                   AS total_count,
+        SUM(amount)                AS total_amount,
+        COUNT(DISTINCT member_id)  AS member_count,
+        SUM(CASE WHEN strftime('%Y-%m', investment_date) = ? THEN amount ELSE 0 END) AS month_amount
+      FROM investments
+      WHERE status != 'cancelled'
+    `, [monthStr]);
+
+    return res.json({ data: rows, total, page, limit, stats: stats || {} });
   } catch (e) {
     console.error('GET /investments error:', e);
     return res.status(500).json({ error: e.message });

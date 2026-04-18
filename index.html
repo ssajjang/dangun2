@@ -569,10 +569,14 @@
 
             <div class="form-group">
               <label class="form-label">추천인 검색 (선택)</label>
+              <div style="padding:8px 12px;background:rgba(212,160,23,0.07);border:1px solid rgba(212,160,23,0.25);border-radius:8px;font-size:11px;color:var(--text-muted);margin-bottom:8px;">
+                <i class="fas fa-info-circle" style="color:var(--accent-gold);margin-right:4px;"></i>
+                추천인이 없으면 비워두세요. 2자 이상 입력 시 자동 검색됩니다.
+              </div>
               <div class="recommend-search">
                 <div class="input-icon-wrap" style="flex:1;">
                   <i class="fas fa-search input-icon"></i>
-                  <input type="text" class="form-control" id="recommend-input" placeholder="아이디 또는 이름 검색">
+                  <input type="text" class="form-control" id="recommend-input" placeholder="아이디 또는 이름 2자 이상 입력">
                 </div>
                 <button type="button" class="btn btn-outline btn-sm" onclick="searchRecommender()">
                   <i class="fas fa-search"></i>
@@ -785,7 +789,10 @@
         });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '회원가입 실패');
-        showToast('회원가입이 완료되었습니다! 바로 로그인하세요.', 'success');
+        const msg = data.recommender_linked
+          ? '회원가입 완료! 추천인이 등록되었습니다. 로그인하세요.'
+          : '회원가입이 완료되었습니다! 바로 로그인하세요.';
+        showToast(msg, 'success');
         setTimeout(() => switchTab('login'), 2000);
       } catch(err) {
         showToast(err.message, 'error');

@@ -52,7 +52,7 @@ router.get('/', authAdmin, async (req, res) => {
     );
 
     const stats = await db.get(
-      `SELECT COUNT(*) as total, SUM(commission_amount) as total_amount,
+      `SELECT COUNT(*) as total_count, SUM(commission_amount) as total_amount,
               SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END) as teamjang_total,
               SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END) as bonbujang_total
        FROM rank_commissions WHERE status='paid'`

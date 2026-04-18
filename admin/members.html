@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DANGUN - 회원 정보 관리</title>
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link rel="stylesheet" href="../css/theme.css">
@@ -62,23 +63,23 @@
 
       <div class="page-content">
 
-        <!-- Summary -->
+        <!-- Summary (DB 연동) -->
         <div class="grid grid-4 mb-24" style="gap:14px;">
           <div class="stat-card anim-fadeInUp delay-1">
             <div class="stat-icon"><i class="fas fa-users"></i></div>
-            <div class="stat-value">128</div><div class="stat-label">전체 회원</div>
+            <div class="stat-value" id="stat-total">-</div><div class="stat-label">전체 회원</div>
           </div>
           <div class="stat-card blue anim-fadeInUp delay-2">
             <div class="stat-icon"><i class="fas fa-user-check"></i></div>
-            <div class="stat-value">112</div><div class="stat-label">활성 회원</div>
+            <div class="stat-value" id="stat-active">-</div><div class="stat-label">활성 회원</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-3" style="--accent-gold:#8e44ad;">
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:#9b59b6;"><i class="fas fa-star"></i></div>
-            <div class="stat-value">23</div><div class="stat-label">팀장 이상</div>
+            <div class="stat-value" id="stat-teamjang">-</div><div class="stat-label">팀장 이상</div>
           </div>
           <div class="stat-card red anim-fadeInUp delay-4">
             <div class="stat-icon"><i class="fas fa-user-clock"></i></div>
-            <div class="stat-value">3</div><div class="stat-label">승인 대기</div>
+            <div class="stat-value" id="stat-inactive">-</div><div class="stat-label">승인 대기</div>
           </div>
         </div>
 
@@ -248,9 +249,6 @@
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
   <script>
-    if (!requireAdminAuth()) { /* redirect */ }
-    function doLogout() { Auth.clear(); window.location.href = '../index.html'; }
-
     let currentPage = 1;
     let totalCount  = 0;
     const PAGE_LIMIT = 10;
@@ -277,12 +275,13 @@
         totalCount = data.total || 0;
         renderTable(data.data || []);
 
-        // 통계 업데이트
+        // ── KPI 카드 DB 데이터로 업데이트 ──
         const s = data.stats || {};
-        ['total','active_count','inactive_count','teamjang_count','bonbujang_count'].forEach(k => {
-          const el = document.getElementById('stat-' + k.replace('_count',''));
-          if (el) el.textContent = s[k] || 0;
-        });
+        const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+        setEl('stat-total',    s.total            || data.total || 0);
+        setEl('stat-active',   s.active_count     || 0);
+        setEl('stat-teamjang', (s.teamjang_count  || 0) + (s.bonbujang_count || 0));
+        setEl('stat-inactive', s.inactive_count   || 0);
       } catch(err) {
         showToast('회원 목록 로드 실패: ' + err.message, 'error');
       }

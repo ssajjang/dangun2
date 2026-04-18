@@ -94,7 +94,19 @@ router.get('/', authAdmin, async (req, res) => {
       params
     );
 
-    return res.json({ data: rows, total, page, limit });
+    // ── KPI 통계 (필터 무관 전체 기준) ──
+    const stats = await db.get(`
+      SELECT
+        COUNT(*)                                        AS total_count,
+        SUM(CASE WHEN status='pending'  THEN 1 ELSE 0 END) AS pending_count,
+        SUM(CASE WHEN status='paid'     THEN 1 ELSE 0 END) AS paid_count,
+        SUM(CASE WHEN status='rejected' THEN 1 ELSE 0 END) AS rejected_count,
+        SUM(CASE WHEN status='pending'  THEN amount ELSE 0 END) AS pending_amount,
+        SUM(CASE WHEN status='paid'     THEN amount ELSE 0 END) AS paid_amount
+      FROM withdrawal_requests
+    `);
+
+    return res.json({ data: rows, total, page, limit, stats: stats || {} });
   } catch (e) {
     console.error('GET /withdrawals error:', e);
     return res.status(500).json({ error: e.message });
@@ -184,6 +196,38 @@ router.patch('/:id/reject', authAdmin, async (req, res) => {
     return res.json({ message: '출금 거절 처리 완료', withdrawal_id: wr.id });
   } catch (e) {
     console.error('PATCH /withdrawals/reject error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   POST /api/withdrawals/bulk-approve  ── 관리자: 일괄 승인
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+router.post('/bulk-approve', authAdmin, async (req, res) => {
+  try {
+    const { ids } = req.body;
+    if (!Array.isArray(ids) || ids.length === 0)
+      return res.status(400).json({ error: 'ids 배열 필수' });
+
+    const db = await getDb();
+    let approved = 0;
+    for (const id of ids) {
+      const wr = await db.get('SELECT * FROM withdrawal_requests WHERE id=?', [id]);
+      if (!wr || wr.status !== 'pending') continue;
+      await db.run(
+        `UPDATE withdrawal_requests SET status='paid', approved_by=?, approved_at=datetime('now','localtime'),
+         paid_at=datetime('now','localtime'), updated_at=datetime('now','localtime') WHERE id=?`,
+        [req.admin.id, wr.id]
+      );
+      await db.run(
+        `UPDATE member_wallets SET total_withdrawn=total_withdrawn+?, updated_at=datetime('now','localtime') WHERE member_id=?`,
+        [wr.amount, wr.member_id]
+      );
+      approved++;
+    }
+    return res.json({ message: `${approved}건 일괄 승인 완료`, approved });
+  } catch (e) {
+    console.error('POST /withdrawals/bulk-approve error:', e);
     return res.status(500).json({ error: e.message });
   }
 });

@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DANGUN 관리자 - 지급 시뮬레이션</title>
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700&family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link rel="stylesheet" href="../css/theme.css">
@@ -222,11 +223,8 @@
 
 <script>
 const token = localStorage.getItem('dangun_token');
-const _adminData = (() => { try { return JSON.parse(localStorage.getItem('dangun_admin') || 'null'); } catch { return null; } })();
-if (!token || !_adminData?.id) { localStorage.removeItem('dangun_token'); localStorage.removeItem('dangun_admin'); location.href = '../index.html'; }
-
 function authHeader() { return { 'Content-Type':'application/json','Authorization':'Bearer '+token }; }
-function logout()      { localStorage.removeItem('dangun_token'); localStorage.removeItem('dangun_user'); localStorage.removeItem('dangun_admin'); location.href='../index.html'; }
+function logout() { if(window.Auth) window.Auth.clear(); else { localStorage.removeItem('dangun_token'); localStorage.removeItem('dangun_user'); localStorage.removeItem('dangun_admin'); } location.replace('/index.html'); }
 function toggleSidebar(){ document.getElementById('sidebar').classList.toggle('open'); }
 
 function showToast(msg, type='info', dur=3500) {
