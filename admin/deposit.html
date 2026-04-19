@@ -130,7 +130,7 @@
               투자금 입금 등록
             </div>
             <div style="font-size:12px;color:var(--text-muted);margin-bottom:24px;">
-              입력 즉시 투자 스케줄이 생성되고, 직급 수당이 자동 지급됩니다.
+              입력 즉시 투자 스케줄이 생성되고 (입금일+7일 주기), 직급 수당이 자동 지급됩니다.
             </div>
 
             <!-- 회원 검색 -->
@@ -198,6 +198,23 @@
               <textarea class="form-control" id="dep-memo" rows="2" placeholder="관리자 메모..." style="resize:vertical;"></textarea>
             </div>
 
+            <!-- 직급수당 미지급 옵션 -->
+            <div class="form-group" style="background:rgba(231,76,60,0.06);border:1px solid rgba(231,76,60,0.25);border-radius:var(--radius-md);padding:14px 16px;margin-top:4px;">
+              <label style="display:flex;align-items:center;gap:10px;cursor:pointer;margin:0;">
+                <input type="checkbox" id="dep-skip-commission"
+                  style="width:17px;height:17px;accent-color:#e74c3c;flex-shrink:0;cursor:pointer;">
+                <div>
+                  <div style="font-size:13px;font-weight:700;color:#e74c3c;">
+                    <i class="fas fa-ban" style="margin-right:5px;"></i>직급수당 미지급 처리
+                  </div>
+                  <div style="font-size:11px;color:var(--text-muted);margin-top:3px;">
+                    체크 시 추첸 라인(상위)에 대한 직급수당이 전혀 발생하지 않습니다.<br>
+                    투자금 입금 데이터만 처리됩니다.
+                  </div>
+                </div>
+              </label>
+            </div>
+
             <!-- 계산 프리뷰 -->
             <div class="calc-preview" id="calc-preview">
               <div style="font-size:12px;font-weight:700;color:var(--accent-green);margin-bottom:10px;">
@@ -220,7 +237,7 @@
                 <span class="value" id="calc-weekly">-</span>
               </div>
               <div class="calc-row">
-                <span class="label">첫 지급 예정일 (금요일)</span>
+                <span class="label">첫 지급 예정일 (입금일+7일)</span>
                 <span class="value" style="color:var(--accent-blue);" id="calc-first-friday">-</span>
               </div>
               <div class="calc-row">
@@ -411,9 +428,11 @@
       document.getElementById('calc-weekly').textContent     = `${formatMoney(weekly)} × 15주`;
       document.getElementById('calc-commission').textContent = `최대 ₩${commAmt.toLocaleString()} (상위 계보 지급)`;
 
+      // ✅ 첫 지급일 = 투자일 + 7일
       if (dateStr) {
-        const nextFri = getNextFriday(new Date(dateStr));
-        document.getElementById('calc-first-friday').textContent = formatDate(nextFri.toISOString().slice(0, 10));
+        const d = new Date(dateStr + 'T00:00:00');
+        d.setDate(d.getDate() + 7);
+        document.getElementById('calc-first-friday').textContent = formatDate(d.toISOString().slice(0, 10));
       }
     }
 
@@ -426,10 +445,12 @@
 
     // ── 투자금 등록 (실제 API) ──
     async function submitDeposit() {
-      const memberId = document.getElementById('dep-member-id').value;
-      const amount   = _rawAmount || 0;
-      const date     = document.getElementById('dep-date').value;
-      const memo     = document.getElementById('dep-memo').value;
+      const memberId   = document.getElementById('dep-member-id').value;
+      const amount     = _rawAmount || 0;
+      const date       = document.getElementById('dep-date').value;
+      const memo       = document.getElementById('dep-memo').value;
+      const skipCommEl = document.getElementById('dep-skip-commission');
+      const skipComm   = skipCommEl ? skipCommEl.checked : false;
 
       if (!memberId)       { showToast('회원을 선택하세요.', 'warning'); return; }
       if (amount < 100000) { showToast('최소 투자금액은 100,000원입니다.', 'warning'); return; }
@@ -442,15 +463,18 @@
 
       try {
         const result = await InvestmentsAPI.deposit({
-          member_id: parseInt(memberId),
+          member_id:       parseInt(memberId),
           amount,
           investment_date: date,
-          memo
+          memo,
+          skip_commission: skipComm
         });
 
         // 수당 상세 표시
         let commMsg = '';
-        if (result.commissions_paid > 0) {
+        if (result.skip_commission) {
+          commMsg = '• 직급수당 미지급 체크됨 (미지급 처리)';
+        } else if (result.commissions_paid > 0) {
           commMsg = result.commissions.map(c =>
             `• ${c.rank}: ₩${Number(c.amount).toLocaleString('ko-KR')}`
           ).join('\n');
@@ -471,6 +495,7 @@
         document.getElementById('dep-member-id').value = '';
         document.getElementById('dep-amount').value = '';
         document.getElementById('dep-memo').value = '';
+        if (skipCommEl) skipCommEl.checked = false;
         document.getElementById('amount-preview-text').textContent = '';
         document.getElementById('member-preview').classList.remove('show');
         document.getElementById('calc-preview').classList.remove('show');

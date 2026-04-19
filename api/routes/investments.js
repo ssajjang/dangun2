@@ -9,7 +9,7 @@ const { authAdmin, authMember } = require('../middleware/auth');
 
 const router = express.Router();
 
-/* ── 다음 금요일 계산 ── */
+/* ── 다음 금요일 계산 (레거시/미리보기용) ── */
 function nextFriday(dateStr) {
   const d = new Date(dateStr + 'T00:00:00');
   const day = d.getDay();
@@ -18,11 +18,16 @@ function nextFriday(dateStr) {
   return d.toISOString().slice(0, 10);
 }
 
-/* ── 날짜 + N주 ── */
-function addWeeks(dateStr, n) {
+/* ── 날짜 + N일 ── */
+function addDays(dateStr, n) {
   const d = new Date(dateStr + 'T00:00:00');
-  d.setDate(d.getDate() + n * 7);
+  d.setDate(d.getDate() + n);
   return d.toISOString().slice(0, 10);
+}
+
+/* ── 날짜 + N주 (= N*7일) ── */
+function addWeeks(dateStr, n) {
+  return addDays(dateStr, n * 7);
 }
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -31,7 +36,10 @@ function addWeeks(dateStr, n) {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 router.post('/', authAdmin, async (req, res) => {
   try {
-    const { member_id, amount, investment_date, memo } = req.body;
+    // skip_commission=true 이면 직급수당 발생 로직 완전 차단
+    const { member_id, amount, investment_date, memo, skip_commission } = req.body;
+    const skipComm = (skip_commission === true || skip_commission === 'true' || skip_commission === 1);
+
     if (!member_id || !amount || !investment_date)
       return res.status(400).json({ error: 'member_id, amount, investment_date 필수' });
 
@@ -55,8 +63,9 @@ router.post('/', authAdmin, async (req, res) => {
     const total_payout      = amt + total_profit;              // 총 지급 = 1.5배
     const principal_per_week = Math.floor(amt / total_weeks);
     const profit_per_week    = Math.floor(total_profit / total_weeks);
-    const first_friday       = nextFriday(investment_date);
-    const end_date           = addWeeks(first_friday, total_weeks - 1);
+    // ✅ 첫 지급일 = 입금일 + 7일 (금요일 고정 폐기 → 입금일 기준 7일 주기)
+    const first_pay_start    = addDays(investment_date, 7);
+    const end_date           = addDays(investment_date, 7 * total_weeks);
 
     /* ① investments INSERT */
     const invResult = await db.run(
@@ -65,14 +74,15 @@ router.post('/', authAdmin, async (req, res) => {
          paid_amount, remaining_amount, investment_date, next_pay_date, end_date, status, admin_id, memo)
        VALUES (?,?,?,?,0, 0,?,?,?,?,'active',?,?)`,
       [member_id, amt, profit_per_week, total_weeks, total_payout,
-       investment_date, first_friday, end_date, req.admin.id, memo || '']
+       investment_date, first_pay_start, end_date, req.admin.id, memo || '']
     );
     const invId = invResult.lastID;
 
-    /* ② 15주 지급 스케줄 생성 */
+    /* ② 15주 지급 스케줄 생성 (입금일 기준 +7일, +14일, ... +105일) */
     let balance = total_payout;
-    let payDate = first_friday;
     for (let w = 1; w <= total_weeks; w++) {
+      // w주차 지급일 = investment_date + (7 * w) 일
+      const payDate   = addDays(investment_date, 7 * w);
       const pp = (w === total_weeks) ? (amt - principal_per_week * (total_weeks - 1)) : principal_per_week;
       const pr = (w === total_weeks) ? (total_profit - profit_per_week * (total_weeks - 1)) : profit_per_week;
       const wt = pp + pr;
@@ -85,7 +95,6 @@ router.post('/', authAdmin, async (req, res) => {
          VALUES (?,?,?,?,?,?,?,?,?,'pending')`,
         [invId, member_id, w, pp, pr, wt, bal_before, balance, payDate]
       );
-      payDate = addWeeks(payDate, 1);
     }
 
     /* ③ 회원 investment_total, investment_date 업데이트 */
@@ -107,6 +116,8 @@ router.post('/', authAdmin, async (req, res) => {
 
     /* ⑤ 직급수당 자동 계산 - 라인 상위 탐색 방식
      *
+     * skip_commission=true 이면 이 블록 전체를 건너뜀 → commissions=[]
+     *
      * 규칙:
      *  - 투자금 발생 회원의 추천 라인(상위)을 따라 올라가며 최초 직급자를 탐색
      *  - 본부장만 존재 → 20% 지급
@@ -116,6 +127,11 @@ router.post('/', authAdmin, async (req, res) => {
      *  - 유니레벨: 라인 상위 방향으로만 탐색 (무한 루프 방지, 최대 20단계)
      */
     const commissions = [];
+
+    if (skipComm) {
+      // ── 직급수당 미지급 처리: 라인 탐색·INSERT 없이 바로 건너뜀 ──
+      console.log(`[commission] skip_commission=true → 직급수당 미지급 처리 (투자자: ${member.user_id})`);
+    }
 
     const getWalletBal = async (mid) => {
       const w = await db.get('SELECT available_balance FROM member_wallets WHERE member_id = ?', [mid]);
@@ -169,7 +185,9 @@ router.post('/', authAdmin, async (req, res) => {
      ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     let foundTeamjang  = null; // 가장 가까운 팀장
     let foundBonbujang = null; // 가장 가까운 본부장
-    let cursor = member.recommender_id;
+
+    // ── skipComm=true 이면 라인 탐색 루프 자체를 실행하지 않음 ──
+    let cursor = skipComm ? null : member.recommender_id;
     let depth  = 0;
     const MAX_DEPTH = 20;
     const visitedIds = new Set(); // 무한루프 방지
@@ -245,18 +263,21 @@ router.post('/', authAdmin, async (req, res) => {
     // ✅ 직급자 없음 → 미지급 (flush)
 
     /* ⑥ 활동 로그 */
+    const skipNote = skipComm ? ' [직급수당 미지급]' : '';
     await db.run(
       `INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description) VALUES ('admin',?,?,?,?,?)`,
-      [req.admin.id, 'investment_deposit', 'investments', invId, `투자금 입금: ${member.user_id} ₩${amt.toLocaleString()}`]
+      [req.admin.id, 'investment_deposit', 'investments', invId,
+       `투자금 입금: ${member.user_id} ₩${amt.toLocaleString()}${skipNote}`]
     );
 
     return res.status(201).json({
-      message: '투자금 등록 완료',
-      investment_id: invId,
+      message:          '투자금 등록 완료',
+      investment_id:    invId,
       schedule_created: total_weeks,
       commissions_paid: commissions.length,
       commissions,
-      first_pay_date: first_friday,
+      skip_commission:  skipComm,
+      first_pay_date:   first_pay_start,
       end_date,
       total_payout,
     });
