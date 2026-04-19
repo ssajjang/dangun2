@@ -4,7 +4,8 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DANGUN - DB 백업 / 복원</title>
-  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
+  <!-- location.replace 오류 방지를 위한 try-catch 가드 적용 -->
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');try{location.replace('/index.html');}catch(e){}}})();</script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link rel="stylesheet" href="../css/theme.css">
@@ -246,11 +247,10 @@
   const token = localStorage.getItem('dangun_token');
   function authHeader() { return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }; }
 
-  let _selectedFileData = null; // 로컬 파일 선택 시 저장
+  let _selectedFileData = null;
 
   document.addEventListener('DOMContentLoaded', () => {
     applyTheme(getTheme());
-    // 관리자 이름 표시
     try {
       const admin = JSON.parse(localStorage.getItem('dangun_admin') || '{}');
       const el = document.getElementById('admin-name');
@@ -271,7 +271,6 @@
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 백업 중...';
     prog.style.display = 'block';
 
-    // 프로그레스 애니메이션 (실제 진행률 대신 시각적 피드백)
     let pct = 0;
     const timer = setInterval(() => { if (pct < 85) { pct += 5; fill.style.width = pct + '%'; } }, 120);
 
@@ -289,7 +288,6 @@
       clearInterval(timer);
       fill.style.width = '100%';
 
-      // 파일 다운로드 처리
       const blob     = await res.blob();
       const filename = res.headers.get('X-Backup-Filename')
         || `dangun_backup_${new Date().toISOString().replace(/[-:T]/g,'').slice(0,15)}.json`;
@@ -305,7 +303,6 @@
       status.style.color = 'var(--accent-green)';
       showToast('백업 생성 및 다운로드 완료!', 'success');
 
-      // 목록 갱신
       await loadBackupList();
 
     } catch(e) {
@@ -330,7 +327,6 @@
       const badge = document.getElementById('backup-count-badge');
       if (badge) badge.textContent = (data.count || 0) + '개';
 
-      // select 옵션 갱신
       const sel = document.getElementById('restore-select');
       sel.innerHTML = '<option value="">— 복원할 백업 파일 선택 —</option>';
 
@@ -343,6 +339,7 @@
 
       listEl.innerHTML = data.files.map(f => {
         const dt = new Date(f.created_at).toLocaleString('ko-KR');
+        // 다운로드 방식 변경: a 태그 이동 대신 명시적 fetch 함수(downloadBackup) 호출
         return `
           <div class="backup-file-row" id="bfr-${f.filename}">
             <div>
@@ -350,11 +347,9 @@
               <div class="file-meta">생성: ${dt} &nbsp;|&nbsp; 크기: ${f.size_kb} KB</div>
             </div>
             <div class="file-actions">
-              <a href="/api/backup/download/${encodeURIComponent(f.filename)}"
-                 onclick="this.setAttribute('href','/api/backup/download/${encodeURIComponent(f.filename)}');addAuthToLink(this);"
-                 class="btn btn-outline btn-sm" title="다운로드">
+              <button class="btn btn-outline btn-sm" onclick="downloadBackup('${f.filename}')" title="다운로드">
                 <i class="fas fa-download"></i>
-              </a>
+              </button>
               <button class="btn btn-sm" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;"
                 onclick="deleteBackup('${f.filename}')" title="삭제">
                 <i class="fas fa-trash"></i>
@@ -363,7 +358,6 @@
           </div>`;
       }).join('');
 
-      // select 옵션 추가
       data.files.forEach(f => {
         const opt = document.createElement('option');
         opt.value = f.filename;
@@ -377,21 +371,25 @@
     }
   }
 
-  /* 다운로드 링크에 Authorization 헤더 추가 (fetch로 대체) */
-  function addAuthToLink(a) {
-    a.addEventListener('click', async (e) => {
-      e.preventDefault();
-      const filename = a.getAttribute('href').split('/').pop();
-      try {
-        const res = await fetch(`/api/backup/download/${filename}`, { headers: authHeader() });
-        if (!res.ok) throw new Error('다운로드 실패');
-        const blob = await res.blob();
-        const url  = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url; link.download = decodeURIComponent(filename); link.click();
-        URL.revokeObjectURL(url);
-      } catch(err) { showToast(err.message, 'error'); }
-    }, { once: true });
+  /* ── 백업 다운로드 함수 (fetch 사용, 인증 헤더 포함) ── */
+  async function downloadBackup(filename) {
+    try {
+      showToast('다운로드 요청 중...', 'info');
+      const res = await fetch(`/api/backup/download/${encodeURIComponent(filename)}`, { headers: authHeader() });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || '다운로드 실패');
+      }
+      const blob = await res.blob();
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      showToast('오류: ' + err.message, 'error');
+    }
   }
 
   /* ── 서버 파일로 복원 ── */
@@ -429,7 +427,6 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
 
-      // 결과 상세 표시
       const restored = Object.entries(data.result.restored || {}).map(([t,c]) => `${t}: ${c}건`).join(', ');
       const errors   = Object.keys(data.result.errors || {}).length;
       showToast(
@@ -438,7 +435,6 @@
         6000
       );
 
-      // 페이지 새로고침 (세션은 유지됨)
       setTimeout(() => location.reload(), 2000);
     } catch(e) {
       showToast('복원 실패: ' + e.message, 'error');
@@ -456,7 +452,6 @@
       const data = await res.json();
       if (!res.ok) throw new Error(data.error);
       showToast(data.message || '삭제 완료', 'success');
-      // 해당 행 즉시 제거
       const row = document.getElementById(`bfr-${filename}`);
       if (row) { row.style.opacity = '0'; setTimeout(() => { row.remove(); loadBackupList(); }, 300); }
     } catch(e) { showToast('삭제 실패: ' + e.message, 'error'); }
@@ -490,7 +485,6 @@
         const data    = JSON.parse(e.target.result);
         _selectedFileData = data;
 
-        // 미리보기
         const preview = document.getElementById('restore-preview');
         const meta    = data.meta || {};
         const tables  = Object.entries(data.data || {}).map(([t,rows]) => `${t}: ${rows.length}건`).join('\n');
