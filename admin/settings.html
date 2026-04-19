@@ -1,0 +1,704 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - 시스템 설정</title>
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    /* ── 설정 카드 ── */
+    .setting-group {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 28px;
+      margin-bottom: 24px;
+    }
+    .setting-group-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--accent-gold);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 12px;
+    }
+    .setting-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding: 14px 0;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+    }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-label {
+      flex: 1;
+      min-width: 0;
+    }
+    .setting-label strong {
+      display: block;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 3px;
+    }
+    .setting-label small {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+    .setting-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-shrink: 0;
+    }
+    .setting-input {
+      width: 180px;
+      padding: 8px 12px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-family: inherit;
+    }
+    .setting-input:focus {
+      outline: none;
+      border-color: var(--accent-gold);
+    }
+    .setting-save-btn {
+      padding: 8px 18px;
+      background: var(--accent-gold);
+      color: #000;
+      border: none;
+      border-radius: var(--radius-md);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .setting-save-btn:hover { opacity: 0.85; }
+    .setting-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* ── 코인 미리보기 ── */
+    .coin-preview {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: rgba(212,160,23,0.08);
+      border: 1px solid rgba(212,160,23,0.25);
+      border-radius: var(--radius-md);
+      margin-top: 16px;
+    }
+    .coin-preview-label { font-size: 12px; color: var(--text-muted); }
+    .coin-preview-value { font-size: 20px; font-weight: 700; color: var(--accent-gold); font-family: 'Orbitron', monospace; }
+
+    /* ── Admin 테이블 ── */
+    .admin-table { width: 100%; border-collapse: collapse; }
+    .admin-table th {
+      font-size: 11px;
+      color: var(--text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      padding: 10px 14px;
+      text-align: left;
+      background: rgba(255,255,255,0.03);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .admin-table td {
+      padding: 12px 14px;
+      font-size: 13px;
+      border-bottom: 1px solid rgba(255,255,255,0.04);
+      vertical-align: middle;
+    }
+    .admin-table tr:hover td { background: rgba(255,255,255,0.02); }
+
+    .role-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+    }
+    .role-super { background: rgba(212,160,23,0.2); color: var(--accent-gold); border: 1px solid rgba(212,160,23,0.4); }
+    .role-sub   { background: rgba(90,120,200,0.2); color: #7eb8f7; border: 1px solid rgba(90,120,200,0.4); }
+
+    .status-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 700;
+    }
+    .status-active   { background: rgba(39,174,96,0.2);  color: #27ae60; border: 1px solid rgba(39,174,96,0.4); }
+    .status-inactive { background: rgba(150,150,150,0.2); color: #aaa;    border: 1px solid rgba(150,150,150,0.3); }
+    .status-suspended{ background: rgba(231,76,60,0.2);  color: #e74c3c; border: 1px solid rgba(231,76,60,0.4); }
+
+    /* 모달 */
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.7);
+      z-index: 1000;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    .modal-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-lg);
+      padding: 32px;
+      width: 420px;
+      max-width: 95vw;
+    }
+    .modal-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .modal-actions {
+      display: flex;
+      gap: 10px;
+      justify-content: flex-end;
+      margin-top: 20px;
+    }
+
+    .superadmin-only-notice {
+      display: none;
+      padding: 16px 20px;
+      background: rgba(231,76,60,0.1);
+      border: 1px solid rgba(231,76,60,0.3);
+      border-radius: var(--radius-md);
+      color: #e74c3c;
+      font-size: 13px;
+      text-align: center;
+      margin-bottom: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div id="toast-container"></div>
+
+  <!-- 모달: sub-admin 추가 -->
+  <div class="modal-overlay" id="modal-add-admin">
+    <div class="modal-box">
+      <div class="modal-title"><i class="fas fa-user-plus" style="color:var(--accent-gold)"></i> 서브관리자 추가</div>
+      <div class="form-group">
+        <label class="form-label">관리자 아이디 *</label>
+        <input type="text" id="new-admin-id" class="form-control" placeholder="admin01">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이름 *</label>
+        <input type="text" id="new-admin-name" class="form-control" placeholder="홍길동">
+      </div>
+      <div class="form-group">
+        <label class="form-label">이메일</label>
+        <input type="email" id="new-admin-email" class="form-control" placeholder="admin@example.com (선택)">
+      </div>
+      <div class="form-group">
+        <label class="form-label">비밀번호 * (8자 이상)</label>
+        <input type="password" id="new-admin-pw" class="form-control" placeholder="••••••••">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('modal-add-admin')">취소</button>
+        <button class="btn btn-primary" onclick="doCreateAdmin()">
+          <i class="fas fa-plus"></i> 추가
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 모달: 비밀번호 재설정 -->
+  <div class="modal-overlay" id="modal-reset-pw">
+    <div class="modal-box">
+      <div class="modal-title"><i class="fas fa-key" style="color:var(--accent-gold)"></i> 비밀번호 재설정</div>
+      <input type="hidden" id="reset-admin-id">
+      <p id="reset-admin-label" style="font-size:13px;color:var(--text-muted);margin-bottom:16px;"></p>
+      <div class="form-group">
+        <label class="form-label">새 비밀번호 * (8자 이상)</label>
+        <input type="password" id="reset-pw-value" class="form-control" placeholder="••••••••">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-outline" onclick="closeModal('modal-reset-pw')">취소</button>
+        <button class="btn btn-primary" onclick="doResetPassword()">
+          <i class="fas fa-save"></i> 저장
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div class="app-wrapper">
+    <!-- Sidebar -->
+    <aside class="sidebar" style="background:linear-gradient(180deg,#0d0d1a 0%,#12122a 60%,#0f1535 100%);">
+      <div class="sidebar-header">
+        <a class="sidebar-logo" href="dashboard.html">
+          <div class="logo-icon">D</div>
+          <div class="logo-text"><span class="logo-name">DANGUN</span><span class="logo-sub">Admin Panel</span></div>
+        </a>
+      </div>
+      <nav class="sidebar-nav">
+        <div class="nav-section">메인</div>
+        <a class="nav-item" href="dashboard.html"><span class="nav-icon"><i class="fas fa-chart-pie"></i></span> 대시보드</a>
+        <div class="nav-section">회원 관리</div>
+        <a class="nav-item" href="members.html"><span class="nav-icon"><i class="fas fa-users"></i></span> 회원 정보</a>
+        <div class="nav-section">투자 관리</div>
+        <a class="nav-item" href="deposit.html"><span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금</a>
+        <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
+        <a class="nav-item" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
+        <a class="nav-item" href="simulate.html"><span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션</a>
+        <a class="nav-item" href="backup.html"><span class="nav-icon"><i class="fas fa-database"></i></span> 백업 / 복원</a>
+        <a class="nav-item" href="reset.html"><span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가</a>
+        <div class="nav-section" style="margin-top:16px;">설정</div>
+        <a class="nav-item active" href="settings.html"><span class="nav-icon"><i class="fas fa-cog"></i></span> 시스템 설정</a>
+        <a class="nav-item" href="#" onclick="doLogout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+      </nav>
+    </aside>
+
+    <!-- Main -->
+    <main class="main-content">
+      <header class="content-header">
+        <div>
+          <h1 class="page-title"><i class="fas fa-cog" style="color:var(--accent-gold);margin-right:10px;"></i>시스템 설정</h1>
+          <p class="page-subtitle">코인 환율, 서브관리자 등 시스템 설정을 관리합니다.</p>
+        </div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span id="admin-role-badge" class="role-badge role-super" style="font-size:12px;padding:4px 14px;">로딩중...</span>
+          <span id="admin-name-header" style="font-size:13px;color:var(--text-muted);"></span>
+        </div>
+      </header>
+
+      <!-- superadmin 전용 안내 -->
+      <div class="superadmin-only-notice" id="notice-not-super">
+        <i class="fas fa-lock" style="margin-right:8px;"></i>
+        설정 변경은 <strong>최고관리자(superadmin)</strong>만 가능합니다. 조회만 가능합니다.
+      </div>
+
+      <!-- ① DANGUN 코인 환율 설정 -->
+      <div class="setting-group">
+        <div class="setting-group-title">
+          <i class="fas fa-coins"></i> DANGUN 코인 환율 설정
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>코인 심볼</strong>
+            <small>DANGUN 코인 심볼명 (예: DGN)</small>
+          </div>
+          <div class="setting-input-wrap">
+            <input type="text" id="coin-symbol" class="setting-input" placeholder="DGN" maxlength="10">
+            <button class="setting-save-btn" onclick="saveSetting('dangun_coin_symbol', document.getElementById('coin-symbol').value)">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>환율 설정</strong>
+            <small>1 KRW = ? DANGUN 코인 (소수점 2자리까지)</small>
+          </div>
+          <div class="setting-input-wrap">
+            <input type="number" id="coin-rate" class="setting-input" step="0.01" min="0" placeholder="10.00">
+            <button class="setting-save-btn" onclick="saveSetting('dangun_coin_rate', document.getElementById('coin-rate').value)">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>코인 환산 표시</strong>
+            <small>금액 옆에 DANGUN 코인 환산액 표시 여부</small>
+          </div>
+          <div class="setting-input-wrap">
+            <select id="coin-enabled" class="setting-input">
+              <option value="1">표시</option>
+              <option value="0">숨김</option>
+            </select>
+            <button class="setting-save-btn" onclick="saveSetting('dangun_coin_enabled', document.getElementById('coin-enabled').value)">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <!-- 미리보기 -->
+        <div class="coin-preview" id="coin-preview">
+          <i class="fas fa-exchange-alt" style="color:var(--accent-gold);font-size:18px;"></i>
+          <div>
+            <div class="coin-preview-label">현재 환율 기준 예시</div>
+            <div class="coin-preview-value" id="coin-preview-value">₩1,000,000 ≒ <span id="preview-dgn">10,000,000</span> <span id="preview-symbol">DGN</span></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ② 기타 시스템 설정 -->
+      <div class="setting-group">
+        <div class="setting-group-title">
+          <i class="fas fa-sliders-h"></i> 플랫폼 설정
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>플랫폼 이름</strong>
+            <small>사이트 타이틀 / 브랜드명</small>
+          </div>
+          <div class="setting-input-wrap">
+            <input type="text" id="platform-name" class="setting-input" placeholder="DANGUN 금융플랫폼">
+            <button class="setting-save-btn" onclick="saveSetting('platform_name', document.getElementById('platform-name').value)">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>점검 모드</strong>
+            <small>점검 모드 활성화 시 일반 회원 접근 제한</small>
+          </div>
+          <div class="setting-input-wrap">
+            <select id="maintenance-mode" class="setting-input">
+              <option value="0">정상 운영</option>
+              <option value="1">점검 중</option>
+            </select>
+            <button class="setting-save-btn" onclick="saveSetting('maintenance_mode', document.getElementById('maintenance-mode').value)">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>사이트 공지사항</strong>
+            <small>로그인 화면 등에 표시될 공지</small>
+          </div>
+          <div class="setting-input-wrap">
+            <input type="text" id="site-notice" class="setting-input" style="width:280px;" placeholder="공지사항 내용">
+            <button class="setting-save-btn" onclick="saveSetting('site_notice', document.getElementById('site-notice').value)">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>주간 수익률 (%)</strong>
+            <small>투자금에 대한 주간 수익 배분 비율</small>
+          </div>
+          <div class="setting-input-wrap">
+            <input type="number" id="weekly-profit-rate" class="setting-input" step="1" min="0" max="100" placeholder="10">
+            <button class="setting-save-btn" onclick="saveSetting('weekly_profit_rate', document.getElementById('weekly-profit-rate').value)">
+              저장
+            </button>
+          </div>
+        </div>
+
+        <div class="setting-row">
+          <div class="setting-label">
+            <strong>최소 투자금액 (KRW)</strong>
+            <small>회원이 투자 가능한 최소 금액 (정수)</small>
+          </div>
+          <div class="setting-input-wrap">
+            <input type="number" id="min-investment" class="setting-input" step="10000" min="0" placeholder="100000">
+            <button class="setting-save-btn" onclick="saveSetting('min_investment', document.getElementById('min-investment').value)">
+              저장
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 서브관리자 관리 -->
+      <div class="setting-group">
+        <div class="setting-group-title" style="justify-content:space-between;">
+          <span><i class="fas fa-user-shield"></i> 관리자 계정 관리</span>
+          <button class="btn btn-primary btn-sm" id="btn-add-admin" onclick="openModal('modal-add-admin')" style="font-size:12px;padding:6px 16px;">
+            <i class="fas fa-plus"></i> 서브관리자 추가
+          </button>
+        </div>
+
+        <div id="admin-table-wrap">
+          <div style="text-align:center;padding:40px;color:var(--text-muted);">
+            <i class="fas fa-spinner fa-spin" style="font-size:24px;"></i>
+            <p style="margin-top:12px;">관리자 목록 불러오는 중...</p>
+          </div>
+        </div>
+      </div>
+
+    </main>
+  </div>
+
+  <script src="../js/api.js"></script>
+  <script src="../js/app.js"></script>
+  <script>
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     초기화
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  var currentAdmin = Auth.getAdmin();
+  var isSuperAdmin = currentAdmin && currentAdmin.role === 'superadmin';
+
+  document.addEventListener('DOMContentLoaded', function () {
+    // 관리자 정보 표시
+    if (currentAdmin) {
+      document.getElementById('admin-name-header').textContent = currentAdmin.name || currentAdmin.admin_id;
+      var roleBadge = document.getElementById('admin-role-badge');
+      if (currentAdmin.role === 'superadmin') {
+        roleBadge.textContent = '최고관리자';
+        roleBadge.className = 'role-badge role-super';
+      } else {
+        roleBadge.textContent = '서브관리자';
+        roleBadge.className = 'role-badge role-sub';
+      }
+    }
+
+    // superadmin이 아니면 안내문 표시 + 버튼 비활성화
+    if (!isSuperAdmin) {
+      document.getElementById('notice-not-super').style.display = 'block';
+      document.querySelectorAll('.setting-save-btn').forEach(function(b) {
+        b.disabled = true;
+        b.title = '최고관리자 전용';
+      });
+      document.getElementById('btn-add-admin').disabled = true;
+    }
+
+    loadSettings();
+    loadAdmins();
+  });
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     설정 불러오기
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function loadSettings() {
+    SettingsAPI.getAll().then(function(data) {
+      function val(key) { return data[key] ? data[key].value : ''; }
+
+      // 코인 설정
+      document.getElementById('coin-symbol').value    = val('dangun_coin_symbol') || 'DGN';
+      document.getElementById('coin-rate').value      = val('dangun_coin_rate')   || '10.00';
+      document.getElementById('coin-enabled').value   = val('dangun_coin_enabled') || '1';
+
+      // 플랫폼 설정
+      document.getElementById('platform-name').value     = val('platform_name');
+      document.getElementById('maintenance-mode').value  = val('maintenance_mode') || '0';
+      document.getElementById('site-notice').value       = val('site_notice');
+      document.getElementById('weekly-profit-rate').value= val('weekly_profit_rate') || '10';
+      document.getElementById('min-investment').value    = val('min_investment') || '100000';
+
+      updateCoinPreview();
+    }).catch(function(e) {
+      // 공개 설정으로 폴백
+      SettingsAPI.getPublic().then(function(d) {
+        document.getElementById('coin-symbol').value  = d.dangun_coin_symbol || 'DGN';
+        document.getElementById('coin-rate').value    = d.dangun_coin_rate   || '10.00';
+        document.getElementById('coin-enabled').value = d.dangun_coin_enabled || '1';
+        updateCoinPreview();
+      });
+    });
+  }
+
+  /* ── 코인 미리보기 업데이트 ── */
+  function updateCoinPreview() {
+    var rate   = parseFloat(document.getElementById('coin-rate').value) || 0;
+    var symbol = document.getElementById('coin-symbol').value || 'DGN';
+    var sample = 1000000; // 100만 KRW 예시
+    var dgn    = Math.round(sample * rate);
+    document.getElementById('preview-dgn').textContent    = dgn.toLocaleString('ko-KR');
+    document.getElementById('preview-symbol').textContent = symbol;
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    ['coin-rate','coin-symbol'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateCoinPreview);
+    });
+  });
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     설정 저장
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function saveSetting(key, value) {
+    if (!isSuperAdmin) {
+      showToast('최고관리자(superadmin)만 설정을 변경할 수 있습니다.', 'error');
+      return;
+    }
+    if (value === '' || value === undefined) {
+      showToast('값을 입력해주세요.', 'warning');
+      return;
+    }
+    SettingsAPI.set(key, value).then(function(data) {
+      showToast('✅ ' + (data.message || '설정이 저장되었습니다.'), 'success');
+      if (key === 'dangun_coin_rate' || key === 'dangun_coin_symbol') updateCoinPreview();
+    }).catch(function(e) {
+      showToast('❌ 저장 실패: ' + e.message, 'error');
+    });
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     관리자 목록
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  var adminList = [];
+
+  function loadAdmins() {
+    AdminAccountsAPI.list().then(function(data) {
+      adminList = data.admins || [];
+      renderAdminTable(adminList);
+    }).catch(function(e) {
+      document.getElementById('admin-table-wrap').innerHTML =
+        '<div style="text-align:center;padding:30px;color:#e74c3c;"><i class="fas fa-exclamation-triangle"></i> 관리자 목록을 불러올 수 없습니다 (superadmin 전용).</div>';
+    });
+  }
+
+  function renderAdminTable(list) {
+    if (!list || list.length === 0) {
+      document.getElementById('admin-table-wrap').innerHTML =
+        '<div style="text-align:center;padding:30px;color:var(--text-muted);">등록된 관리자가 없습니다.</div>';
+      return;
+    }
+    var html = '<table class="admin-table"><thead><tr>' +
+      '<th>ID</th><th>관리자 아이디</th><th>이름</th><th>이메일</th><th>역할</th><th>상태</th><th>최근 로그인</th><th>관리</th>' +
+      '</tr></thead><tbody>';
+
+    list.forEach(function(a) {
+      var roleHtml = a.role === 'superadmin'
+        ? '<span class="role-badge role-super">최고관리자</span>'
+        : '<span class="role-badge role-sub">서브관리자</span>';
+
+      var statusMap = { active:'<span class="status-badge status-active">활성</span>', inactive:'<span class="status-badge status-inactive">비활성</span>', suspended:'<span class="status-badge status-suspended">정지</span>' };
+      var statusHtml = statusMap[a.status] || a.status;
+
+      var lastLogin = a.last_login ? a.last_login.slice(0,16) : '-';
+
+      var actionHtml = '';
+      if (isSuperAdmin) {
+        actionHtml += '<button class="btn btn-outline btn-xs" onclick="openResetPw(' + a.id + ',\'' + escHtml(a.admin_id) + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;"><i class="fas fa-key"></i> 비번</button>';
+        if (a.role !== 'superadmin') {
+          var nextStatus = a.status === 'active' ? 'inactive' : 'active';
+          var statusLabel = a.status === 'active' ? '비활성화' : '활성화';
+          actionHtml += '<button class="btn btn-outline btn-xs" onclick="doToggleStatus(' + a.id + ',\'' + nextStatus + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;">' + statusLabel + '</button>';
+          actionHtml += '<button class="btn btn-xs" onclick="doDeleteAdmin(' + a.id + ',\'' + escHtml(a.admin_id) + '\')" style="font-size:11px;padding:3px 10px;background:rgba(231,76,60,0.2);color:#e74c3c;border:1px solid rgba(231,76,60,0.4);border-radius:6px;cursor:pointer;">삭제</button>';
+        }
+      } else {
+        actionHtml = '<span style="color:var(--text-muted);font-size:11px;">조회만 가능</span>';
+      }
+
+      html += '<tr>' +
+        '<td style="color:var(--text-muted)">#' + a.id + '</td>' +
+        '<td><strong style="font-family:monospace">' + escHtml(a.admin_id) + '</strong></td>' +
+        '<td>' + escHtml(a.name) + '</td>' +
+        '<td style="color:var(--text-muted);font-size:12px;">' + escHtml(a.email || '-') + '</td>' +
+        '<td>' + roleHtml + '</td>' +
+        '<td>' + statusHtml + '</td>' +
+        '<td style="color:var(--text-muted);font-size:12px;">' + lastLogin + '</td>' +
+        '<td>' + actionHtml + '</td>' +
+        '</tr>';
+    });
+
+    html += '</tbody></table>';
+    document.getElementById('admin-table-wrap').innerHTML = html;
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     서브관리자 생성
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function doCreateAdmin() {
+    var adminId = document.getElementById('new-admin-id').value.trim();
+    var name    = document.getElementById('new-admin-name').value.trim();
+    var email   = document.getElementById('new-admin-email').value.trim();
+    var pw      = document.getElementById('new-admin-pw').value;
+
+    if (!adminId || !name || !pw) { showToast('아이디, 이름, 비밀번호는 필수입니다.', 'warning'); return; }
+    if (pw.length < 8) { showToast('비밀번호는 8자 이상이어야 합니다.', 'warning'); return; }
+
+    AdminAccountsAPI.create({ admin_id: adminId, name: name, email: email, password: pw }).then(function(data) {
+      showToast('✅ ' + data.message, 'success');
+      closeModal('modal-add-admin');
+      // 입력 초기화
+      ['new-admin-id','new-admin-name','new-admin-email','new-admin-pw'].forEach(function(id) {
+        document.getElementById(id).value = '';
+      });
+      loadAdmins();
+    }).catch(function(e) {
+      showToast('❌ ' + e.message, 'error');
+    });
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     비밀번호 재설정
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function openResetPw(id, adminId) {
+    document.getElementById('reset-admin-id').value    = id;
+    document.getElementById('reset-admin-label').textContent = '대상: ' + adminId;
+    document.getElementById('reset-pw-value').value    = '';
+    openModal('modal-reset-pw');
+  }
+
+  function doResetPassword() {
+    var id  = document.getElementById('reset-admin-id').value;
+    var pw  = document.getElementById('reset-pw-value').value;
+    if (!pw || pw.length < 8) { showToast('새 비밀번호는 8자 이상이어야 합니다.', 'warning'); return; }
+
+    AdminAccountsAPI.resetPassword(id, pw).then(function(data) {
+      showToast('✅ ' + data.message, 'success');
+      closeModal('modal-reset-pw');
+    }).catch(function(e) {
+      showToast('❌ ' + e.message, 'error');
+    });
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     상태 전환
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function doToggleStatus(id, newStatus) {
+    AdminAccountsAPI.setStatus(id, newStatus).then(function(data) {
+      showToast('✅ ' + data.message, 'success');
+      loadAdmins();
+    }).catch(function(e) {
+      showToast('❌ ' + e.message, 'error');
+    });
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     서브관리자 삭제
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function doDeleteAdmin(id, adminId) {
+    if (!confirm('정말 서브관리자 \'' + adminId + '\'를 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+    AdminAccountsAPI.remove(id).then(function(data) {
+      showToast('✅ ' + data.message, 'success');
+      loadAdmins();
+    }).catch(function(e) {
+      showToast('❌ ' + e.message, 'error');
+    });
+  }
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     모달 유틸
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function openModal(id)  { document.getElementById(id).classList.add('show'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+  // 오버레이 클릭 시 닫기
+  document.querySelectorAll('.modal-overlay').forEach(function(el) {
+    el.addEventListener('click', function(e) {
+      if (e.target === el) closeModal(el.id);
+    });
+  });
+
+  /* ── HTML 이스케이프 ── */
+  function escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  }
+  </script>
+</body>
+</html>

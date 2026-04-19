@@ -226,6 +226,10 @@ async function migrate() {
     // withdrawal_requests: 주간 지급 정보 컬럼 추가
     `ALTER TABLE withdrawal_requests ADD COLUMN week_number INTEGER DEFAULT NULL`,
     `ALTER TABLE withdrawal_requests ADD COLUMN investment_amount REAL DEFAULT 0`,
+    // admins: role 세분화 (superadmin / subadmin)
+    `ALTER TABLE admins ADD COLUMN role TEXT NOT NULL DEFAULT 'subadmin'`,
+    // investments: 투자 승인일(기준일) 필드 - 스케줄러가 이 날짜 기준 7일 주기 계산
+    `ALTER TABLE investments ADD COLUMN approved_date TEXT DEFAULT NULL`,
   ];
   for (const q of alterQueries) {
     try { await db.run(q); } catch(e) { /* 이미 존재하는 컬럼 - 무시 */ }
@@ -244,6 +248,10 @@ async function migrate() {
     ['platform_name',         'DANGUN 금융플랫폼', '플랫폼 이름'],
     ['maintenance_mode',      '0',   '점검 모드 (0=정상)'],
     ['site_notice',           '',    '사이트 공지사항'],
+    // DANGUN 코인 환율: 1 KRW = ? DANGUN (소수점 2자리까지)
+    ['dangun_coin_rate',      '10.00', 'DANGUN 코인 환율 (1 KRW = N DANGUN)'],
+    ['dangun_coin_symbol',    'DGN',   'DANGUN 코인 심볼'],
+    ['dangun_coin_enabled',   '1',     'DANGUN 코인 환산 표시 여부 (1=표시)'],
   ];
 
   for (const [k, v, d] of settings) {

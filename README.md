@@ -12,7 +12,7 @@ DANGUN은 Express.js + SQLite 기반의 투자 자금 관리 플랫폼입니다.
 | 항목 | 내용 |
 |------|------|
 | **투자 원칙** | 투자금 × 1.5 = 총 지급액 (50% 이자) |
-| **지급 방식** | 15주 균등 분할, 매주 금요일 계좌 입금 |
+| **지급 방식** | 15주 균등 분할, 투자 승인일로부터 정확히 7일 간격 자동 지급 |
 | **주당 지급** | 총지급액 ÷ 15 (예: 100만원 투자 → 주당 10만원, 총 150만원) |
 | **직급 수당** | 팀장·본부장 직급자에 하부 투자금의 10%~20% 즉시 지급 |
 
@@ -38,7 +38,20 @@ DANGUN은 Express.js + SQLite 기반의 투자 자금 관리 플랫폼입니다.
 - `GET /` – 관리자: 전체 수당 내역 (bank_name, account_number 포함)
 - `GET /my` – 회원: 내가 받은 수당 내역 (withdraw_status 포함)
 - `PATCH /:id/withdraw` – 관리자: 수당 출금완료 처리 (`withdraw_status = 'done'`)
+- `POST /approve` – 관리자: 수당 출금승인 → `completed_at` 저장, `commissions_history` 이력 추가
+- `GET /monthly` – 관리자: 월별 수당 집계 (차트용)
 - `DELETE /:id` – 관리자: 수당 삭제 (지갑 복원)
+
+#### 시스템 설정 (`/api/settings`) ✨ 신규
+- `GET /public` – 공개 설정 조회 (토큰 불필요 / 코인 환율 포함)
+- `GET /all` – 전체 설정 조회 (관리자)
+- `PUT /:key` – 단일 설정 수정 (superadmin 전용)
+- `POST /batch` – 설정 일괄 수정 (superadmin 전용)
+- `GET /admins` – sub-admin 목록 (superadmin 전용)
+- `POST /admins` – sub-admin 생성 (superadmin 전용)
+- `PATCH /admins/:id/password` – 비밀번호 재설정 (superadmin 전용)
+- `PATCH /admins/:id/status` – 상태 변경 active/inactive/suspended (superadmin 전용)
+- `DELETE /admins/:id` – sub-admin 삭제 (superadmin 전용)
 
 #### 대시보드 (`/api/dashboard`)
 - `GET /admin` – 관리자 종합 통계
@@ -90,6 +103,7 @@ DANGUN은 Express.js + SQLite 기반의 투자 자금 관리 플랫폼입니다.
 | `reset.html` | 데이터 초기화 · 회원 추가 |
 | `simulate.html` | 지급 시뮬레이션 (날짜 기준 or 전체 pending 처리 선택 가능) |
 | `backup.html` | DB 전체 백업(JSON) · 서버 저장 백업 목록 · 복원(서버 파일/로컬 파일 업로드) |
+| `settings.html` | ✨신규: DANGUN 코인 환율 설정 · 플랫폼 설정 · **서브관리자 생성/비밀번호 재설정/상태 관리** |
 
 ---
 
@@ -117,7 +131,27 @@ status(pending/paid), paid_date, approved_by
 id, investment_id, investor_id, receiver_id, receiver_rank,
 commission_rate(10.0 or 20.0), investment_amount, commission_amount,
 balance_before, balance_after, paid_at,
-status(paid), withdraw_status(pending/done)
+status(paid), withdraw_status(pending/done/completed), completed_at
+```
+
+#### `commissions_history` ✨ 신규
+```
+id, commission_id, investment_id, investor_id, receiver_id, receiver_rank,
+commission_rate, investment_amount, commission_amount,
+paid_at, completed_at, approved_by, withdraw_status(done/completed)
+```
+
+#### `system_settings` (확장)
+```
+setting_key: dangun_coin_rate (기본 10.00)
+setting_key: dangun_coin_symbol (기본 DGN)
+setting_key: dangun_coin_enabled (1=표시, 0=숨김)
+```
+
+#### `admins` (확장)
+```
+role: superadmin / subadmin (multi-role 지원)
+status: active / inactive / suspended
 ```
 
 #### `member_wallets`
@@ -128,13 +162,26 @@ available_balance, pending_payout, total_withdrawn
 
 ---
 
+## 🕐 스케줄러 (7일 주기 개별 지급)
+
+```
+scheduler.js 동작:
+  - 매일 00:01 KST 자동 실행
+  - 각 회원의 투자 승인일(investment_date) 기준으로
+    정확히 7일 간격마다 지급 처리
+  - 예: 2025-01-01 투자 → 2025-01-08, 01-15, 01-22 ... (15회)
+  - ensurePayoutSchedule() 으로 지급 예정 스케줄 자동 생성
+  - scheduled_date <= today 인 pending 건 일괄 처리
+```
+
 ## 💰 수당 계산 규칙
 
 ### 투자금 지급
 ```
 총 지급액   = 투자금 × 1.5   (50% 이자 포함)
-주당 지급액 = 총지급액 ÷ 15  (15주 균등)
+주당 지급액 = 총지급액 ÷ 15  (15주 균등, 정수 KRW)
 예) 1,000,000원 → 총 1,500,000원 → 주당 100,000원 × 15주
+지급 시점: 투자 승인일로부터 7일, 14일, 21일 ... (각 회원 개별 기준)
 ```
 
 ### 직급 수당 (즉시 지급, 출금은 관리자 승인 후)

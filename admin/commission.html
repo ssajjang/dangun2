@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DANGUN - 직급 수당 관리</title>
-  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');try{location.replace('/index.html');}catch(e){}}})();</script>
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
   <link rel="stylesheet" href="../css/theme.css">
@@ -76,6 +76,7 @@
         <a class="nav-item" href="backup.html"><span class="nav-icon"><i class="fas fa-database"></i></span> 백업 / 복원</a>
         <a class="nav-item" href="reset.html"><span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가</a>
         <div class="nav-section" style="margin-top:16px;">설정</div>
+        <a class="nav-item" href="settings.html"><span class="nav-icon"><i class="fas fa-cog"></i></span> 시스템 설정</a>
         <a class="nav-item" href="#" onclick="doLogout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
       </nav>
       <div class="sidebar-footer">
@@ -256,19 +257,11 @@
     let currentPageC  = 1;
     let totalCountC   = 0;
     const PAGE_LIMIT_C = 10;
-    let _currentRows  = [];
-
-    // 문자열에 포함된 따옴표로 인한 인라인 이벤트 핸들러 파싱 오류 방지 함수
-    function escapeJS(str) {
-      return (str || '').toString()
-        .replace(/\\/g, '\\\\')
-        .replace(/'/g, "\\'")
-        .replace(/"/g, '&quot;');
-    }
+    let _currentRows  = [];   // 현재 렌더링된 행 데이터
 
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
-      await loadCommissions(); 
+      await loadCommissions(); // 데이터 로드 후 차트에 stats 전달
     });
 
     async function loadCommissions() {
@@ -287,20 +280,21 @@
         totalCountC = data.total || 0;
         renderCommTable(data.data || []);
 
+        // ── KPI 카드 DB 데이터로 업데이트 ──
         const s = data.stats || {};
         const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
         const setHtml = (id, v) => { const el = document.getElementById(id); if(el) el.innerHTML = v; };
-        
-        setEl('stat-total-comm-count', s.total_count || s.totalCount || 0);
-        setEl('stat-total-comm',       formatMoney(s.total_amount || s.totalAmount || s.total || 0));
-        setEl('stat-bonbu-comm',       formatMoney(s.bonbujang_total || s.bonbujangTotal || 0));
-        setEl('stat-team-comm',        formatMoney(s.teamjang_total || s.teamjangTotal || 0));
+        setEl('stat-total-comm-count', s.total_count    || 0);
+        setEl('stat-total-comm',       formatMoney(s.total_amount    || 0));
+        setEl('stat-bonbu-comm',       formatMoney(s.bonbujang_total || 0));
+        setEl('stat-team-comm',        formatMoney(s.teamjang_total  || 0));
 
-        const pendingCnt  = s.pending_count || s.pendingCount || 0;
-        const pendingAmt  = s.pending_amount || s.pendingAmount || 0;
-        
-        const doneCnt     = (s.withdrawn_count || s.withdrawnCount || 0) + (s.completed_count || s.completedCount || 0);
-        const doneAmt     = (s.withdrawn_amount || s.withdrawnAmount || 0) + (s.completed_amount || s.completedAmount || 0);
+        // ── 출금 현황 바 ──
+        const pendingCnt  = s.pending_count    || 0;
+        const pendingAmt  = s.pending_amount   || 0;
+        // done(기존) + completed(신규 승인) 합산
+        const doneCnt     = (s.withdrawn_count  || 0) + (s.completed_count  || 0);
+        const doneAmt     = (s.withdrawn_amount || 0) + (s.completed_amount || 0);
 
         setEl('bar-pending-amt',  formatMoney(pendingAmt));
         setEl('bar-pending-cnt',  `(${pendingCnt}건)`);
@@ -309,6 +303,25 @@
         setHtml('stat-comm-pending-count',   `<i class="fas fa-clock"></i> 출금대기 ${pendingCnt}건`);
         setHtml('stat-comm-withdrawn-amt',   `<i class="fas fa-check-circle"></i> 출금완료 ${formatMoney(doneAmt)}`);
 
+        // ── DANGUN 코인 환산 표시 ──
+        try {
+          const coinData = await SettingsAPI.getPublic();
+          const coinRate    = parseFloat(coinData.dangun_coin_rate || '0') || 0;
+          const coinSymbol  = coinData.dangun_coin_symbol || 'DGN';
+          const coinEnabled = coinData.dangun_coin_enabled !== '0';
+          if (coinEnabled && coinRate > 0) {
+            const totalAmt = s.total_amount || 0;
+            const dgn = Math.round(totalAmt * coinRate);
+            const dgnEl = document.getElementById('stat-total-comm');
+            if (dgnEl) {
+              dgnEl.innerHTML = formatMoney(totalAmt) +
+                '<br><span style="font-size:11px;color:var(--accent-gold);font-family:\'Orbitron\',monospace;">≒ ' +
+                dgn.toLocaleString('ko-KR') + ' ' + coinSymbol + '</span>';
+            }
+          }
+        } catch(e) { /* 코인 환율 로드 실패 무시 */ }
+
+        // ── 차트 갱신 (최초 로드 시 또는 필터 초기화 시) ──
         try { await renderCharts(s); } catch(ce) { console.warn('[commission] 차트 오류:', ce.message); }
       } catch(err) {
         showToast('수당 목록 로드 실패: ' + err.message, 'error');
@@ -326,8 +339,10 @@
       loadCommissions();
     }
 
+    // ── 선택 관리 ──
     function toggleSelectAll(checked) {
       document.querySelectorAll('.row-cb').forEach(cb => cb.checked = checked);
+      // 두 헤더 체크박스 동기화
       document.querySelectorAll('#select-all-cb,#select-all-cb2').forEach(cb => cb.checked = checked);
       updateSelectedCount();
     }
@@ -341,6 +356,7 @@
       if (lbl) lbl.textContent = `${cnt}건 선택됨`;
     }
 
+    // ── 선택 출금완료 ──
     async function bulkWithdraw() {
       const checked = [...document.querySelectorAll('.row-cb:checked')];
       if (!checked.length) { showToast('출금완료 처리할 항목을 선택하세요.', 'warning'); return; }
@@ -350,11 +366,12 @@
       let ok = 0, fail = 0;
       for (const id of ids) {
         try {
+          // POST /approve 우선 사용 (completed + history 저장)
           try {
             await CommissionsAPI.approve(id);
           } catch(ae) {
             if (ae.message && ae.message.includes('이미 출금완료')) { fail++; continue; }
-            await CommissionsAPI.withdraw(id);
+            await CommissionsAPI.withdraw(id); // fallback
           }
           ok++;
         } catch(e) { fail++; console.error('withdraw fail:', e.message); }
@@ -363,14 +380,17 @@
       await loadCommissions();
     }
 
+    // ── 단건 출금완료 (POST /approve 우선, 실패 시 PATCH /withdraw fallback) ──
     async function markWithdraw(id, name, amount) {
       const fmt = Number(amount).toLocaleString('ko-KR');
       if (!confirm(`${name} 님의 수당 ₩${fmt}을 출금완료 처리하시겠습니까?\n(내역이 이력에 저장됩니다.)`)) return;
       try {
         let data;
         try {
+          // 신규: POST /api/commissions/approve  → withdraw_status=completed + history 저장
           data = await CommissionsAPI.approve(id);
         } catch(ae) {
+          // fallback: 이미 done 이거나 구버전 호환
           if (ae.message && ae.message.includes('이미 출금완료')) throw ae;
           data = await CommissionsAPI.withdraw(id);
         }
@@ -381,6 +401,7 @@
 
     function renderCommTable(rows) {
       _currentRows = rows;
+      // 전체선택 체크박스 초기화
       document.querySelectorAll('#select-all-cb,#select-all-cb2').forEach(cb => cb.checked = false);
       updateSelectedCount();
 
@@ -394,10 +415,8 @@
             ? `<span class="flow-tag" style="background:rgba(142,68,173,0.15);color:#9b59b6;">20% 단독</span>`
             : `<span class="flow-tag" style="background:rgba(212,160,23,0.15);color:var(--accent-gold);">10% 분배</span>`;
           const acct = [c.receiver_bank_name, c.receiver_account_number].filter(Boolean).join(' ');
-          
-          const wStatus = (c.withdraw_status || '').toLowerCase();
-          const isWithdrawn = (wStatus === 'done' || wStatus === 'completed');
-          
+          // withdraw_status: pending=출금대기 / done=출금완료(구) / completed=출금완료(승인)
+          const isWithdrawn = (c.withdraw_status === 'done' || c.withdraw_status === 'completed');
           return `
             <tr>
               <td style="text-align:center;">
@@ -431,19 +450,19 @@
               <td style="font-size:12px;font-weight:700;color:${c.balance_after > 0 ? 'var(--accent-green)' : 'var(--text-muted)'}">${formatMoney(c.balance_after)}</td>
               <td style="font-size:12px;">${c.paid_at ? formatDateTime(c.paid_at) : '<span style="color:var(--text-muted);">-</span>'}</td>
               <td>
-                ${wStatus === 'completed'
+                ${c.withdraw_status === 'completed'
                   ? `<span style="padding:3px 8px;background:rgba(39,174,96,0.2);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(39,174,96,0.4);">✅ 출금완료</span>`
-                  : wStatus === 'done'
+                  : c.withdraw_status === 'done'
                     ? `<span style="padding:3px 8px;background:rgba(39,174,96,0.12);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">✓ 출금완료</span>`
                     : `<span style="padding:3px 8px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">⏳ 출금대기</span>`
                 }
               </td>
               <td style="display:flex;gap:6px;">
                 ${!isWithdrawn ? `
-                <button class="withdraw-done-btn" onclick="markWithdraw(${c.id}, '${escapeJS(c.receiver_name)}', ${c.commission_amount})">
+                <button class="withdraw-done-btn" onclick="markWithdraw(${c.id}, '${(c.receiver_name||'').replace(/'/g,'\\'')}', ${c.commission_amount})">
                   <i class="fas fa-check"></i> 출금완료
                 </button>` : ''}
-                <button onclick="deleteCommission(${c.id}, '${escapeJS(c.receiver_name)}', ${c.commission_amount})"
+                <button onclick="deleteCommission(${c.id}, '${(c.receiver_name||'').replace(/'/g,'\\'')}', ${c.commission_amount})"
                   style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
                   🗑️ 삭제
                 </button>
@@ -457,6 +476,7 @@
         `function(p){ currentPageC=p; loadCommissions(); }`);
     }
 
+    // ── 수당 삭제 ──────────────────────────────────────────────
     async function deleteCommission(id, name, amount) {
       const fmt = Number(amount).toLocaleString('ko-KR');
       if (!confirm(`⚠️ 직급수당을 삭제하시겠습니까?\n\n수령자: ${name}\n금액: ₩${fmt}\n\n※ 수령자 지갑 잔고가 복원됩니다.`)) return;
@@ -483,11 +503,13 @@
       const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
       const textColor = isDark ? 'rgba(200,200,230,0.7)'  : 'rgba(50,50,80,0.7)';
 
+      // ── 월별 추이 차트: 실제 DB 데이터 ──
       try {
         const monthly = await CommissionsAPI.monthly();
         const rows    = monthly.data || [];
         const now     = new Date();
 
+        // 최근 12개월 레이블 생성
         const labels   = [];
         const bonbData = [];
         const teamData = [];
@@ -496,6 +518,7 @@
           const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
           labels.push(`${d.getMonth()+1}월`);
           const found = rows.find(r => r.month === key);
+          // 만원 단위로 변환 (툴팁에서 원화로 환산)
           bonbData.push(found ? Math.round((found.bonbujang_amount || 0) / 10000) : 0);
           teamData.push(found ? Math.round((found.teamjang_amount  || 0) / 10000) : 0);
         }
@@ -526,16 +549,18 @@
         console.warn('[commission] 월별 차트 로드 실패:', e.message);
       }
 
+      // ── 직급별 비율 파이차트: KPI 통계 활용 ──
       try {
+        // statsOverride가 있으면 사용, 없으면 API 재조회
         let bonbTotal = 0, teamTotal = 0;
         if (statsOverride) {
-          bonbTotal = statsOverride.bonbujang_total || statsOverride.bonbujangTotal || 0;
-          teamTotal = statsOverride.teamjang_total  || statsOverride.teamjangTotal || 0;
+          bonbTotal = statsOverride.bonbujang_total || 0;
+          teamTotal = statsOverride.teamjang_total  || 0;
         } else {
           const data = await CommissionsAPI.list({ page:1, limit:1 });
           const s = data.stats || {};
-          bonbTotal = s.bonbujang_total || s.bonbujangTotal || 0;
-          teamTotal = s.teamjang_total  || s.teamjangTotal || 0;
+          bonbTotal = s.bonbujang_total || 0;
+          teamTotal = s.teamjang_total  || 0;
         }
 
         const grandTotal = bonbTotal + teamTotal || 1;

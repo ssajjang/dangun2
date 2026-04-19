@@ -210,6 +210,33 @@
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // SETTINGS API — 코인 환율 + sub-admin 관리
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  var SettingsAPI = {
+    // 공개 설정 (토큰 불필요 — 코인 환율 읽기)
+    getPublic:    function ()          { return get('/settings/public'); },
+    // 전체 설정 조회 (관리자)
+    getAll:       function ()          { return get('/settings/all'); },
+    // 단일 설정 수정 (superadmin)
+    set:          function (key, value){ return request('PUT', '/settings/' + key, { value: value }); },
+    // 일괄 설정 수정 (superadmin)
+    batch:        function (settings)  { return post('/settings/batch', { settings: settings }); },
+    // 코인 환율 헬퍼
+    getCoinRate:  function ()          { return get('/settings/public').then(function(d){ return d; }); },
+  };
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  // ADMIN ACCOUNTS API — sub-admin CRUD
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  var AdminAccountsAPI = {
+    list:          function ()              { return get('/settings/admins'); },
+    create:        function (body)          { return post('/settings/admins', body); },
+    resetPassword: function (id, newPwd)    { return patch('/settings/admins/' + id + '/password', { new_password: newPwd }); },
+    setStatus:     function (id, status)    { return patch('/settings/admins/' + id + '/status', { status: status }); },
+    remove:        function (id)            { return del('/settings/admins/' + id); },
+  };
+
+  // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   // 전역(window) 노출 - 모든 HTML 인라인 스크립트에서 사용 가능
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   global.Auth               = Auth;
@@ -223,10 +250,13 @@
   global.WithdrawalsAPI     = WithdrawalsAPI;
   global.CommissionsAPI     = CommissionsAPI;
   global.AdminAPI           = AdminAPI;
+  global.SettingsAPI        = SettingsAPI;
+  global.AdminAccountsAPI   = AdminAccountsAPI;
 
   // 로드 확인 로그 (개발용)
   console.log('[api.js] ✅ 전역 API 로드 완료:', Object.keys({
-    Auth, DashboardAPI, MembersAPI, InvestmentsAPI, WithdrawalsAPI, CommissionsAPI, AdminAPI
+    Auth, DashboardAPI, MembersAPI, InvestmentsAPI, WithdrawalsAPI,
+    CommissionsAPI, AdminAPI, SettingsAPI, AdminAccountsAPI
   }).join(', '));
 
 }(window));

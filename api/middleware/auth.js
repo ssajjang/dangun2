@@ -49,6 +49,31 @@ async function authAdmin(req, res, next) {
   }
 }
 
+/**
+ * authSuperAdmin — superadmin 전용 미들웨어
+ * role이 'superadmin'인 관리자만 허용
+ */
+async function authSuperAdmin(req, res, next) {
+  try {
+    const header = req.headers.authorization || '';
+    const token  = header.startsWith('Bearer ') ? header.slice(7) : header;
+    if (!token) return res.status(401).json({ error: '관리자 로그인이 필요합니다.' });
+
+    const decoded = jwt.verify(token, SECRET);
+    if (decoded.type !== 'admin') return res.status(403).json({ error: '관리자 전용 API입니다.' });
+
+    const db    = await getDb();
+    const admin = await db.get('SELECT id,admin_id,name,role,status FROM admins WHERE id=?', [decoded.id]);
+    if (!admin || admin.status !== 'active') return res.status(403).json({ error: '관리자 권한이 없습니다.' });
+    if (admin.role !== 'superadmin') return res.status(403).json({ error: '최고관리자(superadmin) 전용 기능입니다.' });
+
+    req.admin = admin;
+    next();
+  } catch (e) {
+    return res.status(401).json({ error: '인증 토큰이 유효하지 않습니다.' });
+  }
+}
+
 async function authAny(req, res, next) {
   try {
     const header = req.headers.authorization || '';
@@ -69,4 +94,4 @@ async function authAny(req, res, next) {
   }
 }
 
-module.exports = { signToken, authMember, authAdmin, authAny };
+module.exports = { signToken, authMember, authAdmin, authSuperAdmin, authAny };
