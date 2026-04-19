@@ -177,6 +177,7 @@
                   oninput="onAmountInput(this)" style="padding-left:32px;font-family:'Orbitron',sans-serif;font-size:16px;font-weight:700;letter-spacing:1px;">
               </div>
               <div style="font-size:11px;color:var(--text-muted);margin-top:4px;" id="amount-preview-text"></div>
+              <div id="amount-preview-dgn"></div>
               <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
                 <button class="btn btn-outline btn-sm" onclick="setAmount(500000)">50만</button>
                 <button class="btn btn-outline btn-sm" onclick="setAmount(1000000)">100만</button>
@@ -213,14 +214,17 @@
               </div>
               <div class="calc-row">
                 <span class="label">총 지급액 (원금+수익)</span>
-                <span class="value" style="color:var(--accent-gold);font-family:'Orbitron',sans-serif;" id="calc-total">-</span>
+                <div>
+                  <span class="value" style="color:var(--accent-gold);font-family:'Orbitron',sans-serif;" id="calc-total">-</span>
+                  <div id="calc-total-dgn" style="text-align:right;"></div>
+                </div>
               </div>
               <div class="calc-row">
                 <span class="label">주당 지급액 (15주 분할)</span>
                 <span class="value" id="calc-weekly">-</span>
               </div>
               <div class="calc-row">
-                <span class="label">첫 지급 예정일 (금요일)</span>
+                <span class="label">첫 지급 예정일 (투자일 + 7일)</span>
                 <span class="value" style="color:var(--accent-blue);" id="calc-first-friday">-</span>
               </div>
               <div class="calc-row">
@@ -267,6 +271,26 @@
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
   <script>
+    // ── 공통 DGN 환율 스크립트 ──
+    let _coinRate = 0;
+    let _coinSymbol = 'DGN';
+    let _coinEnabled = false;
+
+    async function loadCoinInfo() {
+      try {
+        const d = await SettingsAPI.getPublic();
+        _coinRate = parseFloat(d.dangun_coin_rate || '0') || 0;
+        _coinSymbol = d.dangun_coin_symbol || 'DGN';
+        _coinEnabled = d.dangun_coin_enabled !== '0';
+      } catch(e) {}
+    }
+
+    function getDGNHtml(krw) {
+      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
+      const dgn = Math.round(krw * _coinRate);
+      return `<div style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-top:2px;">≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol}</div>`;
+    }
+
     let selectedMember = null;
     let searchTimer    = null;
     let _rawAmount     = 0; // 실제 숫자값 저장
@@ -281,6 +305,7 @@
       el.setSelectionRange(len, len);
       // 한글 단위 표기
       const preview = document.getElementById('amount-preview-text');
+      const previewDgn = document.getElementById('amount-preview-dgn');
       if (preview) {
         if (_rawAmount >= 100000000) preview.textContent = `= ${(_rawAmount/100000000).toFixed(2)}억원`;
         else if (_rawAmount >= 10000000) preview.textContent = `= ${(_rawAmount/10000).toFixed(0)}만원`;
@@ -288,13 +313,17 @@
         else if (_rawAmount > 0) preview.textContent = `= ${_rawAmount.toLocaleString('ko-KR')}원`;
         else preview.textContent = '';
       }
+      if (previewDgn) {
+         previewDgn.innerHTML = getDGNHtml(_rawAmount);
+      }
       calcPreview();
     }
 
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
       const today = new Date().toISOString().slice(0, 10);
       document.getElementById('dep-date').value = today;
+      await loadCoinInfo();
       loadDepositHistory();
       loadDepositKPIs();
 
@@ -323,6 +352,16 @@
           ? '₩' + (monthRaw / 10000).toFixed(0) + '만'
           : formatMoney(monthRaw));
         setEl('kpi-dep-members', s.member_count || 0);
+
+        if (_coinEnabled && _coinRate > 0) {
+           const depSumDgn = Math.round(sumRaw * _coinRate);
+           const depMonDgn = Math.round(monthRaw * _coinRate);
+           const kpiSum = document.getElementById('kpi-dep-sum');
+           if(kpiSum) kpiSum.innerHTML += `<div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px;">≒ ${depSumDgn.toLocaleString('ko-KR')} ${_coinSymbol}</div>`;
+           const kpiMon = document.getElementById('kpi-dep-month');
+           if(kpiMon) kpiMon.innerHTML += `<div style="font-size:11px;color:rgba(255,255,255,0.7);margin-top:2px;">≒ ${depMonDgn.toLocaleString('ko-KR')} ${_coinSymbol}</div>`;
+        }
+
       } catch(e) {
         // KPI 로드 실패 시 -로 유지
       }
@@ -381,10 +420,14 @@
       const el = document.getElementById('dep-amount');
       el.value = v.toLocaleString('ko-KR');
       const preview = document.getElementById('amount-preview-text');
+      const previewDgn = document.getElementById('amount-preview-dgn');
       if (preview) {
         if (v >= 100000000) preview.textContent = `= ${(v/100000000).toFixed(2)}억원`;
         else if (v >= 10000000) preview.textContent = `= ${(v/10000).toFixed(0)}만원`;
         else preview.textContent = `= ${(v/10000).toFixed(1)}만원`;
+      }
+      if (previewDgn) {
+        previewDgn.innerHTML = getDGNHtml(v);
       }
       calcPreview();
     }
@@ -406,20 +449,15 @@
       document.getElementById('calc-principal').textContent  = formatMoney(amount);
       document.getElementById('calc-profit').textContent     = `+${formatMoney(profit)} (50% 이자)`;
       document.getElementById('calc-total').textContent      = formatMoney(total);
+      document.getElementById('calc-total-dgn').innerHTML    = getDGNHtml(total);
       document.getElementById('calc-weekly').textContent     = `${formatMoney(weekly)} × 15주`;
       document.getElementById('calc-commission').textContent = `최대 ₩${commAmt.toLocaleString()} (상위 계보 지급)`;
 
       if (dateStr) {
-        const nextFri = getNextFriday(new Date(dateStr));
-        document.getElementById('calc-first-friday').textContent = formatDate(nextFri.toISOString().slice(0, 10));
+        const nextDate = new Date(dateStr);
+        nextDate.setDate(nextDate.getDate() + 7);
+        document.getElementById('calc-first-friday').textContent = formatDate(nextDate.toISOString().slice(0, 10));
       }
-    }
-
-    function getNextFriday(date) {
-      const d = new Date(date);
-      const add = (5 - d.getDay() + 7) % 7 || 7;
-      d.setDate(d.getDate() + add);
-      return d;
     }
 
     // ── 투자금 등록 (실제 API) ──
@@ -470,6 +508,7 @@
         document.getElementById('dep-amount').value = '';
         document.getElementById('dep-memo').value = '';
         document.getElementById('amount-preview-text').textContent = '';
+        document.getElementById('amount-preview-dgn').innerHTML = '';
         document.getElementById('member-preview').classList.remove('show');
         document.getElementById('calc-preview').classList.remove('show');
         selectedMember = null;
@@ -496,9 +535,15 @@
             <tr>
               <td style="font-weight:700;">${d.user_id}</td>
               <td>${d.name}</td>
-              <td style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--accent-gold);">${formatMoney(d.amount)}</td>
+              <td>
+                <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--accent-gold);">${formatMoney(d.amount)}</div>
+                ${getDGNHtml(d.amount)}
+              </td>
               <td style="font-size:12px;">${formatDate(d.investment_date)}</td>
-              <td style="color:var(--accent-purple);font-weight:700;">${formatMoney(Math.round(d.amount * 0.2))}</td>
+              <td>
+                <div style="color:var(--accent-purple);font-weight:700;">${formatMoney(Math.round(d.amount * 0.2))}</div>
+                ${getDGNHtml(Math.round(d.amount * 0.2))}
+              </td>
               <td style="display:flex;gap:6px;flex-wrap:wrap;">
                 <button onclick="deleteInvestment(${d.id}, '${d.name}', ${d.amount})"
                   style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">

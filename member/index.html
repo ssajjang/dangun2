@@ -47,7 +47,7 @@
       -webkit-text-fill-color: transparent;
       background-clip: text;
       line-height: 1;
-      margin-bottom: 8px;
+      margin-bottom: 4px;
     }
 
     .hero-label {
@@ -353,6 +353,7 @@
             <div style="position:relative;z-index:1;">
               <div class="hero-label" style="margin-bottom:12px;">총 투자금액</div>
               <div class="hero-amount" id="hero-invest-amount">0</div>
+              <div id="hero-invest-dgn"></div>
               <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
                 <div class="rank-badge-hero">
                   <i class="fas fa-star"></i>
@@ -375,18 +376,22 @@
           <div class="hero-stats">
             <div class="hero-stat">
               <div class="val" id="stat-total-payout">0</div>
+              <div id="stat-total-payout-dgn"></div>
               <div class="lbl">총 지급액<br>(원금+이자 150%)</div>
             </div>
             <div class="hero-stat">
               <div class="val" id="stat-weekly" style="color:#7ec8e3;">0</div>
+              <div id="stat-weekly-dgn"></div>
               <div class="lbl">주당 지급액<br>(÷15주)</div>
             </div>
             <div class="hero-stat">
               <div class="val" id="stat-paid" style="color:var(--accent-green);">0</div>
+              <div id="stat-paid-dgn"></div>
               <div class="lbl">누적 지급액<br>(승인완료)</div>
             </div>
             <div class="hero-stat">
               <div class="val" id="stat-remain" style="color:rgba(200,204,232,0.7);">0</div>
+              <div id="stat-remain-dgn"></div>
               <div class="lbl">잔여 지급액</div>
             </div>
           </div>
@@ -424,9 +429,10 @@
             <div class="card-body" style="text-align:center;padding:20px;" id="next-pay-body">
               <!-- 투자 있을 때 -->
               <div id="next-pay-has-investment" style="display:none;">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">다음 금요일 지급</div>
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">다음 지급 예정일</div>
                 <div style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--accent-gold);" id="next-pay-date">-</div>
                 <div style="font-size:24px;font-weight:900;margin-top:12px;color:var(--text-primary);" id="next-pay-amount">-</div>
+                <div id="next-pay-amount-dgn"></div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:4px;">원금 + 수익 합산</div>
                 <div style="margin-top:16px;">
                   <span class="badge badge-orange anim-pulse" id="next-pay-badge">-주차 지급 대기</span>
@@ -487,19 +493,23 @@
               <div style="text-align:center;padding:14px;background:rgba(231,76,60,0.07);border-radius:var(--radius-md);border:1px solid rgba(231,76,60,0.25);" id="comm-pending-box">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">⏳ 대기중 수당</div>
                 <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:#e74c3c;" id="comm-pending">대기중</div>
+                <div id="comm-pending-dgn"></div>
                 <div style="font-size:10px;color:var(--text-muted);margin-top:2px;" id="comm-pending-label">출금대기 합산</div>
               </div>
               <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border-color);">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">오늘 소개수당</div>
                 <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--accent-gold);" id="comm-today">₩0</div>
+                <div id="comm-today-dgn"></div>
               </div>
               <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border-color);">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">이번 주 소개수당</div>
                 <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--accent-blue);" id="comm-week">₩0</div>
+                <div id="comm-week-dgn"></div>
               </div>
               <div style="text-align:center;padding:14px;background:var(--bg-primary);border-radius:var(--radius-md);border:1px solid var(--border-color);">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">이번 달 소개수당</div>
                 <div style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--accent-purple);" id="comm-month">₩0</div>
+                <div id="comm-month-dgn"></div>
               </div>
             </div>
 
@@ -585,7 +595,7 @@
             <div class="desc-item">
               <div class="icon"><i class="fas fa-money-bill-wave"></i></div>
               <div class="title">계좌 직접 입금</div>
-              <div class="desc">매주 금요일 등록된 본인 계좌로 직접 입금 처리됩니다</div>
+              <div class="desc">매주 지정된 요일에 등록된 본인 계좌로 직접 입금 처리됩니다</div>
             </div>
             <div class="desc-item">
               <div class="icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-sitemap"></i></div>
@@ -695,6 +705,32 @@
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
   <script>
+    // ── 공통 DGN 환율 스크립트 ──
+    let _coinRate = 0;
+    let _coinSymbol = 'DGN';
+    let _coinEnabled = false;
+
+    async function loadCoinInfo() {
+      try {
+        const d = await SettingsAPI.getPublic();
+        _coinRate = parseFloat(d.dangun_coin_rate || '0') || 0;
+        _coinSymbol = d.dangun_coin_symbol || 'DGN';
+        _coinEnabled = d.dangun_coin_enabled !== '0';
+      } catch(e) {}
+    }
+
+    function getDGNHtml(krw) {
+      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
+      const dgn = Math.round(krw * _coinRate);
+      return `<div style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-top:2px;">≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol}</div>`;
+    }
+
+    function getDGNInline(krw) {
+      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
+      const dgn = Math.round(krw * _coinRate);
+      return `<span style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-left:4px;">(≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol})</span>`;
+    }
+
     // ── 인증 가드 ──
     if (!requireMemberAuth()) { /* 리다이렉트됨 */ }
 
@@ -703,6 +739,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
       setCurrentDate();
+      await loadCoinInfo();
       await loadMemberData();
     });
 
@@ -733,7 +770,9 @@
       const refStats   = data.referral_stats || {};
 
       // Hero
-      animateCounter(document.getElementById('hero-invest-amount'), member.total_invested || member.investment_total || 0, 1500, '₩');
+      const totalInvest = member.total_invested || member.investment_total || 0;
+      animateCounter(document.getElementById('hero-invest-amount'), totalInvest, 1500, '₩');
+      document.getElementById('hero-invest-dgn').innerHTML = getDGNHtml(totalInvest);
       document.getElementById('hero-rank').textContent = member.rank || '-';
       document.getElementById('hero-invest-date').textContent = investment.investment_date ? formatDate(investment.investment_date) : '-';
       document.getElementById('hero-week').textContent = investment.current_week || 0;
@@ -745,9 +784,13 @@
       // 주당 지급액 = 총지급액 / 15
       const weeklyAmt   = totalPayout > 0 ? Math.round(totalPayout / 15) : (investment.weekly_profit || 0);
       animateCounter(document.getElementById('stat-total-payout'), totalPayout, 1000, '₩');
+      document.getElementById('stat-total-payout-dgn').innerHTML = getDGNHtml(totalPayout);
       animateCounter(document.getElementById('stat-weekly'), weeklyAmt, 1200, '₩');
+      document.getElementById('stat-weekly-dgn').innerHTML = getDGNHtml(weeklyAmt);
       animateCounter(document.getElementById('stat-paid'), investment.paid_amount || 0, 1400, '₩');
+      document.getElementById('stat-paid-dgn').innerHTML = getDGNHtml(investment.paid_amount || 0);
       animateCounter(document.getElementById('stat-remain'), investment.remaining_amount || 0, 1600, '₩');
+      document.getElementById('stat-remain-dgn').innerHTML = getDGNHtml(investment.remaining_amount || 0);
 
       // Next Payout - 로딩 숨기고 상태에 따라 표시
       document.getElementById('next-pay-loading').style.display = 'none';
@@ -758,6 +801,7 @@
         // next_payout.total_payout = 해당 주차 지급액 (원금분+이자분)
         const npAmt = nextPayout.total_payout || Math.round(((investment.amount||0)*1.5)/15);
         document.getElementById('next-pay-amount').textContent = formatMoney(npAmt);
+        document.getElementById('next-pay-amount-dgn').innerHTML = getDGNHtml(npAmt);
         document.getElementById('next-pay-badge').textContent  = `${nextPayout.week_number}주차 지급 대기`;
       } else {
         document.getElementById('next-pay-has-investment').style.display = 'none';
@@ -801,15 +845,18 @@
           const initPendingEl    = document.getElementById('comm-pending');
           const initPendingLabel = document.getElementById('comm-pending-label');
           const initPendingBox   = document.getElementById('comm-pending-box');
+          const initPendingDgn   = document.getElementById('comm-pending-dgn');
           if (initPendingEl) {
             if (initPending > 0) {
               initPendingEl.innerHTML = '₩' + initPending.toLocaleString('ko-KR')
                 + '<span style="display:block;font-size:10px;color:#e74c3c;font-family:\'Noto Sans KR\',sans-serif;font-weight:700;margin-top:3px;">대기중</span>';
               if (initPendingLabel) initPendingLabel.textContent = '출금 승인 대기';
+              if (initPendingDgn) initPendingDgn.innerHTML = getDGNHtml(initPending);
             } else {
               initPendingEl.textContent = '₩0';
               if (initPendingLabel) initPendingLabel.textContent = '대기중 수당 없음';
               if (initPendingBox) { initPendingBox.style.borderColor='rgba(39,174,96,0.3)'; initPendingBox.style.background='rgba(39,174,96,0.05)'; }
+              if (initPendingDgn) initPendingDgn.innerHTML = '';
             }
           }
           loadCommissionStats();
@@ -840,8 +887,11 @@
         });
 
         document.getElementById('comm-today').textContent = '₩' + todayAmt.toLocaleString('ko-KR');
+        document.getElementById('comm-today-dgn').innerHTML = getDGNHtml(todayAmt);
         document.getElementById('comm-week').textContent  = '₩' + weekAmt.toLocaleString('ko-KR');
+        document.getElementById('comm-week-dgn').innerHTML = getDGNHtml(weekAmt);
         document.getElementById('comm-month').textContent = '₩' + monthAmt.toLocaleString('ko-KR');
+        document.getElementById('comm-month-dgn').innerHTML = getDGNHtml(monthAmt);
 
         // 최근 10건 소개수당 테이블 표시
         const recent = list.slice(0, 10);
@@ -854,6 +904,8 @@
         const pendingEl    = document.getElementById('comm-pending');
         const pendingLabel = document.getElementById('comm-pending-label');
         const pendingBox   = document.getElementById('comm-pending-box');
+        const pendingDgn   = document.getElementById('comm-pending-dgn');
+        
         if (pendingEl) {
           if (totalPending > 0) {
             // 대기중 수당이 있을 때: 금액 + "대기중" 표시
@@ -861,12 +913,14 @@
               + '<span style="display:block;font-size:10px;color:#e74c3c;font-family:\'Noto Sans KR\',sans-serif;font-weight:700;margin-top:3px;">대기중</span>';
             if (pendingLabel) pendingLabel.textContent = '출금 승인 대기';
             if (pendingBox) pendingBox.style.borderColor = 'rgba(231,76,60,0.5)';
+            if (pendingDgn) pendingDgn.innerHTML = getDGNHtml(totalPending);
           } else {
             // 완료(또는 0) 시: 0 표시
             pendingEl.textContent = '₩0';
             if (pendingLabel) pendingLabel.textContent = '대기중 수당 없음';
             if (pendingBox) pendingBox.style.borderColor = 'rgba(39,174,96,0.3)';
             if (pendingBox) pendingBox.style.background = 'rgba(39,174,96,0.05)';
+            if (pendingDgn) pendingDgn.innerHTML = '';
           }
         }
 
@@ -880,7 +934,7 @@
               : `<span style="padding:2px 8px;background:rgba(212,160,23,0.15);color:var(--accent-gold);border-radius:8px;font-size:11px;font-weight:700;">10% 분배</span>`;
           };
           const withdrawBadge = (ws) => {
-            if (ws === 'done') {
+            if (ws === 'done' || ws === 'completed') {
               return `<span style="padding:3px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:8px;font-size:11px;font-weight:700;">✓ 출금완료</span>`;
             }
             return `<span style="padding:3px 8px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:8px;font-size:11px;font-weight:700;">⏳ 출금대기</span>`;
@@ -891,9 +945,9 @@
                 <div style="font-weight:700;font-size:12px;">${c.investor_user_id || '-'}</div>
                 <div style="font-size:11px;color:var(--text-muted);">${c.investor_name || ''}</div>
               </td>
-              <td style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">${formatMoney(c.investment_amount)}</td>
+              <td><div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">${formatMoney(c.investment_amount)}</div>${getDGNHtml(c.investment_amount)}</td>
               <td>${rateTag(c.commission_rate)}</td>
-              <td style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--accent-gold);">+${formatMoney(c.commission_amount)}</td>
+              <td><div style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--accent-gold);">+${formatMoney(c.commission_amount)}</div>${getDGNHtml(c.commission_amount)}</td>
               <td style="font-size:11px;">${formatDate(c.paid_at || c.created_at)}</td>
               <td>${withdrawBadge(c.withdraw_status)}</td>
             </tr>
@@ -904,11 +958,6 @@
         const tbody = document.getElementById('comm-list-body');
         if (tbody) tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:20px;color:var(--accent-red);">수당 내역 로드 실패</td></tr>`;
       }
-    }
-
-    function countAllReferrals(arr) {
-      if (!arr || arr.length === 0) return 0;
-      return arr.reduce((acc, m) => acc + 1 + countAllReferrals(m.children), 0);
     }
 
     function renderRecentPayouts(data) {
@@ -929,42 +978,15 @@
           </td>
           <td style="font-size:12px;">${formatMoney(p.principal_portion)}</td>
           <td style="color:var(--accent-green);font-size:12px;">${formatMoney(p.profit_portion)}</td>
-          <td style="font-weight:900;color:var(--text-primary);font-family:'Orbitron',sans-serif;font-size:13px;">${formatMoney(p.total_payout)}</td>
+          <td>
+            <div style="font-weight:900;color:var(--text-primary);font-family:'Orbitron',sans-serif;font-size:13px;">${formatMoney(p.total_payout)}</div>
+            ${getDGNHtml(p.total_payout)}
+          </td>
           <td style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text-muted);">${formatMoney(p.balance_after)}</td>
           <td><span style="padding:2px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;">✓ 지급완료</span></td>
         </tr>
       `).join('');
     }
-
-    // 출금 신청 모달
-    window.openWithdrawModal = function() {
-      if (!_memberData) return;
-      const balance = _memberData.member?.available_balance || 0;
-      const member  = _memberData.member || {};
-      document.getElementById('modal-withdraw-balance').textContent = formatMoney(balance);
-      document.getElementById('wd-bank').value    = member.bank_name || '';
-      document.getElementById('wd-account').value = member.account_number || '';
-      document.getElementById('wd-holder').value  = member.name || '';
-      openModal('modal-withdraw');
-    };
-
-    window.submitWithdraw = async function() {
-      const amount = parseInt(document.getElementById('wd-amount').value.replace(/,/g, '') || '0');
-      const bank   = document.getElementById('wd-bank').value;
-      const acct   = document.getElementById('wd-account').value;
-      const holder = document.getElementById('wd-holder').value;
-      if (!amount || amount <= 0) { showToast('출금 금액을 입력하세요.', 'error'); return; }
-      if (!bank || !acct || !holder) { showToast('계좌 정보를 입력하세요.', 'error'); return; }
-
-      try {
-        await WithdrawalsAPI.request({ amount, bank_name: bank, account_number: acct, account_holder: holder });
-        showToast('출금 신청이 완료되었습니다.', 'success');
-        closeModal('modal-withdraw');
-        await loadMemberData();
-      } catch(err) {
-        showToast(err.message, 'error');
-      }
-    };
   </script>
 </body>
 </html>
