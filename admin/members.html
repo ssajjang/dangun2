@@ -251,22 +251,431 @@
 
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/dgn.js"></script>
   <script>
-    // ── 공통 DGN 환율 스크립트 ──
-    let _coinRate = 0;
-    let _coinSymbol = 'DGN';
-    let _coinEnabled = false;
+    let currentPage = 1;
+    let totalCount  = 0;
+    const PAGE_LIMIT = 10;
+    let detailMemberId = null;
+    let detailMemberData = null;
 
-    async function loadCoinInfo() {
+    document.addEventListener('DOMContentLoaded', async () => {
+      applyTheme(getTheme());
+      if (window.DGN) DGN.init().catch(()=>{});
+      loadMembers();
+    });
+
+    async function loadMembers() {
+      // API 객체 존재 여부 확인
+      if (typeof MembersAPI === 'undefined') {
+        showToast('API 모듈이 로드되지 않았습니다. 페이지를 새로고침하세요.', 'error');
+        console.error('[members] MembersAPI is not defined - api.js 로드 순서 확인 필요');
+        return;
+      }
+
+      const q      = document.getElementById('search-input').value.trim();
+      const rank   = document.getElementById('filter-rank').value;
+      const status = document.getElementById('filter-status').value;
+
+      const params = { page: currentPage, limit: PAGE_LIMIT };
+      if (q)      params.search = q;
+      if (rank)   params.rank   = rank;
+      if (status) params.status = status;
+
       try {
-        const d = await SettingsAPI.getPublic();
-        _coinRate = parseFloat(d.dangun_coin_rate || '0') || 0;
-        _coinSymbol = d.dangun_coin_symbol || 'DGN';
-        _coinEnabled = d.dangun_coin_enabled !== '0';
-      } catch(e) {}
+        const data = await MembersAPI.list(params);
+        if (!data) return;
+        totalCount = data.total || 0;
+        renderTable(data.data || []);
+
+        // ── KPI 카드 DB 데이터로 업데이트 ──
+        const s = data.stats || {};
+        const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
+        setEl('stat-total',    s.total            || data.total || 0);
+        setEl('stat-active',   s.active_count     || 0);
+        setEl('stat-teamjang', (s.teamjang_count  || 0) + (s.bonbujang_count || 0));
+        setEl('stat-inactive', s.inactive_count   || 0);
+      } catch(err) {
+        console.error('[members] loadMembers error:', err);
+        const msg = err.message || '알 수 없는 오류';
+        if (msg.includes('401') || msg.includes('403') || msg.includes('인증')) {
+          showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+          setTimeout(() => { Auth.clear(); location.replace('/index.html'); }, 2000);
+        } else if (msg.includes('404')) {
+          showToast('API 서버에 연결할 수 없습니다. 서버 상태를 확인하세요.', 'error');
+        } else {
+          showToast('회원 목록 로드 실패: ' + msg, 'error');
+        }
+      }
     }
 
-    function getDGNHtml(krw) {
-      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
-      const dgn = Math.round(krw * _coinRate);
-      return `<div style="font
+    function filterMembers() {
+      currentPage = 1;
+      loadMembers();
+    }
+
+    function clearFilters() {
+      document.getElementById('search-input').value = '';
+      document.getElementById('filter-rank').value = '';
+      document.getElementById('filter-status').value = '';
+      currentPage = 1;
+      loadMembers();
+    }
+
+    function renderTable(members) {
+      const tbody = document.getElementById('members-tbody');
+      if (members.length === 0) {
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--text-muted);">검색 결과가 없습니다.</td></tr>`;
+      } else {
+        tbody.innerHTML = members.map(m => `
+          <tr>
+            <td style="color:var(--text-muted);font-size:11px;">#${m.id}</td>
+            <td>
+              <div class="member-cell">
+                <div style="width:30px;height:30px;border-radius:50%;background:var(--gradient-gold);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;color:#1a1a2e;flex-shrink:0;">${(m.name||'?')[0]}</div>
+                <span style="font-weight:700;">${m.user_id}</span>
+              </div>
+            </td>
+            <td>${m.name}</td>
+            <td style="font-size:12px;">${m.phone}</td>
+            <td style="font-size:12px;">
+              ${m.recommender_user_id
+                ? `<div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-weight:700;color:var(--accent-gold);font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:0.5px;">${m.recommender_user_id}</span>
+                    <span style="font-size:10px;color:var(--text-muted);">${m.recommender_name||''}</span>
+                    <span style="font-size:10px;color:var(--text-secondary);font-family:monospace;">ID: ${m.recommender_id||m.referrer_id||'-'}</span>
+                   </div>`
+                : `<span style="color:var(--text-muted);font-size:11px;">없음</span>`}
+            </td>
+            <td style="font-size:12px;">${m.bank_name||'-'}<br><span style="color:var(--text-muted);">${m.account_number||'-'}</span></td>
+            <td>
+              <select class="rank-select" onchange="changeRank(${m.id}, this.value)" title="직급 변경">
+                <option ${m.rank==='일반회원'?'selected':''}>일반회원</option>
+                <option ${m.rank==='팀장'?'selected':''}>팀장</option>
+                <option ${m.rank==='본부장'?'selected':''}>본부장</option>
+              </select>
+            </td>
+            <td style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:700;color:var(--accent-gold);">
+              ${formatMoney(m.investment_total || m.total_invested || 0)}
+            </td>
+            <td><span class="badge badge-blue">${m.current_week || 0}주차</span></td>
+            <td style="font-size:12px;">${formatMoney(m.remaining_amount || 0)}</td>
+            <td style="font-size:11px;color:var(--text-muted);">${formatDate(m.created_at)}</td>
+            <td>${statusBadge(m.status)}</td>
+            <td>
+              <div style="display:flex;gap:4px;flex-wrap:wrap;">
+                <button class="btn btn-outline btn-sm" style="padding:4px 8px;" onclick="viewMember(${m.id})" title="상세">
+                  <i class="fas fa-eye"></i>
+                </button>
+                <button class="btn btn-sm" style="padding:4px 8px;background:rgba(155,89,182,0.2);border:1px solid rgba(155,89,182,0.5);color:#9b59b6;" onclick="changePasswordModal(${m.id}, '${m.user_id}', '${m.name}')" title="비밀번호 변경">
+                  <i class="fas fa-key"></i>
+                </button>
+                ${m.status === 'inactive' ? `
+                <button class="btn btn-success btn-sm" style="padding:4px 8px;" onclick="activateMember(${m.id})" title="활성화">
+                  <i class="fas fa-check"></i>
+                </button>` : `
+                <button class="btn btn-danger btn-sm" style="padding:4px 8px;" onclick="suspendMember(${m.id})" title="정지">
+                  <i class="fas fa-ban"></i>
+                </button>`}
+              </div>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      renderPagination('members-pagination', totalCount, currentPage, PAGE_LIMIT,
+        `function(p){ currentPage=p; loadMembers(); }`);
+    }
+
+    async function viewMember(id) {
+      detailMemberId = id;
+      try {
+        const m = await MembersAPI.get(id);
+        detailMemberData = m;
+        const inv = (m.investments || [])[0] || {};
+
+        document.getElementById('member-detail-body').innerHTML = `
+          <div style="display:grid;gap:10px;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">아이디</div>
+                <div style="font-weight:700;">${m.user_id}</div>
+              </div>
+              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">이름</div>
+                <div style="font-weight:700;">${m.name}</div>
+              </div>
+              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">전화번호</div>
+                <div style="font-weight:700;">${m.phone}</div>
+              </div>
+              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">가입일</div>
+                <div style="font-weight:700;">${formatDate(m.created_at)}</div>
+              </div>
+              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">은행 / 계좌번호</div>
+                <div style="font-weight:700;">${m.bank_name||'-'} ${m.account_number||''}</div>
+              </div>
+              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">상태</div>
+                ${statusBadge(m.status)}
+              </div>
+            </div>
+            <div style="padding:16px;background:rgba(212,160,23,0.05);border:1px solid rgba(212,160,23,0.2);border-radius:var(--radius-md);">
+              <div style="font-size:12px;font-weight:700;color:var(--accent-gold);margin-bottom:10px;">💰 투자 현황</div>
+              <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;">
+                <div><div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--accent-gold);">${formatMoney(m.investment_total||0)}</div><div style="font-size:11px;color:var(--text-muted);">투자금</div></div>
+                <div><div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;">${inv.current_week||0}/15주</div><div style="font-size:11px;color:var(--text-muted);">진행 주차</div></div>
+                <div><div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--accent-green);">${formatMoney(inv.remaining_amount||0)}</div><div style="font-size:11px;color:var(--text-muted);">잔여 지급액</div></div>
+              </div>
+              <div style="margin-top:12px;">${renderWeekProgress(inv.current_week||0, 15)}</div>
+            </div>
+            <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">직급 변경</div>
+              <select class="form-control" id="detail-rank-select" style="max-width:200px;">
+                <option ${m.rank==='일반회원'?'selected':''}>일반회원</option>
+                <option ${m.rank==='팀장'?'selected':''}>팀장</option>
+                <option ${m.rank==='본부장'?'selected':''}>본부장</option>
+              </select>
+            </div>
+            <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
+              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">메모</div>
+              <textarea class="form-control" id="detail-memo" rows="2" style="resize:none;">${m.memo||''}</textarea>
+            </div>
+          </div>
+        `;
+        openModal('modal-member-detail');
+      } catch(err) {
+        showToast('회원 정보 로드 실패: ' + err.message, 'error');
+      }
+    }
+
+    async function saveRankChange() {
+      const sel  = document.getElementById('detail-rank-select');
+      const memo = document.getElementById('detail-memo')?.value || '';
+      if (!sel || !detailMemberId) return;
+      try {
+        await MembersAPI.update(detailMemberId, { rank: sel.value, memo });
+        showToast(`직급이 [${sel.value}]으로 변경되었습니다.`, 'success');
+        closeModal('modal-member-detail');
+        loadMembers();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    async function changeRank(id, newRank) {
+      try {
+        await MembersAPI.update(id, { rank: newRank });
+        showToast(`직급 변경: ${newRank}`, 'success');
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    async function activateMember(id) {
+      try {
+        await MembersAPI.update(id, { status: 'active' });
+        showToast('회원 활성화 완료', 'success');
+        loadMembers();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    async function suspendMember(id) {
+      try {
+        await MembersAPI.update(id, { status: 'suspended' });
+        showToast('회원 정지 처리', 'warning');
+        loadMembers();
+      } catch(err) { showToast(err.message, 'error'); }
+    }
+
+    function exportCSV() {
+      // CSV 내보내기 (현재 페이지 데이터 기준)
+      try {
+        const tbody = document.getElementById('members-tbody');
+        const rows = tbody.querySelectorAll('tr');
+        if (!rows.length || rows[0].cells.length < 2) {
+          showToast('내보낼 데이터가 없습니다.', 'warning');
+          return;
+        }
+        const headers = ['ID','아이디','이름','전화번호','추천인아이디(referrer_id)','은행/계좌','직급','투자금','주차','잔여지급액','가입일','상태'];
+        const lines = [headers.join(',')];
+        rows.forEach(tr => {
+          if (tr.cells.length < 6) return;
+          const cells = Array.from(tr.cells).map(td => {
+            const txt = (td.textContent || '').replace(/\s+/g, ' ').trim().replace(/,/g, '·');
+            return `"${txt}"`;
+          });
+          lines.push(cells.slice(0, headers.length).join(','));
+        });
+        const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = `members_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+        showToast('CSV 내보내기 완료', 'success');
+      } catch(e) {
+        showToast('CSV 내보내기 실패: ' + e.message, 'error');
+      }
+    }
+
+    // ── 비밀번호 변경 모달 ────────────────────────────────────
+    function changePasswordModal(id, userId, name) {
+      const html = `
+        <div id="pw-modal" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9999;display:flex;align-items:center;justify-content:center;">
+          <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:16px;padding:28px;width:90%;max-width:420px;">
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+              <h3 style="font-size:16px;font-weight:700;">🔑 비밀번호 변경</h3>
+              <button onclick="document.getElementById('pw-modal').remove()" style="background:none;border:none;color:var(--text-secondary);font-size:20px;cursor:pointer;">✕</button>
+            </div>
+            <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+              <strong style="color:var(--text-primary);">${name} (${userId})</strong> 회원의 비밀번호를 변경합니다.
+            </p>
+            <div style="margin-bottom:16px;">
+              <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">새 비밀번호 <span style="color:#e74c3c;">*</span></label>
+              <input type="password" id="new-pw-input" placeholder="6자 이상 입력"
+                style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;box-sizing:border-box;" />
+            </div>
+            <div style="margin-bottom:20px;">
+              <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">비밀번호 확인 <span style="color:#e74c3c;">*</span></label>
+              <input type="password" id="new-pw-confirm" placeholder="비밀번호 재입력"
+                style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;box-sizing:border-box;" />
+            </div>
+            <div style="display:flex;gap:8px;">
+              <button onclick="document.getElementById('pw-modal').remove()"
+                style="flex:1;padding:10px;border-radius:8px;border:1px solid var(--border-color);background:transparent;color:var(--text-primary);cursor:pointer;font-size:13px;">
+                취소
+              </button>
+              <button onclick="submitPasswordChange(${id})"
+                style="flex:1;padding:10px;border-radius:8px;border:none;background:linear-gradient(135deg,#9b59b6,#6c3483);color:#fff;cursor:pointer;font-size:13px;font-weight:700;">
+                🔑 변경하기
+              </button>
+            </div>
+          </div>
+        </div>`;
+      document.body.insertAdjacentHTML('beforeend', html);
+      setTimeout(() => document.getElementById('new-pw-input')?.focus(), 100);
+    }
+
+    // ── 관리자 회원 추가 ─────────────────────────────────────
+    let _amSearchTimer = null;
+    function searchAdminRecommender() {
+      const q = document.getElementById('am-recommender-input').value.trim();
+      const resultEl = document.getElementById('am-recommender-result');
+      if (!q || q.length < 2) { resultEl.style.display = 'none'; return; }
+      clearTimeout(_amSearchTimer);
+      _amSearchTimer = setTimeout(async () => {
+        try {
+          const token = Auth.getToken();
+          // /api/auth/members/search 는 admins(SuperAdmin) + members 모두 반환
+          const res = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+          const found = await res.json();
+          if (!Array.isArray(found) || found.length === 0) {
+            resultEl.innerHTML = `<div style="padding:10px;font-size:13px;color:var(--text-muted);">검색 결과 없음</div>`;
+          } else {
+            resultEl.innerHTML = found.map(m => {
+              const isAdmin = m.type === 'admin';
+              const badge = isAdmin
+                ? `<span style="font-size:9px;padding:2px 5px;background:rgba(231,76,60,0.2);color:#e74c3c;border-radius:4px;font-weight:700;margin-left:4px;">관리자</span>`
+                : '';
+              return `
+              <div onclick="selectAdminRecommender('${m.user_id}','${m.user_id}','${m.name}','${m.rank}',${isAdmin})"
+                style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:13px;display:flex;justify-content:space-between;align-items:center;"
+                onmouseover="this.style.background='rgba(212,160,23,0.1)'" onmouseout="this.style.background=''">
+                <span style="font-weight:700;">${m.user_id}${badge}</span>
+                <span style="color:var(--text-muted);">${m.name} · ${m.rank}</span>
+              </div>
+            `}).join('');
+          }
+          resultEl.style.display = 'block';
+        } catch(err) { console.error('추천인 검색 오류:', err); resultEl.style.display = 'none'; }
+      }, 300);
+    }
+
+    function selectAdminRecommender(recommenderKey, userId, name, rank, isAdmin) {
+      document.getElementById('am-recommender-id').value = recommenderKey; // user_id(문자열)로 API 전달
+      document.getElementById('am-recommender-input').value = userId;
+      document.getElementById('am-recommender-result').style.display = 'none';
+      const adminBadge = isAdmin ? ' 🛡관리자' : '';
+      document.getElementById('am-recommender-text').textContent = `${userId} (${name}) · ${rank}${adminBadge}`;
+      document.getElementById('am-recommender-selected').style.display = 'block';
+    }
+
+    function clearAdminRecommender() {
+      document.getElementById('am-recommender-id').value = '';
+      document.getElementById('am-recommender-input').value = '';
+      document.getElementById('am-recommender-selected').style.display = 'none';
+    }
+
+    async function submitAddMember(e) {
+      e.preventDefault();
+      const errEl = document.getElementById('add-member-error');
+      errEl.style.display = 'none';
+
+      const body = {
+        user_id:              document.getElementById('am-user-id').value.trim(),
+        password:             document.getElementById('am-password').value,
+        name:                 document.getElementById('am-name').value.trim(),
+        phone:                document.getElementById('am-phone').value.trim(),
+        email:                document.getElementById('am-email').value.trim() || undefined,
+        bank_name:            document.getElementById('am-bank').value || undefined,
+        account_number:       document.getElementById('am-account').value.trim() || undefined,
+        account_holder:       document.getElementById('am-holder').value.trim() || undefined,
+        recommender_user_id:  document.getElementById('am-recommender-id').value || undefined,
+        rank:                 document.getElementById('am-rank').value,
+        status:               document.getElementById('am-status').value,
+      };
+
+      const btn = document.getElementById('add-member-submit-btn');
+      btn.disabled = true;
+      btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리 중...';
+
+      try {
+        const token = Auth.getToken();
+        const res = await fetch('/api/admin/members', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify(body)
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '등록 실패');
+
+        showToast(`${data.name}(${data.user_id}) 회원이 등록되었습니다.`, 'success');
+        closeModal('modal-add-member');
+        document.getElementById('add-member-form').reset();
+        clearAdminRecommender();
+        loadMembers();
+      } catch(err) {
+        errEl.textContent = '오류: ' + err.message;
+        errEl.style.display = 'block';
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-user-plus"></i> 회원 등록';
+      }
+    }
+    // ─────────────────────────────────────────────────────────
+
+    async function submitPasswordChange(memberId) {
+      const pw  = document.getElementById('new-pw-input')?.value || '';
+      const pw2 = document.getElementById('new-pw-confirm')?.value || '';
+      if (!pw || pw.length < 6) { showToast('비밀번호는 6자 이상이어야 합니다.', 'error'); return; }
+      if (pw !== pw2)           { showToast('비밀번호가 일치하지 않습니다.', 'error'); return; }
+
+      try {
+        const token = localStorage.getItem('dangun_token');
+        const res = await fetch(`/api/members/${memberId}/password`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ new_password: pw })
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || '변경 실패');
+        document.getElementById('pw-modal')?.remove();
+        showToast(data.message || '비밀번호가 변경되었습니다.', 'success');
+      } catch(err) {
+        showToast('변경 실패: ' + err.message, 'error');
+      }
+    }
+  </script>
+</body>
+</html>

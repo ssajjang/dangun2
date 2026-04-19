@@ -90,15 +90,18 @@ DANGUN은 Express.js + SQLite 기반의 투자 자금 관리 플랫폼입니다.
 - 주당 지급액 (÷15) = `Math.round(total_payout / 15)`
 - 누적 지급액 = `inv.paid_amount` (관리자 승인 후 누적)
 - 잔여 지급액 = `inv.remaining_amount`
+- **지급일 계산**: `approved_date(또는 investment_date) + 7 × week_number` — 매주 금요일 방식이 아닌 개별 투자 승인일 기준
+- **DGN 코인 환산**: 모든 금액 표시 아래 `≒ X DGN` 표시 (js/dgn.js 통합)
+- **DB 없을 때 더미 스케줄**: 15주차 허수 스케줄 자동 생성 후 렌더링
 
 #### 관리자 페이지 (`/admin/`)
 | 파일 | 기능 |
 |------|------|
 | `dashboard.html` | 종합 KPI(직급수당 출금대기 건수 포함) · 직급수당 출금대기 목록(즉시 표시) · 주간 지급 예정 · 활동 로그 |
 | `dashboard.html` | 종합 KPI · 직급수당 출금대기 목록(즉시 AJAX 처리, 페이지 새로고침 없음) · 일괄/개별 출금완료 |
-| `commission.html` | 직급수당 전체 목록 · 출금상태 필터(⏳출금대기/✓출금완료) · 출금현황 요약바(대기/완료 금액) · 개별/전체 출금완료 · 월별추이·직급별비율 차트 |
+| `commission.html` | 직급수당 전체 목록 · **⏳출금대기 영구 노출(관리자 승인 전)** · 출금대기만 필터 체크박스 · **CSV 엑셀 다운로드(이름/은행/계좌/금액/상태)** · 월별추이·직급별비율 차트 · DGN 코인 환산 표시 |
 | `members.html` | 회원 정보 관리 · **추천인 아이디(referrer_id) 컬럼 표시** · CSV 내보내기 |
-| `withdrawal.html` | 출금 요청 관리 · 승인/거절 |
+| `withdrawal.html` | 출금 요청 관리 · **출금대기 기본 필터(영구 노출)** · 전체 보기 체크박스 · **CSV 엑셀 다운로드(이름/은행/계좌/금액/상태)** · 승인/거절 · DGN 코인 환산 표시 |
 | `deposit.html` | 투자금 입금 등록 (50% 이자, 15주, 주당 100,000원) |
 | `reset.html` | 데이터 초기화 · 회원 추가 |
 | `simulate.html` | 지급 시뮬레이션 (날짜 기준 or 전체 pending 처리 선택 가능) |
@@ -166,12 +169,17 @@ available_balance, pending_payout, total_withdrawn
 
 ```
 scheduler.js 동작:
-  - 매일 00:01 KST 자동 실행
-  - 각 회원의 투자 승인일(investment_date) 기준으로
+  - 매일 00:01 KST 자동 실행 (cron: '1 0 * * *' KST)
+  - 각 회원의 투자 승인일(approved_date > investment_date > created_at) 기준으로
     정확히 7일 간격마다 지급 처리
-  - 예: 2025-01-01 투자 → 2025-01-08, 01-15, 01-22 ... (15회)
+  - 예: 2025-01-01 투자 승인 → 1주 2025-01-08, 2주 01-15, 3주 01-22 ... (15회)
   - ensurePayoutSchedule() 으로 지급 예정 스케줄 자동 생성
   - scheduled_date <= today 인 pending 건 일괄 처리
+
+UI (member/payouts.html):
+  - calcPayDate(inv, week) 함수로 동일 로직 재현
+  - DB 데이터 없으면 15주 더미 스케줄 즉시 렌더링
+  - 타임라인·요약 테이블·차트 모두 +7일 간격 날짜로 표시
 ```
 
 ## 💰 수당 계산 규칙

@@ -239,27 +239,22 @@
         <div class="payout-banner anim-fadeInDown">
           <div class="banner-stat">
             <div class="banner-val" id="ban-invest">-</div>
-            <div id="ban-invest-dgn"></div>
             <div class="banner-lbl">원금 (투자금)</div>
           </div>
           <div class="banner-stat">
             <div class="banner-val" style="color:var(--accent-gold);" id="ban-total-payout">-</div>
-            <div id="ban-total-payout-dgn"></div>
             <div class="banner-lbl">총 지급액 (원금+이자150%)</div>
           </div>
           <div class="banner-stat">
             <div class="banner-val" style="color:#7ec8e3;" id="ban-weekly">-</div>
-            <div id="ban-weekly-dgn"></div>
             <div class="banner-lbl">주당 지급액 (÷15)</div>
           </div>
           <div class="banner-stat">
             <div class="banner-val" style="color:var(--accent-green);" id="ban-paid">-</div>
-            <div id="ban-paid-dgn"></div>
             <div class="banner-lbl">누적 지급액</div>
           </div>
           <div class="banner-stat">
             <div class="banner-val" style="color:rgba(200,204,232,0.7);" id="ban-remain">-</div>
-            <div id="ban-remain-dgn"></div>
             <div class="banner-lbl">잔여 지급액</div>
           </div>
         </div>
@@ -308,7 +303,7 @@
           <div class="card-header">
             <span class="card-title"><i class="fas fa-stream icon"></i> 지급 타임라인 (원금+이자 상세)</span>
             <div style="font-size:12px;color:var(--text-muted);">
-              매주 정해진 요일 계좌 입금 (7일 주기) · 15주 완납
+              투자 승인일 기준 매 +7일 · 15주 완납
             </div>
           </div>
           <div class="card-body">
@@ -322,27 +317,8 @@
 
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/dgn.js"></script>
   <script>
-    // ── 공통 DGN 환율 스크립트 ──
-    let _coinRate = 0;
-    let _coinSymbol = 'DGN';
-    let _coinEnabled = false;
-
-    async function loadCoinInfo() {
-      try {
-        const d = await SettingsAPI.getPublic();
-        _coinRate = parseFloat(d.dangun_coin_rate || '0') || 0;
-        _coinSymbol = d.dangun_coin_symbol || 'DGN';
-        _coinEnabled = d.dangun_coin_enabled !== '0';
-      } catch(e) {}
-    }
-
-    function getDGNHtml(krw) {
-      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
-      const dgn = Math.round(krw * _coinRate);
-      return `<div style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-top:2px;">≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol}</div>`;
-    }
-
     // 인증 체크
     (function(){
       var t=localStorage.getItem('dangun_token');
@@ -353,12 +329,27 @@
     let _memberData = null;
     let _payoutsData = [];
     let _chartInstance = null;
+    let _investData   = null;  // 투자 원본 데이터 보관
 
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
-      await loadCoinInfo();
+      if (window.DGN) DGN.init().catch(()=>{});
       await loadPayouts();
     });
+
+    /**
+     * 투자 승인일(approved_date) 기준으로 N주차 지급예정일 계산
+     * @param {object} inv  투자 레코드
+     * @param {number} week 1~15
+     * @returns {string} YYYY-MM-DD
+     */
+    function calcPayDate(inv, week) {
+      const base = inv.approved_date || inv.investment_date || inv.created_at;
+      if (!base) return '';
+      const d = new Date(base);
+      d.setDate(d.getDate() + 7 * week);
+      return d.toISOString().slice(0, 10);
+    }
 
     async function loadPayouts() {
       try {
@@ -366,6 +357,7 @@
         const invData = await InvestmentsAPI.my();
         const investments = (invData && invData.investments) ? invData.investments : (Array.isArray(invData) ? invData : []);
         const inv = investments[0] || null;
+        _investData = inv;
 
         // 내 지급 스케줄
         const memberInfo = Auth.getUser();
@@ -374,6 +366,32 @@
         if (inv) {
           _payoutsData = await InvestmentsAPI.payouts(inv.id).catch(()=>[]);
           if (!Array.isArray(_payoutsData)) _payoutsData = _payoutsData.payouts || [];
+
+          // +7일 간격 기준으로 scheduled_date 재계산
+          _payoutsData = _payoutsData.map(function(p) {
+            return Object.assign({}, p, { scheduled_date: calcPayDate(inv, p.week_number) });
+          });
+
+          // DB에 데이터 없는 경우 15주 허수 스케줄 생성
+          if (_payoutsData.length === 0) {
+            const totalPayout = Math.round((inv.amount || 0) * 1.5);
+            const weeklyAmt   = totalPayout > 0 ? Math.floor(totalPayout / 15) : 0;
+            const currentWeek = inv.current_week || 0;
+            _payoutsData = Array.from({ length: 15 }, (_, i) => {
+              const w = i + 1;
+              return {
+                week_number:       w,
+                scheduled_date:    calcPayDate(inv, w),
+                total_payout:      weeklyAmt,
+                principal_portion: Math.floor((inv.amount || 0) / 15),
+                profit_portion:    weeklyAmt - Math.floor((inv.amount || 0) / 15),
+                balance_after:     totalPayout - weeklyAmt * w,
+                status:            w <= currentWeek ? 'paid' : 'pending',
+                paid_date:         w <= currentWeek ? calcPayDate(inv, w) : null,
+                is_partial:        false
+              };
+            });
+          }
         }
 
         // 사이드바 회원정보 업데이트
@@ -386,6 +404,9 @@
         renderChart(inv);
         renderSummaryTable();
         renderTimeline(inv);
+
+        // DGN 환산 적용
+        if (window.DGN) DGN.applyAll();
       } catch(err) {
         showToast('지급 내역 로드 실패: ' + err.message, 'error');
         console.error(err);
@@ -405,16 +426,16 @@
       // 주당지급액 = 총지급액 ÷ 15 (정수)
       const weeklyAmt   = totalPayout > 0 ? Math.round(totalPayout / 15) : 0;
 
-      document.getElementById('ban-invest').textContent       = formatMoney(principal);
-      document.getElementById('ban-invest-dgn').innerHTML     = getDGNHtml(principal);
-      document.getElementById('ban-total-payout').textContent = formatMoney(totalPayout);
-      document.getElementById('ban-total-payout-dgn').innerHTML = getDGNHtml(totalPayout);
-      document.getElementById('ban-weekly').textContent       = formatMoney(weeklyAmt);
-      document.getElementById('ban-weekly-dgn').innerHTML     = getDGNHtml(weeklyAmt);
-      document.getElementById('ban-paid').textContent         = formatMoney(inv.paid_amount || 0);
-      document.getElementById('ban-paid-dgn').innerHTML       = getDGNHtml(inv.paid_amount || 0);
-      document.getElementById('ban-remain').textContent       = formatMoney(inv.remaining_amount || 0);
-      document.getElementById('ban-remain-dgn').innerHTML     = getDGNHtml(inv.remaining_amount || 0);
+      const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        el.innerHTML = formatMoney(v) + (window.DGN ? DGN.html(v) : '');
+      };
+      setVal('ban-invest',       principal);
+      setVal('ban-total-payout', totalPayout);
+      setVal('ban-weekly',       weeklyAmt);
+      setVal('ban-paid',         inv.paid_amount || 0);
+      setVal('ban-remain',       inv.remaining_amount || 0);
     }
 
     function renderChart(inv) {
@@ -467,11 +488,13 @@
         tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:20px;color:var(--text-muted);">투자 내역이 없습니다</td></tr>';
         return;
       }
-      tbody.innerHTML = payouts.map(function(p) { return `
+      tbody.innerHTML = payouts.map(function(p) {
+        var sd = p.scheduled_date || (_investData ? calcPayDate(_investData, p.week_number) : '');
+        return `
         <tr>
           <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${p.week_number}주</td>
-          <td style="font-size:12px;">${formatDate(p.scheduled_date)}</td>
-          <td><div style="font-weight:700;">${formatMoney(p.total_payout)}</div>${getDGNHtml(p.total_payout)}</td>
+          <td style="font-size:12px;">${formatDate(sd)}</td>
+          <td style="font-weight:700;">${formatMoney(p.total_payout)}${window.DGN ? DGN.html(p.total_payout) : ''}</td>
           <td style="font-size:12px;color:var(--text-muted);">${formatMoney(p.balance_after)}</td>
           <td>${statusBadge(p.status)}</td>
         </tr>
@@ -493,13 +516,17 @@
         if (p.status === 'paid') cls = 'paid';
         else if (p.week_number === currentWeek + 1) cls = 'current';
 
+        // 지급일: 투자 승인일 기준 +7일 * week
+        var sd = p.scheduled_date || (_investData ? calcPayDate(_investData, p.week_number) : '');
+        var dgnHtml = window.DGN ? DGN.html(p.total_payout) : '';
+
         return `<div class="tl-item ${cls}" style="animation-delay:${i * 0.05}s;">
             <div class="tl-dot"></div>
             <div class="tl-card">
               <div class="tl-week">${p.week_number}W</div>
               <div class="tl-content">
-                <div class="tl-date">${formatDate(p.scheduled_date)}
-                  ${p.status === 'paid' && p.paid_date ? '<span style="font-size:10px;color:var(--accent-green);margin-left:8px;">✓ 지급완료</span>' : ''}
+                <div class="tl-date">${formatDate(sd)}
+                  ${p.status === 'paid' && p.paid_date ? '<span style="font-size:10px;color:var(--accent-green);margin-left:8px;">✓ 지급완료 ' + formatDate(p.paid_date) + '</span>' : ''}
                   ${cls === 'current' ? '<span style="font-size:10px;color:var(--accent-gold);margin-left:8px;">● 다음 지급</span>' : ''}
                 </div>
                 <div class="tl-sub">원금 ${formatMoney(p.principal_portion)} + 수익 <span style="color:var(--accent-green);">${formatMoney(p.profit_portion)}</span>
@@ -507,8 +534,7 @@
                 </div>
               </div>
               <div class="tl-amounts">
-                <div class="tl-total">${formatMoney(p.total_payout)}</div>
-                ${getDGNHtml(p.total_payout)}
+                <div class="tl-total">${formatMoney(p.total_payout)}${dgnHtml}</div>
                 <div class="tl-balance">잔고 → ${formatMoney(p.balance_after)}</div>
               </div>
               <div style="margin-left:8px;">${statusBadge(p.status)}</div>

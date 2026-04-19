@@ -131,19 +131,13 @@
               <div style="font-size:13px;font-weight:700;color:var(--text-secondary);"><i class="fas fa-hand-holding-usd" style="color:var(--accent-gold);margin-right:6px;"></i>직급수당 출금 현황</div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="padding:4px 12px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:20px;font-size:12px;font-weight:700;">⏳ 출금대기</span>
-                <div>
-                  <span style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:#e74c3c;" id="bar-pending-amt">₩0</span>
-                  <div id="bar-pending-amt-dgn"></div>
-                </div>
+                <span style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:#e74c3c;" id="bar-pending-amt">₩0</span>
                 <span style="font-size:11px;color:var(--text-muted);" id="bar-pending-cnt">(0건)</span>
               </div>
               <div style="width:1px;height:28px;background:var(--border-color);"></div>
               <div style="display:flex;align-items:center;gap:8px;">
                 <span style="padding:4px 12px;background:rgba(39,174,96,0.12);color:var(--accent-green);border-radius:20px;font-size:12px;font-weight:700;">&#10003; 출금완료</span>
-                <div>
-                  <span style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--accent-green);" id="bar-done-amt">₩0</span>
-                  <div id="bar-done-amt-dgn"></div>
-                </div>
+                <span style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--accent-green);" id="bar-done-amt">₩0</span>
                 <span style="font-size:11px;color:var(--text-muted);" id="bar-done-cnt">(0건)</span>
               </div>
               <div style="margin-left:auto;">
@@ -184,12 +178,9 @@
         <div class="card anim-fadeInUp">
           <div class="card-header">
             <span class="card-title"><i class="fas fa-table icon"></i> 직급 수당 내역</span>
-            <div style="display:flex;gap:8px;">
-              <button class="btn btn-gold btn-sm" onclick="exportCSV()"><i class="fas fa-file-excel"></i> 엑셀 다운로드</button>
-              <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);" onclick="bulkWithdraw()">
-                <i class="fas fa-check-double"></i> 선택 출금완료
-              </button>
-            </div>
+            <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);" onclick="bulkWithdraw()">
+              <i class="fas fa-check-double"></i> 선택 출금완료
+            </button>
           </div>
           <div class="card-body" style="padding:16px 20px 0;">
             <div class="filter-bar">
@@ -262,42 +253,8 @@
 
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/dgn.js"></script>
   <script>
-    // ── 공통 DGN 환율 스크립트 ──
-    let _coinRate = 0;
-    let _coinSymbol = 'DGN';
-    let _coinEnabled = false;
-
-    async function loadCoinInfo() {
-      try {
-        const d = await SettingsAPI.getPublic();
-        _coinRate = parseFloat(d.dangun_coin_rate || '0') || 0;
-        _coinSymbol = d.dangun_coin_symbol || 'DGN';
-        _coinEnabled = d.dangun_coin_enabled !== '0';
-      } catch(e) {}
-    }
-
-    function getDGNHtml(krw) {
-      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
-      const dgn = Math.round(krw * _coinRate);
-      return `<div style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-top:2px;">≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol}</div>`;
-    }
-
-    function getDGNInline(krw) {
-      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
-      const dgn = Math.round(krw * _coinRate);
-      return `<span style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-left:4px;">(≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol})</span>`;
-    }
-
-    function downloadCSV(csvText, filename) {
-      const blob = new Blob(['\uFEFF' + csvText], { type: 'text/csv;charset=utf-8;' });
-      const url  = URL.createObjectURL(blob);
-      const a    = document.createElement('a');
-      a.href = url; a.download = filename;
-      document.body.appendChild(a); a.click();
-      document.body.removeChild(a); URL.revokeObjectURL(url);
-    }
-
     let currentPageC  = 1;
     let totalCountC   = 0;
     const PAGE_LIMIT_C = 10;
@@ -305,7 +262,7 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
-      await loadCoinInfo();
+      if (window.DGN) DGN.init().catch(()=>{});
       await loadCommissions(); // 데이터 로드 후 차트에 stats 전달
     });
 
@@ -319,6 +276,9 @@
       if (rank)           params.rank            = rank;
       if (status)         params.status          = status;
       if (withdrawStatus) params.withdraw_status = withdrawStatus;
+      // 출금대기만 표시 필터 (체크 시 덮어쓰기)
+      const pendingOnlyEl = document.getElementById('show-pending-only');
+      if (pendingOnlyEl && pendingOnlyEl.checked) params.withdraw_status = 'pending';
 
       try {
         const data = await CommissionsAPI.list(params);
@@ -330,6 +290,7 @@
         const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
         const setHtml = (id, v) => { const el = document.getElementById(id); if(el) el.innerHTML = v; };
         setEl('stat-total-comm-count', s.total_count    || 0);
+        setEl('stat-total-comm',       formatMoney(s.total_amount    || 0));
         setEl('stat-bonbu-comm',       formatMoney(s.bonbujang_total || 0));
         setEl('stat-team-comm',        formatMoney(s.teamjang_total  || 0));
 
@@ -341,31 +302,27 @@
         const doneAmt     = (s.withdrawn_amount || 0) + (s.completed_amount || 0);
 
         setEl('bar-pending-amt',  formatMoney(pendingAmt));
-        const pendDgn = document.getElementById('bar-pending-amt-dgn');
-        if (pendDgn) pendDgn.innerHTML = getDGNHtml(pendingAmt);
         setEl('bar-pending-cnt',  `(${pendingCnt}건)`);
-
         setEl('bar-done-amt',     formatMoney(doneAmt));
-        const doneDgn = document.getElementById('bar-done-amt-dgn');
-        if (doneDgn) doneDgn.innerHTML = getDGNHtml(doneAmt);
         setEl('bar-done-cnt',     `(${doneCnt}건)`);
-
         setHtml('stat-comm-pending-count',   `<i class="fas fa-clock"></i> 출금대기 ${pendingCnt}건`);
         setHtml('stat-comm-withdrawn-amt',   `<i class="fas fa-check-circle"></i> 출금완료 ${formatMoney(doneAmt)}`);
 
         // ── DANGUN 코인 환산 표시 ──
         try {
-          if (_coinEnabled && _coinRate > 0) {
+          const coinData = await SettingsAPI.getPublic();
+          const coinRate    = parseFloat(coinData.dangun_coin_rate || '0') || 0;
+          const coinSymbol  = coinData.dangun_coin_symbol || 'DGN';
+          const coinEnabled = coinData.dangun_coin_enabled !== '0';
+          if (coinEnabled && coinRate > 0) {
             const totalAmt = s.total_amount || 0;
-            const dgn = Math.round(totalAmt * _coinRate);
+            const dgn = Math.round(totalAmt * coinRate);
             const dgnEl = document.getElementById('stat-total-comm');
             if (dgnEl) {
               dgnEl.innerHTML = formatMoney(totalAmt) +
                 '<br><span style="font-size:11px;color:var(--accent-gold);font-family:\'Orbitron\',monospace;">≒ ' +
-                dgn.toLocaleString('ko-KR') + ' ' + _coinSymbol + '</span>';
+                dgn.toLocaleString('ko-KR') + ' ' + coinSymbol + '</span>';
             }
-          } else {
-             setEl('stat-total-comm', formatMoney(s.total_amount || 0));
           }
         } catch(e) { /* 코인 환율 로드 실패 무시 */ }
 
@@ -385,24 +342,6 @@
       if (wsEl) wsEl.value = '';
       currentPageC = 1;
       loadCommissions();
-    }
-
-    // ── 엑셀 다운로드 ──
-    function exportCSV() {
-      if (!_currentRows || _currentRows.length === 0) {
-        showToast('내보낼 데이터가 없습니다.', 'warning');
-        return;
-      }
-      const lines = ['이름,은행명,계좌번호,출금금액'];
-      _currentRows.forEach(c => {
-        const name = c.receiver_name || '';
-        const bank = c.receiver_bank_name || '';
-        const acct = c.receiver_account_number || '';
-        const amt = c.commission_amount || 0;
-        lines.push(`"${name}","${bank}","${acct}","${amt}"`);
-      });
-      downloadCSV(lines.join('\n'), `commissions_${new Date().toISOString().slice(0,10)}.csv`);
-      showToast('엑셀 다운로드가 완료되었습니다.', 'success');
     }
 
     // ── 선택 관리 ──
@@ -509,15 +448,9 @@
                 <div style="font-size:12px;font-weight:600;">${c.investor_user_id}</div>
                 <div style="font-size:11px;color:var(--text-muted);">${c.investor_name}</div>
               </td>
-              <td>
-                <div style="font-family:'Orbitron',sans-serif;font-size:12px;">${formatMoney(c.investment_amount)}</div>
-                ${getDGNHtml(c.investment_amount)}
-              </td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${formatMoney(c.investment_amount)}</td>
               <td>${rateTag}</td>
-              <td>
-                <div style="font-weight:900;color:var(--accent-gold);font-family:'Orbitron',sans-serif;">${formatMoney(c.commission_amount)}</div>
-                ${getDGNHtml(c.commission_amount)}
-              </td>
+              <td style="font-weight:900;color:var(--accent-gold);font-family:'Orbitron',sans-serif;">${formatMoney(c.commission_amount)}</td>
               <td style="font-size:12px;color:var(--text-muted);">${formatMoney(c.balance_before)}</td>
               <td style="font-size:12px;font-weight:700;color:${c.balance_after > 0 ? 'var(--accent-green)' : 'var(--text-muted)'}">${formatMoney(c.balance_after)}</td>
               <td style="font-size:12px;">${c.paid_at ? formatDateTime(c.paid_at) : '<span style="color:var(--text-muted);">-</span>'}</td>
@@ -546,6 +479,55 @@
 
       renderPagination('commission-pagination', totalCountC, currentPageC, PAGE_LIMIT_C,
         `function(p){ currentPageC=p; loadCommissions(); }`);
+    }
+
+    // ── CSV 엑셀 다운로드 ──────────────────────────────────────
+    async function exportCommCSV() {
+      try {
+        showToast('작성 중입니다...', 'info');
+        const q              = document.getElementById('search-c').value.trim();
+        const rank           = document.getElementById('filter-rank-c').value;
+        const status         = document.getElementById('filter-status-c').value;
+        const withdrawStatus = document.getElementById('filter-withdraw-status-c')?.value || '';
+        const pendingOnlyEl  = document.getElementById('show-pending-only');
+        const params = { page: 1, limit: 9999 };
+        if (q)              params.search          = q;
+        if (rank)           params.rank            = rank;
+        if (status)         params.status          = status;
+        if (withdrawStatus) params.withdraw_status = withdrawStatus;
+        if (pendingOnlyEl && pendingOnlyEl.checked) params.withdraw_status = 'pending';
+
+        const data = await CommissionsAPI.list(params);
+        const rows = data.data || [];
+        if (!rows.length) { showToast('다운로드할 데이터가 없습니다.', 'warning'); return; }
+
+        const wsMap = { pending:'출금대기', done:'출금완료', completed:'출금완료(승인)' };
+        const BOM    = '\uFEFF';
+        const header = ['이름','아이디','직급','은행명','계좌번호','수당금액(원)','출금상태','지급일시'].join(',');
+        const csvRows = rows.map(c => [
+          `"${(c.receiver_name||'').replace(/"/g,'""')}"`,
+          `"${(c.receiver_user_id||'').replace(/"/g,'""')}"`,
+          `"${(c.receiver_rank||'').replace(/"/g,'""')}"`,
+          `"${(c.receiver_bank_name||'').replace(/"/g,'""')}"`,
+          `"${(c.receiver_account_number||'').replace(/"/g,'""')}"`,
+          c.commission_amount || 0,
+          `"${wsMap[c.withdraw_status] || c.withdraw_status || '-'}"`,
+          `"${c.paid_at ? formatDateTime(c.paid_at) : '-'}"`
+        ].join(','));
+
+        const csv  = BOM + header + '\n' + csvRows.join('\n');
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href     = url;
+        a.download = `직급수당_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
+        showToast(`${rows.length}건 CSV 다운로드 완료`, 'success');
+      } catch(err) {
+        showToast('다운로드 실패: ' + err.message, 'error');
+      }
     }
 
     // ── 수당 삭제 ──────────────────────────────────────────────

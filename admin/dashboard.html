@@ -182,13 +182,13 @@
             <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="stat-value" id="kpi-paid">₩0</div>
             <div class="stat-label">이번 주 지급 예정</div>
-            <div class="stat-change up" id="kpi-paid-dgn" style="font-size:10px;"><i class="fas fa-coins"></i> ≒ 0 DGN</div>
+            <div class="stat-change" style="color:var(--text-muted);">다음 금요일</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-4">
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-percentage"></i></div>
             <div class="stat-value" id="kpi-commission" style="font-size:22px;">₩0</div>
             <div class="stat-label">총 직급수당 지급</div>
-            <div class="stat-change up" id="kpi-commission-dgn" style="font-size:10px;"><i class="fas fa-coins"></i> ≒ 0 DGN</div>
+            <div class="stat-change up"><i class="fas fa-arrow-up"></i> 이번 달 +₩480만</div>
           </div>
           <div class="stat-card red anim-fadeInUp delay-5">
             <div class="stat-icon"><i class="fas fa-clock"></i></div>
@@ -306,7 +306,7 @@
         <!-- ── Weekly Payout Preview ── -->
         <div class="card anim-fadeInUp delay-2">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-calendar-week icon"></i> 지급 대기 및 예정 내역</span>
+            <span class="card-title"><i class="fas fa-calendar-week icon"></i> 이번 주 금요일 지급 예정 내역</span>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="badge badge-orange anim-pulse" id="weekly-pending-badge">승인 대기 0건</span>
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
@@ -358,33 +358,8 @@
 
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/dgn.js"></script>
   <script>
-    // ── 공통 DGN 환율 스크립트 ──
-    let _coinRate = 0;
-    let _coinSymbol = 'DGN';
-    let _coinEnabled = false;
-
-    async function loadCoinInfo() {
-      try {
-        const d = await SettingsAPI.getPublic();
-        _coinRate = parseFloat(d.dangun_coin_rate || '0') || 0;
-        _coinSymbol = d.dangun_coin_symbol || 'DGN';
-        _coinEnabled = d.dangun_coin_enabled !== '0';
-      } catch(e) {}
-    }
-
-    function getDGNHtml(krw) {
-      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
-      const dgn = Math.round(krw * _coinRate);
-      return `<div style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-top:2px;">≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol}</div>`;
-    }
-    
-    function getDGNInline(krw) {
-      if (!_coinEnabled || _coinRate <= 0 || !krw) return '';
-      const dgn = Math.round(krw * _coinRate);
-      return `<span style="font-size:10px;color:var(--accent-gold);font-family:'Orbitron',sans-serif;margin-left:4px;">(≒ ${dgn.toLocaleString('ko-KR')} ${_coinSymbol})</span>`;
-    }
-
     async function refreshDashboard() {
       showToast('대시보드 데이터를 새로고침합니다...', 'info');
       await loadDashboard();
@@ -398,7 +373,7 @@
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
       setCurrentDate();
-      await loadCoinInfo();
+      await DGN.init();   // 코인 환율 로드
       await loadDashboard();
     });
 
@@ -464,7 +439,7 @@
       const commission       = d.comm_stats?.total_amount     || d.comm_stats?.total || 0;
       const withdrawPending  = d.withdraw_stats?.pending_count || 0;
       const payoutPending    = d.payout_stats?.pending_count  || 0;
-      // 직급수당 출금 대기 건수
+      // 직급수당 출금 대기 건수 (백엔드에서 새로 추가된 필드)
       const commPending      = d.comm_stats?.pending_comm_count || 0;
       const commPendingAmt   = d.comm_stats?.pending_comm_amount || 0;
       // 전체 출금대기 = 투자 출금 + 직급수당 출금대기
@@ -504,16 +479,13 @@
         ? '₩' + (commission / 10000).toFixed(0) + '만'
         : formatMoney(commission);
 
-      // DANGUN 코인 환산 표시
-      if (_coinEnabled && _coinRate > 0) {
-        document.getElementById('kpi-invest-dgn').innerHTML = '<i class="fas fa-coins"></i> ≒ ' + Math.round(totalInvest * _coinRate).toLocaleString('ko-KR') + ' ' + _coinSymbol;
-        document.getElementById('kpi-paid-dgn').innerHTML = '<i class="fas fa-coins"></i> ≒ ' + Math.round(weeklyPaid * _coinRate).toLocaleString('ko-KR') + ' ' + _coinSymbol;
-        document.getElementById('kpi-commission-dgn').innerHTML = '<i class="fas fa-coins"></i> ≒ ' + Math.round(commission * _coinRate).toLocaleString('ko-KR') + ' ' + _coinSymbol;
-      } else {
-        document.getElementById('kpi-invest-dgn').innerHTML = '';
-        document.getElementById('kpi-paid-dgn').innerHTML = '';
-        document.getElementById('kpi-commission-dgn').innerHTML = '';
+      // ── DGN 코인 환산 표시 (전체 KPI 카드) ──
+      const dgnInvestEl = document.getElementById('kpi-invest-dgn');
+      if (dgnInvestEl) {
+        dgnInvestEl.innerHTML = '<i class="fas fa-coins"></i> ' + (DGN.inline(totalInvest) || '≒ - DGN');
       }
+      DGN.applyTo('kpi-paid',       weeklyPaid);
+      DGN.applyTo('kpi-commission', commission);
 
       // 사이드바 미승인 회원 배지
       const mBadge = document.getElementById('badge-pending-members');
@@ -619,7 +591,6 @@
             </div>
             <div style="text-align:right;">
               <div style="font-weight:700;color:var(--accent-gold);">${formatMoney(w.amount)}</div>
-              ${getDGNHtml(w.amount)}
               <div style="display:flex;gap:4px;margin-top:4px;">
                 <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:10px;" onclick="approveWithdraw(${w.id})">승인</button>
                 <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:10px;" onclick="rejectWithdraw(${w.id})">거절</button>
@@ -699,10 +670,7 @@
           <td>${w.name}</td>
           <td style="font-size:12px;">${w.bank_name} · ${w.account_number}</td>
           <td><span class="badge badge-blue">${w.week_number}주차</span></td>
-          <td>
-            <div style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${formatMoney(w.total_payout)}</div>
-            ${getDGNHtml(w.total_payout)}
-          </td>
+          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${formatMoney(w.total_payout)}</td>
           <td>${statusBadge(w.status)}</td>
           <td>
             <div style="display:flex;gap:6px;">
@@ -845,14 +813,8 @@
                 <div style="font-size:11px;font-weight:700;">${c.investor_user_id}</div>
                 <div style="font-size:10px;color:var(--text-muted);">${c.investor_name}</div>
               </td>
-              <td>
-                <div style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">${formatMoney(c.investment_amount)}</div>
-                ${getDGNHtml(c.investment_amount)}
-              </td>
-              <td>
-                <div style="font-family:'Orbitron',sans-serif;font-weight:900;color:var(--accent-gold);">${formatMoney(c.commission_amount)}</div>
-                ${getDGNHtml(c.commission_amount)}
-              </td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">${formatMoney(c.investment_amount)}<br><small style="font-size:10px;color:var(--accent-gold);opacity:0.8;font-family:'Orbitron',monospace;">${DGN.inline(c.investment_amount)}</small></td>
+              <td style="font-family:'Orbitron',sans-serif;font-weight:900;color:var(--accent-gold);">${formatMoney(c.commission_amount)}<br><small style="font-size:10px;color:var(--accent-gold);opacity:0.8;font-family:'Orbitron',monospace;">${DGN.inline(c.commission_amount)}</small></td>
               <td style="font-size:11px;">${formatDateTime ? formatDateTime(c.paid_at||c.created_at) : (c.paid_at||c.created_at||'').slice(0,16)}</td>
               <td>
                 <button onclick="approveCommWithdraw(${c.id})"
