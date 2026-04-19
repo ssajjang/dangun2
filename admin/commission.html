@@ -91,6 +91,9 @@
       <header class="topbar">
         <span class="topbar-title"><i class="fas fa-hand-holding-usd" style="color:var(--accent-gold);margin-right:8px;"></i> 직급 수당 관리</span>
         <div class="topbar-actions">
+          <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);" onclick="exportCommCSV()">
+            <i class="fas fa-file-excel"></i> 엑셀 다운로드
+          </button>
           <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
             <i class="fas fa-moon" id="theme-icon"></i><span id="theme-label">라이트</span>
           </button>
@@ -466,11 +469,7 @@
                 ${!isWithdrawn ? `
                 <button class="withdraw-done-btn" onclick="markWithdraw(${c.id}, '${(c.receiver_name||'').replace(/'/g,'\\'')}', ${c.commission_amount})">
                   <i class="fas fa-check"></i> 출금완료
-                </button>` : ''}
-                <button onclick="deleteCommission(${c.id}, '${(c.receiver_name||'').replace(/'/g,'\\'')}', ${c.commission_amount})"
-                  style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;">
-                  🗑️ 삭제
-                </button>
+                </button>` : '<span style="font-size:11px;color:var(--text-muted);padding-top:4px;">처리완료</span>'}
               </td>
             </tr>
           `;
@@ -481,10 +480,10 @@
         `function(p){ currentPageC=p; loadCommissions(); }`);
     }
 
-    // ── CSV 엑셀 다운로드 ──────────────────────────────────────
+    // ── CSV 엑셀 다운로드 (수정됨: 이름, 은행, 계좌번호, 출금금액) ──
     async function exportCommCSV() {
       try {
-        showToast('작성 중입니다...', 'info');
+        showToast('엑셀 파일을 작성 중입니다...', 'info');
         const q              = document.getElementById('search-c').value.trim();
         const rank           = document.getElementById('filter-rank-c').value;
         const status         = document.getElementById('filter-status-c').value;
@@ -501,18 +500,13 @@
         const rows = data.data || [];
         if (!rows.length) { showToast('다운로드할 데이터가 없습니다.', 'warning'); return; }
 
-        const wsMap = { pending:'출금대기', done:'출금완료', completed:'출금완료(승인)' };
         const BOM    = '\uFEFF';
-        const header = ['이름','아이디','직급','은행명','계좌번호','수당금액(원)','출금상태','지급일시'].join(',');
+        const header = ['이름', '은행', '계좌번호', '출금금액'].join(',');
         const csvRows = rows.map(c => [
           `"${(c.receiver_name||'').replace(/"/g,'""')}"`,
-          `"${(c.receiver_user_id||'').replace(/"/g,'""')}"`,
-          `"${(c.receiver_rank||'').replace(/"/g,'""')}"`,
           `"${(c.receiver_bank_name||'').replace(/"/g,'""')}"`,
           `"${(c.receiver_account_number||'').replace(/"/g,'""')}"`,
-          c.commission_amount || 0,
-          `"${wsMap[c.withdraw_status] || c.withdraw_status || '-'}"`,
-          `"${c.paid_at ? formatDateTime(c.paid_at) : '-'}"`
+          c.commission_amount || 0
         ].join(','));
 
         const csv  = BOM + header + '\n' + csvRows.join('\n');
@@ -520,32 +514,13 @@
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
         a.href     = url;
-        a.download = `직급수당_${new Date().toISOString().slice(0,10)}.csv`;
+        a.download = `직급수당출금요청_${new Date().toISOString().slice(0,10)}.csv`;
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
         showToast(`${rows.length}건 CSV 다운로드 완료`, 'success');
       } catch(err) {
         showToast('다운로드 실패: ' + err.message, 'error');
-      }
-    }
-
-    // ── 수당 삭제 ──────────────────────────────────────────────
-    async function deleteCommission(id, name, amount) {
-      const fmt = Number(amount).toLocaleString('ko-KR');
-      if (!confirm(`⚠️ 직급수당을 삭제하시겠습니까?\n\n수령자: ${name}\n금액: ₩${fmt}\n\n※ 수령자 지갑 잔고가 복원됩니다.`)) return;
-      try {
-        const token = localStorage.getItem('dangun_token');
-        const res = await fetch(`/api/commissions/${id}`, {
-          method: 'DELETE',
-          headers: { Authorization: `Bearer ${token}` }
-        });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || '삭제 실패');
-        showToast(data.message || '수당이 삭제되었습니다.', 'success');
-        await loadCommissions();
-      } catch (err) {
-        showToast('삭제 실패: ' + err.message, 'error');
       }
     }
 

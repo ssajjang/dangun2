@@ -181,8 +181,8 @@
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="stat-value" id="kpi-paid">₩0</div>
-            <div class="stat-label">이번 주 지급 예정</div>
-            <div class="stat-change" style="color:var(--text-muted);">다음 금요일</div>
+            <div class="stat-label">오늘 출금대기 합계</div>
+            <div class="stat-change" style="color:var(--text-muted);">오늘 지급 필요</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-4">
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-percentage"></i></div>
@@ -303,10 +303,10 @@
           </div>
         </div>
 
-        <!-- ── Weekly Payout Preview ── -->
+        <!-- ── Weekly Payout Preview -> Today Payout Preview ── -->
         <div class="card anim-fadeInUp delay-2">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-calendar-week icon"></i> 이번 주 금요일 지급 예정 내역</span>
+            <span class="card-title"><i class="fas fa-calendar-day icon"></i> 오늘 출금대기 내역</span>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="badge badge-orange anim-pulse" id="weekly-pending-badge">승인 대기 0건</span>
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
@@ -660,7 +660,7 @@
       const list  = (d && d.weekly_pending) || [];
       const tbody = document.getElementById('weekly-payout-tbody');
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">이번 주 지급 대기 없음</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">오늘 출금대기 내역 없음</td></tr>`;
         return;
       }
       tbody.innerHTML = list.map(w => `
@@ -675,7 +675,7 @@
           <td>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-success btn-sm" onclick="approvePayoutItem(${w.id})">
-                <i class="fas fa-check"></i> 지급
+                <i class="fas fa-check"></i> 승인
               </button>
             </div>
           </td>
@@ -728,9 +728,9 @@
         const row = document.getElementById(`row-${payoutId}`);
         if (row) {
           row.cells[6].innerHTML = statusBadge('paid');
-          row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 지급완료</span>`;
+          row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 처리완료</span>`;
         }
-        showToast('지급 처리 완료', 'success');
+        showToast('승인 처리 완료', 'success');
       } catch(err) { showToast(err.message, 'error'); }
     }
 
@@ -749,12 +749,12 @@
               row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 처리완료</span>`;
             }
           });
-          showToast(`${checked.length}건 일괄 지급 완료`, 'success');
+          showToast(`${checked.length}건 일괄 승인 완료`, 'success');
           document.getElementById('check-all').checked = false;
         } catch(err) { showToast(err.message, 'error'); }
       };
-      document.getElementById('confirm-title').textContent = '일괄 지급';
-      document.getElementById('confirm-message').textContent = `${checked.length}건을 일괄 지급 처리하시겠습니까?`;
+      document.getElementById('confirm-title').textContent = '일괄 승인';
+      document.getElementById('confirm-message').textContent = `${checked.length}건을 일괄 승인 처리하시겠습니까?`;
       openModal('modal-confirm');
     }
 
