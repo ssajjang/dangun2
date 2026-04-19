@@ -194,9 +194,35 @@ async function migrate() {
     CREATE INDEX IF NOT EXISTS idx_activity_actor       ON activity_logs(actor_type, actor_id);
   `);
 
+  // ── commissions_history 테이블 (출금완료 처리된 수당 이력 보관) ──
+  await db.exec(`
+    CREATE TABLE IF NOT EXISTS commissions_history (
+      id               INTEGER PRIMARY KEY AUTOINCREMENT,
+      commission_id    INTEGER NOT NULL,          -- 원본 rank_commissions.id
+      investment_id    INTEGER,
+      investor_id      INTEGER,
+      receiver_id      INTEGER,
+      receiver_rank    TEXT    NOT NULL,
+      commission_rate  REAL    NOT NULL DEFAULT 0,
+      investment_amount REAL   NOT NULL DEFAULT 0,
+      commission_amount REAL   NOT NULL DEFAULT 0,
+      balance_before   REAL    NOT NULL DEFAULT 0,
+      balance_after    REAL    NOT NULL DEFAULT 0,
+      paid_at          TEXT,
+      completed_at     TEXT    NOT NULL DEFAULT (datetime('now','localtime')),
+      approved_by      INTEGER,                   -- admins.id
+      withdraw_status  TEXT    NOT NULL DEFAULT 'done',
+      memo             TEXT    DEFAULT '',
+      created_at       TEXT    NOT NULL DEFAULT (datetime('now','localtime'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_comm_hist_receiver  ON commissions_history(receiver_id);
+    CREATE INDEX IF NOT EXISTS idx_comm_hist_completed ON commissions_history(completed_at);
+  `);
+
   // ── 컬럼 추가 마이그레이션 (이미 존재해도 오류 무시) ──
   const alterQueries = [
     `ALTER TABLE rank_commissions ADD COLUMN withdraw_status TEXT NOT NULL DEFAULT 'pending'`,
+    `ALTER TABLE rank_commissions ADD COLUMN completed_at TEXT DEFAULT NULL`,
     // withdrawal_requests: 주간 지급 정보 컬럼 추가
     `ALTER TABLE withdrawal_requests ADD COLUMN week_number INTEGER DEFAULT NULL`,
     `ALTER TABLE withdrawal_requests ADD COLUMN investment_amount REAL DEFAULT 0`,

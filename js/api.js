@@ -184,9 +184,18 @@
     list:     function (params) { return get('/commissions', params); },
     my:       function ()       { return get('/commissions/my'); },
     withdraw: function (id)     { return patch('/commissions/' + id + '/withdraw', {}); },
+    // POST /api/commissions/approve  ── 신규 승인 엔드포인트
+    // withdraw_status: pending → completed, commissions_history 이력 저장
+    approve:  function (id)     { return post('/commissions/approve', { id: id }); },
     // 출금대기(withdraw_status=pending) 목록 전용 - 관리자 대시보드용
-    pending:  function (limit)  { return get('/commissions', { withdraw_status: 'pending', limit: limit || 100, page: 1 }); },
-    // 월별 수당 집계 (차트용)
+    pending:  function (limit)  {
+      return get('/commissions', {
+        withdraw_status: 'pending',
+        limit: limit || 100,
+        page: 1,
+      });
+    },
+    // 월별 수당 집계 (created_at 기준, 차트용)
     monthly:  function ()       { return get('/commissions/monthly'); },
   };
 

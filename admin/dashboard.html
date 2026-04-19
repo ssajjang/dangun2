@@ -821,38 +821,50 @@
       }
     }
 
-    // 단건 수당 출금완료 (즉시 UI 반영 후 목록 갱신)
+    // 단건 수당 출금완료 (POST /api/commissions/approve → withdraw_status=completed)
+    // 페이지 새로고침 없이 해당 행만 즉시 UI 전환
     async function approveCommWithdraw(id) {
-      if (!confirm('이 수당을 출금완료 처리하시겠습니까?\n(수령자 지갑에서 출금 처리됩니다.)')) return;
+      if (!confirm('이 수당을 출금완료 처리하시겠습니까?\n(수령자 지갑에서 출금 처리되고 내역이 저장됩니다.)')) return;
 
-      // ① 버튼 즉시 비활성화 (중복 클릭 방지)
       const row = document.getElementById(`cpr-${id}`);
-      const btn = row ? row.querySelector('button') : null;
+      const btn = row ? row.querySelector('button[onclick]') : null;
+
+      // ① 버튼 즉시 비활성화 + 스피너 (중복 클릭 방지)
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리중...'; }
 
       try {
-        const res = await CommissionsAPI.withdraw(id);
+        // POST /api/commissions/approve  { id: commission_id }
+        const res = await CommissionsAPI.approve(id);
         showToast(res.message || '출금완료 처리되었습니다.', 'success');
 
-        // ② 해당 행 즉시 "출금완료" 상태로 시각 전환
+        // ② 해당 행 즉시 "출금완료" 뱃지로 교체 후 페이드아웃 제거
         if (row) {
-          row.style.transition = 'opacity 0.4s';
-          row.style.opacity = '0.35';
-          if (btn) {
-            btn.style.background = 'rgba(39,174,96,0.3)';
-            btn.style.color = 'var(--accent-green)';
-            btn.innerHTML = '<i class="fas fa-check-circle"></i> 출금완료';
+          // 마지막 셀(처리 버튼) → 완료 배지로 교체
+          const lastCell = row.cells[row.cells.length - 1];
+          if (lastCell) {
+            lastCell.innerHTML = `<span style="padding:3px 10px;background:rgba(39,174,96,0.2);
+              color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">
+              <i class="fas fa-check-circle"></i> 출금완료</span>`;
           }
-          // 0.6초 후 목록에서 제거 + 배지 갱신
+          row.style.transition = 'opacity 0.5s';
+          row.style.opacity    = '0.3';
+
+          // 0.7초 후 목록에서 제거 + 배지 카운트 갱신
           setTimeout(async () => {
             row.remove();
             await _updateCommBadge();
-          }, 600);
+            // KPI '출금 대기 건수' 카드도 갱신
+            const kpiEl = document.getElementById('kpi-pending');
+            if (kpiEl) {
+              const cur = parseInt(kpiEl.textContent) || 0;
+              if (cur > 0) kpiEl.textContent = cur - 1;
+            }
+          }, 700);
         } else {
           await renderCommPending();
         }
       } catch(err) {
-        // 실패 시 버튼 복구
+        // 실패 시 버튼 원상 복구
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 출금완료'; }
         showToast('처리 실패: ' + err.message, 'error');
       }
@@ -884,11 +896,12 @@
         const row = document.getElementById(`cpr-${id}`);
         // 처리중 표시
         if (row) {
-          const btn = row.querySelector('button');
+          const btn = row.querySelector('button[onclick]');
           if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
         }
         try {
-          await CommissionsAPI.withdraw(id);
+          // POST /api/commissions/approve 사용 (completed + history 저장)
+          await CommissionsAPI.approve(id);
           ok++;
           // 즉시 행 흐리기 + 완료 배지
           if (row) {

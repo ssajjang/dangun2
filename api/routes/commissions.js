@@ -54,20 +54,32 @@ router.get('/', authAdmin, async (req, res) => {
       params
     );
 
+    // 통계: status='paid' 전체 기준 (withdraw_status 별 구분, role/rank 기준 직급 구분)
     const stats = await db.get(
       `SELECT
-        COUNT(*)                                                                    AS total_count,
-        SUM(commission_amount)                                                      AS total_amount,
-        SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END)     AS teamjang_total,
-        SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END)    AS bonbujang_total,
-        SUM(CASE WHEN withdraw_status='pending' THEN commission_amount ELSE 0 END) AS pending_amount,
-        SUM(CASE WHEN withdraw_status='done'    THEN commission_amount ELSE 0 END) AS withdrawn_amount,
-        SUM(CASE WHEN withdraw_status='pending' THEN 1 ELSE 0 END)                AS pending_count,
-        SUM(CASE WHEN withdraw_status='done'    THEN 1 ELSE 0 END)                AS withdrawn_count
+        COUNT(*)                                                                              AS total_count,
+        COALESCE(SUM(commission_amount), 0)                                                   AS total_amount,
+        COALESCE(SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END), 0)  AS teamjang_total,
+        COALESCE(SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END), 0) AS bonbujang_total,
+        COALESCE(SUM(CASE WHEN withdraw_status='pending'   THEN commission_amount ELSE 0 END), 0) AS pending_amount,
+        COALESCE(SUM(CASE WHEN withdraw_status='done'      THEN commission_amount ELSE 0 END), 0) AS withdrawn_amount,
+        COALESCE(SUM(CASE WHEN withdraw_status='completed' THEN commission_amount ELSE 0 END), 0) AS completed_amount,
+        COALESCE(SUM(CASE WHEN withdraw_status='pending'   THEN 1 ELSE 0 END), 0) AS pending_count,
+        COALESCE(SUM(CASE WHEN withdraw_status='done'      THEN 1 ELSE 0 END), 0) AS withdrawn_count,
+        COALESCE(SUM(CASE WHEN withdraw_status='completed' THEN 1 ELSE 0 END), 0) AS completed_count
        FROM rank_commissions WHERE status='paid'`
     );
 
-    return res.json({ data: rows, total, page, limit, stats });
+    // commissions_history 합산 (최종 출금완료 이력)
+    let histStats = { history_count: 0, history_amount: 0 };
+    try {
+      histStats = await db.get(
+        `SELECT COUNT(*) AS history_count, COALESCE(SUM(commission_amount),0) AS history_amount
+         FROM commissions_history`
+      ) || histStats;
+    } catch(he) { /* commissions_history 없으면 무시 */ }
+
+    return res.json({ data: rows, total, page, limit, stats: { ...stats, ...histStats } });
   } catch (e) {
     console.error('GET /commissions error:', e);
     return res.status(500).json({ error: e.message });
@@ -105,17 +117,20 @@ router.get('/my', authMember, async (req, res) => {
 router.get('/monthly', authAdmin, async (req, res) => {
   try {
     const db = await getDb();
+    // created_at 기준 집계 (paid_at 이 NULL 인 경우 대비)
     const rows = await db.all(`
       SELECT
-        strftime('%Y-%m', paid_at) AS month,
-        SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END) AS teamjang_amount,
-        SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END) AS bonbujang_amount,
-        SUM(commission_amount) AS total_amount,
-        COUNT(*) AS count,
-        SUM(CASE WHEN withdraw_status='pending' THEN commission_amount ELSE 0 END) AS pending_amount,
-        SUM(CASE WHEN withdraw_status='done'    THEN commission_amount ELSE 0 END) AS withdrawn_amount
+        strftime('%Y-%m', created_at) AS month,
+        COALESCE(SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END), 0) AS teamjang_amount,
+        COALESCE(SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END), 0) AS bonbujang_amount,
+        COALESCE(SUM(commission_amount), 0)  AS total_amount,
+        COUNT(*)                             AS count,
+        COALESCE(SUM(CASE WHEN withdraw_status='pending'   THEN commission_amount ELSE 0 END), 0) AS pending_amount,
+        COALESCE(SUM(CASE WHEN withdraw_status='done'      THEN commission_amount ELSE 0 END), 0) AS withdrawn_amount,
+        COALESCE(SUM(CASE WHEN withdraw_status='completed' THEN commission_amount ELSE 0 END), 0) AS completed_amount
       FROM rank_commissions
-      WHERE status='paid' AND paid_at >= date('now', '-12 months', 'localtime')
+      WHERE status='paid'
+        AND created_at >= date('now', '-12 months', 'localtime')
       GROUP BY month
       ORDER BY month
     `);
@@ -127,7 +142,98 @@ router.get('/monthly', authAdmin, async (req, res) => {
 });
 
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   PATCH /api/commissions/:id/withdraw  ── 관리자: 수당 출금완료 처리
+   POST /api/commissions/approve  ── 관리자: 수당 출금 승인
+   - withdraw_status: pending → completed
+   - completed_at 저장
+   - commissions_history 테이블에 이력 복사
+   - 지갑 available_balance 차감, total_withdrawn 증가
+   body: { id: commission_id }
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+router.post('/approve', authAdmin, async (req, res) => {
+  try {
+    const db     = await getDb();
+    const commId = parseInt(req.body.id);
+    if (!commId) return res.status(400).json({ error: 'id 필드가 필요합니다.' });
+
+    const comm = await db.get(
+      `SELECT rc.*, rcv.name AS receiver_name, rcv.user_id AS receiver_user_id,
+              rcv.bank_name AS bank_name, rcv.account_number AS account_number
+       FROM rank_commissions rc JOIN members rcv ON rcv.id = rc.receiver_id
+       WHERE rc.id = ?`,
+      [commId]
+    );
+    if (!comm) return res.status(404).json({ error: '수당 내역을 찾을 수 없습니다.' });
+    if (comm.withdraw_status === 'completed' || comm.withdraw_status === 'done') {
+      return res.status(409).json({ error: '이미 출금완료 처리된 항목입니다.' });
+    }
+
+    const amt      = Math.round(comm.commission_amount || 0);
+    const nowLocal = `datetime('now','localtime')`;
+
+    // ① rank_commissions: withdraw_status → completed, completed_at 저장
+    await db.run(
+      `UPDATE rank_commissions
+       SET withdraw_status = 'completed',
+           completed_at    = datetime('now','localtime'),
+           updated_at      = datetime('now','localtime')
+       WHERE id = ?`,
+      [commId]
+    );
+
+    // ② commissions_history 에 이력 복사
+    try {
+      await db.run(
+        `INSERT INTO commissions_history
+           (commission_id, investment_id, investor_id, receiver_id, receiver_rank,
+            commission_rate, investment_amount, commission_amount,
+            balance_before, balance_after, paid_at, completed_at, approved_by,
+            withdraw_status, memo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'), ?, 'completed', ?)`,
+        [
+          comm.id, comm.investment_id, comm.investor_id, comm.receiver_id, comm.receiver_rank,
+          comm.commission_rate, comm.investment_amount, amt,
+          comm.balance_before, comm.balance_after, comm.paid_at,
+          req.admin.id,
+          comm.memo || '',
+        ]
+      );
+    } catch (he) {
+      console.warn('[approve] commissions_history insert 실패 (테이블 없을 수 있음):', he.message);
+    }
+
+    // ③ 지갑: available_balance 차감, total_withdrawn 증가
+    await db.run(
+      `UPDATE member_wallets
+       SET available_balance = MAX(available_balance - ?, 0),
+           total_withdrawn   = total_withdrawn + ?,
+           updated_at        = datetime('now','localtime')
+       WHERE member_id = ?`,
+      [amt, amt, comm.receiver_id]
+    );
+
+    // ④ 활동 로그
+    await db.run(
+      `INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description)
+       VALUES ('admin',?,'commission_approve','rank_commissions',?,?)`,
+      [req.admin.id, commId,
+       `직급수당 출금승인: ${comm.receiver_user_id}(${comm.receiver_name}) ₩${amt.toLocaleString()} [${comm.receiver_rank}]`]
+    );
+
+    return res.json({
+      message: `출금완료 처리되었습니다. (${comm.receiver_name}: ₩${amt.toLocaleString()})`,
+      commission_id: commId,
+      withdraw_status: 'completed',
+      completed_at: new Date().toISOString(),
+      withdrawn_amount: amt,
+    });
+  } catch (e) {
+    console.error('POST /commissions/approve error:', e);
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   PATCH /api/commissions/:id/withdraw  ── 관리자: 수당 출금완료 처리 (레거시 호환)
    (지갑 available_balance → total_withdrawn 이동, withdraw_status='done')
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 router.patch('/:id/withdraw', authAdmin, async (req, res) => {
@@ -155,11 +261,36 @@ router.patch('/:id/withdraw', authAdmin, async (req, res) => {
       [amt, amt, comm.receiver_id]
     );
 
-    // 수당 행: withdraw_status = 'done' 마크
+    // 수당 행: withdraw_status = 'done' 마크 + completed_at 저장
     await db.run(
-      `UPDATE rank_commissions SET withdraw_status='done', updated_at=datetime('now','localtime') WHERE id=?`,
+      `UPDATE rank_commissions
+       SET withdraw_status = 'done',
+           completed_at    = datetime('now','localtime'),
+           updated_at      = datetime('now','localtime')
+       WHERE id = ?`,
       [comm.id]
     );
+
+    // commissions_history 이력 복사 (실패해도 출금 처리는 계속)
+    try {
+      await db.run(
+        `INSERT INTO commissions_history
+           (commission_id, investment_id, investor_id, receiver_id, receiver_rank,
+            commission_rate, investment_amount, commission_amount,
+            balance_before, balance_after, paid_at, completed_at, approved_by,
+            withdraw_status, memo)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now','localtime'), ?, 'done', ?)`,
+        [
+          comm.id, comm.investment_id, comm.investor_id, comm.receiver_id, comm.receiver_rank,
+          comm.commission_rate, comm.investment_amount, amt,
+          comm.balance_before, comm.balance_after, comm.paid_at,
+          req.admin.id,
+          comm.memo || '',
+        ]
+      );
+    } catch (he) {
+      console.warn('[withdraw] commissions_history insert 실패:', he.message);
+    }
 
     await db.run(
       `INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description)

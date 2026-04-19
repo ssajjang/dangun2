@@ -200,7 +200,8 @@
               <select class="form-control" id="filter-withdraw-status-c" onchange="filterComm()" title="출금상태 필터">
                 <option value="">출금상태 전체</option>
                 <option value="pending">⏳ 출금대기</option>
-                <option value="done">✓ 출금완료</option>
+                <option value="done">✓ 출금완료 (구)</option>
+                <option value="completed">✅ 출금완료 (승인)</option>
               </select>
               <button class="btn btn-outline btn-sm" onclick="clearFiltersC()"><i class="fas fa-redo"></i></button>
             </div>
@@ -288,10 +289,11 @@
         setEl('stat-team-comm',        formatMoney(s.teamjang_total  || 0));
 
         // ── 출금 현황 바 ──
-        const pendingCnt = s.pending_count    || 0;
-        const pendingAmt = s.pending_amount   || 0;
-        const doneCnt    = s.withdrawn_count  || 0;
-        const doneAmt    = s.withdrawn_amount || 0;
+        const pendingCnt  = s.pending_count    || 0;
+        const pendingAmt  = s.pending_amount   || 0;
+        // done(기존) + completed(신규 승인) 합산
+        const doneCnt     = (s.withdrawn_count  || 0) + (s.completed_count  || 0);
+        const doneAmt     = (s.withdrawn_amount || 0) + (s.completed_amount || 0);
 
         setEl('bar-pending-amt',  formatMoney(pendingAmt));
         setEl('bar-pending-cnt',  `(${pendingCnt}건)`);
@@ -345,7 +347,13 @@
       let ok = 0, fail = 0;
       for (const id of ids) {
         try {
-          await CommissionsAPI.withdraw(id);
+          // POST /approve 우선 사용 (completed + history 저장)
+          try {
+            await CommissionsAPI.approve(id);
+          } catch(ae) {
+            if (ae.message && ae.message.includes('이미 출금완료')) { fail++; continue; }
+            await CommissionsAPI.withdraw(id); // fallback
+          }
           ok++;
         } catch(e) { fail++; console.error('withdraw fail:', e.message); }
       }
@@ -353,12 +361,20 @@
       await loadCommissions();
     }
 
-    // ── 단건 출금완료 ──
+    // ── 단건 출금완료 (POST /approve 우선, 실패 시 PATCH /withdraw fallback) ──
     async function markWithdraw(id, name, amount) {
       const fmt = Number(amount).toLocaleString('ko-KR');
-      if (!confirm(`${name} 님의 수당 ₩${fmt}을 출금완료 처리하시겠습니까?`)) return;
+      if (!confirm(`${name} 님의 수당 ₩${fmt}을 출금완료 처리하시겠습니까?\n(내역이 이력에 저장됩니다.)`)) return;
       try {
-        const data = await CommissionsAPI.withdraw(id);
+        let data;
+        try {
+          // 신규: POST /api/commissions/approve  → withdraw_status=completed + history 저장
+          data = await CommissionsAPI.approve(id);
+        } catch(ae) {
+          // fallback: 이미 done 이거나 구버전 호환
+          if (ae.message && ae.message.includes('이미 출금완료')) throw ae;
+          data = await CommissionsAPI.withdraw(id);
+        }
         showToast(data.message || '출금완료 처리되었습니다.', 'success');
         await loadCommissions();
       } catch(err) { showToast('처리 실패: ' + err.message, 'error'); }
@@ -380,7 +396,8 @@
             ? `<span class="flow-tag" style="background:rgba(142,68,173,0.15);color:#9b59b6;">20% 단독</span>`
             : `<span class="flow-tag" style="background:rgba(212,160,23,0.15);color:var(--accent-gold);">10% 분배</span>`;
           const acct = [c.receiver_bank_name, c.receiver_account_number].filter(Boolean).join(' ');
-          const isWithdrawn = c.withdraw_status === 'done';
+          // withdraw_status: pending=출금대기 / done=출금완료(구) / completed=출금완료(승인)
+          const isWithdrawn = (c.withdraw_status === 'done' || c.withdraw_status === 'completed');
           return `
             <tr>
               <td style="text-align:center;">
@@ -414,9 +431,11 @@
               <td style="font-size:12px;font-weight:700;color:${c.balance_after > 0 ? 'var(--accent-green)' : 'var(--text-muted)'}">${formatMoney(c.balance_after)}</td>
               <td style="font-size:12px;">${c.paid_at ? formatDateTime(c.paid_at) : '<span style="color:var(--text-muted);">-</span>'}</td>
               <td>
-                ${isWithdrawn
-                  ? `<span style="padding:3px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">✓ 출금완료</span>`
-                  : `<span style="padding:3px 8px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">⏳ 출금대기</span>`
+                ${c.withdraw_status === 'completed'
+                  ? `<span style="padding:3px 8px;background:rgba(39,174,96,0.2);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;border:1px solid rgba(39,174,96,0.4);">✅ 출금완료</span>`
+                  : c.withdraw_status === 'done'
+                    ? `<span style="padding:3px 8px;background:rgba(39,174,96,0.12);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">✓ 출금완료</span>`
+                    : `<span style="padding:3px 8px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:6px;font-size:11px;font-weight:700;white-space:nowrap;">⏳ 출금대기</span>`
                 }
               </td>
               <td style="display:flex;gap:6px;">
