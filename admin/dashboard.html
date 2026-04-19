@@ -98,6 +98,9 @@
         <a class="nav-item" href="simulate.html">
           <span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션
         </a>
+        <a class="nav-item" href="backup.html">
+          <span class="nav-icon"><i class="fas fa-database"></i></span> 백업 / 복원
+        </a>
         <a class="nav-item" href="reset.html">
           <span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가
         </a>
@@ -818,21 +821,50 @@
       }
     }
 
-    // 단건 수당 출금완료
+    // 단건 수당 출금완료 (즉시 UI 반영 후 목록 갱신)
     async function approveCommWithdraw(id) {
       if (!confirm('이 수당을 출금완료 처리하시겠습니까?\n(수령자 지갑에서 출금 처리됩니다.)')) return;
+
+      // ① 버튼 즉시 비활성화 (중복 클릭 방지)
+      const row = document.getElementById(`cpr-${id}`);
+      const btn = row ? row.querySelector('button') : null;
+      if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리중...'; }
+
       try {
         const res = await CommissionsAPI.withdraw(id);
         showToast(res.message || '출금완료 처리되었습니다.', 'success');
-        const row = document.getElementById(`cpr-${id}`);
+
+        // ② 해당 행 즉시 "출금완료" 상태로 시각 전환
         if (row) {
-          row.style.opacity = '0.4';
-          row.querySelector('button').disabled = true;
-          row.querySelector('button').textContent = '✓ 완료';
+          row.style.transition = 'opacity 0.4s';
+          row.style.opacity = '0.35';
+          if (btn) {
+            btn.style.background = 'rgba(39,174,96,0.3)';
+            btn.style.color = 'var(--accent-green)';
+            btn.innerHTML = '<i class="fas fa-check-circle"></i> 출금완료';
+          }
+          // 0.6초 후 목록에서 제거 + 배지 갱신
+          setTimeout(async () => {
+            row.remove();
+            await _updateCommBadge();
+          }, 600);
+        } else {
+          await renderCommPending();
         }
-        // 배지 숫자 갱신
-        await renderCommPending();
-      } catch(err) { showToast('처리 실패: ' + err.message, 'error'); }
+      } catch(err) {
+        // 실패 시 버튼 복구
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 출금완료'; }
+        showToast('처리 실패: ' + err.message, 'error');
+      }
+    }
+
+    // 배지 카운트만 갱신 (전체 재렌더링 없이)
+    async function _updateCommBadge() {
+      try {
+        const data = await CommissionsAPI.pending(1); // total만 확인
+        const badge = document.getElementById('comm-pending-badge');
+        if (badge) badge.textContent = (data.total || 0) + '건';
+      } catch(e) { /* 무시 */ }
     }
 
     // 선택 일괄 출금완료
@@ -843,14 +875,49 @@
     async function bulkApproveComm() {
       const checked = [...document.querySelectorAll('.comm-row-cb:checked')];
       if (!checked.length) { showToast('출금완료 처리할 항목을 선택하세요.', 'warning'); return; }
-      if (!confirm(`${checked.length}건의 수당을 일괄 출금완료 처리하시겠습니까?`)) return;
+      const total = checked.length;
+      if (!confirm(`${total}건의 수당을 일괄 출금완료 처리하시겠습니까?\n※ 수령자 지갑에서 각 금액이 차감됩니다.`)) return;
+
       let ok = 0, fail = 0;
       for (const cb of checked) {
-        try { await CommissionsAPI.withdraw(cb.dataset.id); ok++; }
-        catch(e) { fail++; }
+        const id  = cb.dataset.id;
+        const row = document.getElementById(`cpr-${id}`);
+        // 처리중 표시
+        if (row) {
+          const btn = row.querySelector('button');
+          if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
+        }
+        try {
+          await CommissionsAPI.withdraw(id);
+          ok++;
+          // 즉시 행 흐리기 + 완료 배지
+          if (row) {
+            row.style.transition = 'opacity 0.3s';
+            row.style.opacity = '0.3';
+            const btn = row.querySelector('button');
+            if (btn) btn.innerHTML = '✓ 완료';
+          }
+        } catch(e) {
+          fail++;
+          // 실패한 행 버튼 복구
+          if (row) {
+            const btn = row.querySelector('button');
+            if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 출금완료'; }
+          }
+        }
       }
+
       showToast(`${ok}건 완료${fail ? `, ${fail}건 실패` : ''}`, ok > 0 ? 'success' : 'error');
-      await renderCommPending();
+
+      // 완료된 행 0.5초 후 제거 + 배지 갱신
+      setTimeout(async () => {
+        await renderCommPending();
+        // KPI 카운터도 갱신
+        const kpiEl = document.getElementById('kpi-pending');
+        const badge = document.getElementById('comm-pending-badge');
+        const remaining = document.querySelectorAll('.comm-row-cb').length;
+        if (badge) badge.textContent = remaining + '건';
+      }, 500);
     }
 
     // ── 시간 경과 표시 ──

@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>DANGUN - DB 백업 / 복원</title>
+  <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
+  <link rel="stylesheet" href="../css/theme.css">
+  <style>
+    .section-card {
+      background: var(--gradient-dark);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: var(--radius-xl);
+      padding: 28px 32px;
+      margin-bottom: 24px;
+    }
+    .section-title {
+      font-size: 16px; font-weight: 700;
+      margin-bottom: 18px;
+      display: flex; align-items: center; gap: 10px;
+      color: var(--text-primary);
+    }
+    .warning-box {
+      background: rgba(231,76,60,0.08);
+      border: 1px solid rgba(231,76,60,0.3);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      font-size: 13px;
+      color: #e74c3c;
+      margin-bottom: 20px;
+    }
+    .info-box {
+      background: rgba(90,123,255,0.08);
+      border: 1px solid rgba(90,123,255,0.3);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      font-size: 13px;
+      color: var(--accent-blue);
+      margin-bottom: 20px;
+    }
+    .backup-file-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+      transition: border-color 0.2s;
+    }
+    .backup-file-row:hover { border-color: rgba(212,160,23,0.4); }
+    .file-name {
+      font-family: monospace;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--accent-gold);
+    }
+    .file-meta { font-size: 11px; color: var(--text-muted); margin-top: 3px; }
+    .file-actions { display: flex; gap: 8px; }
+    .drop-zone {
+      border: 2px dashed rgba(212,160,23,0.4);
+      border-radius: var(--radius-lg);
+      padding: 40px 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.2s;
+      margin-bottom: 16px;
+    }
+    .drop-zone:hover, .drop-zone.drag-over {
+      border-color: var(--accent-gold);
+      background: rgba(212,160,23,0.04);
+    }
+    .drop-zone i { font-size: 36px; color: var(--accent-gold); margin-bottom: 12px; }
+    .drop-zone p { font-size: 14px; color: var(--text-secondary); margin: 0; }
+    .drop-zone small { font-size: 11px; color: var(--text-muted); }
+    .progress-bar-wrap {
+      background: rgba(255,255,255,0.08);
+      border-radius: 100px;
+      height: 6px;
+      overflow: hidden;
+      margin-top: 12px;
+      display: none;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: var(--gradient-gold);
+      border-radius: 100px;
+      transition: width 0.3s;
+    }
+    #restore-preview {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-md);
+      padding: 14px;
+      font-size: 12px;
+      font-family: monospace;
+      max-height: 200px;
+      overflow-y: auto;
+      display: none;
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+<div id="toast-container"></div>
+<div class="app-wrapper">
+  <!-- Sidebar -->
+  <aside class="sidebar" style="background:linear-gradient(180deg,#0d0d1a 0%,#12122a 60%,#0f1535 100%);">
+    <div class="sidebar-header">
+      <a class="sidebar-logo" href="dashboard.html">
+        <div class="logo-icon">D</div>
+        <div class="logo-text"><span class="logo-name">DANGUN</span><span class="logo-sub">Admin Panel</span></div>
+      </a>
+    </div>
+    <nav class="sidebar-nav">
+      <div class="nav-section">메인</div>
+      <a class="nav-item" href="dashboard.html"><span class="nav-icon"><i class="fas fa-chart-pie"></i></span> 대시보드</a>
+      <div class="nav-section">회원 관리</div>
+      <a class="nav-item" href="members.html"><span class="nav-icon"><i class="fas fa-users"></i></span> 회원 정보</a>
+      <div class="nav-section">투자 관리</div>
+      <a class="nav-item" href="deposit.html"><span class="nav-icon"><i class="fas fa-arrow-circle-down"></i></span> 투자금 입금</a>
+      <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
+      <a class="nav-item" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
+      <a class="nav-item" href="simulate.html"><span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션</a>
+      <a class="nav-item active" href="backup.html"><span class="nav-icon"><i class="fas fa-database"></i></span> 백업 / 복원</a>
+      <a class="nav-item" href="reset.html"><span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가</a>
+      <div class="nav-section" style="margin-top:16px;">설정</div>
+      <a class="nav-item" href="#" onclick="doLogout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="sidebar-user">
+        <div class="user-avatar" style="background:linear-gradient(135deg,#e74c3c,#c0392b);color:#fff;">A</div>
+        <div class="user-info"><div class="user-name" id="admin-name">관리자</div><div class="user-rank" style="color:var(--accent-red);">🛡 SuperAdmin</div></div>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <span class="topbar-title"><i class="fas fa-database" style="color:var(--accent-gold);margin-right:8px;"></i> DB 백업 / 복원</span>
+      <div class="topbar-actions">
+        <button class="theme-btn" onclick="toggleTheme()" id="theme-btn">
+          <i class="fas fa-moon" id="theme-icon"></i><span id="theme-label">라이트</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="page-content">
+
+      <!-- ① 백업 생성 -->
+      <div class="section-card">
+        <div class="section-title">
+          <i class="fas fa-download" style="color:var(--accent-gold);"></i>
+          DB 백업 생성
+        </div>
+        <div class="info-box">
+          <i class="fas fa-info-circle" style="margin-right:6px;"></i>
+          현재 DB 전체(회원, 투자, 수당, 거래 내역 등)를 <strong>JSON 파일</strong>로 백업합니다.
+          백업 파일은 서버의 <code>backups/</code> 디렉토리에 안전하게 저장되며, 즉시 다운로드됩니다.
+        </div>
+        <div style="display:flex;gap:12px;align-items:center;flex-wrap:wrap;">
+          <button class="btn btn-gold" id="btn-export" onclick="doExport()">
+            <i class="fas fa-database"></i> 지금 백업 생성 + 다운로드
+          </button>
+          <button class="btn btn-outline btn-sm" onclick="loadBackupList()">
+            <i class="fas fa-sync"></i> 목록 새로고침
+          </button>
+          <span id="export-status" style="font-size:12px;color:var(--text-muted);"></span>
+        </div>
+        <div class="progress-bar-wrap" id="export-progress">
+          <div class="progress-bar-fill" id="export-progress-fill" style="width:0%;"></div>
+        </div>
+      </div>
+
+      <!-- ② 저장된 백업 목록 -->
+      <div class="section-card">
+        <div class="section-title">
+          <i class="fas fa-folder-open" style="color:var(--accent-blue);"></i>
+          저장된 백업 파일
+          <span class="badge badge-blue" id="backup-count-badge" style="margin-left:8px;">0개</span>
+        </div>
+        <div id="backup-list">
+          <div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">
+            <i class="fas fa-spinner fa-spin" style="margin-right:6px;"></i>목록 불러오는 중...
+          </div>
+        </div>
+      </div>
+
+      <!-- ③ 백업 복원 -->
+      <div class="section-card">
+        <div class="section-title">
+          <i class="fas fa-upload" style="color:#e74c3c;"></i>
+          DB 복원
+        </div>
+        <div class="warning-box">
+          <i class="fas fa-exclamation-triangle" style="margin-right:6px;"></i>
+          <strong>주의:</strong> 복원 시 현재 DB 데이터가 백업 파일의 데이터로 덮어씌워집니다.
+          복원 전에 현재 DB를 먼저 백업해두세요. 이 작업은 되돌릴 수 없습니다.
+        </div>
+
+        <!-- 서버 저장 파일로 복원 -->
+        <div style="margin-bottom:20px;">
+          <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;">
+            <i class="fas fa-server" style="color:var(--accent-gold);margin-right:6px;"></i>서버 저장 파일로 복원
+          </div>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;">
+            <select class="form-control" id="restore-select" style="flex:1;min-width:280px;">
+              <option value="">— 복원할 백업 파일 선택 —</option>
+            </select>
+            <button class="btn btn-danger btn-sm" onclick="doRestoreFromServer()">
+              <i class="fas fa-redo"></i> 선택 파일로 복원
+            </button>
+          </div>
+        </div>
+
+        <!-- 로컬 파일 업로드로 복원 -->
+        <div>
+          <div style="font-size:13px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;">
+            <i class="fas fa-laptop" style="color:var(--accent-blue);margin-right:6px;"></i>로컬 파일로 복원 (다운로드한 백업 파일 사용)
+          </div>
+          <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <i class="fas fa-file-upload"></i>
+            <p>JSON 백업 파일을 여기에 드래그하거나 클릭하세요</p>
+            <small>dangun_backup_*.json 파일만 지원</small>
+          </div>
+          <input type="file" id="file-input" accept=".json" style="display:none;" onchange="handleFileSelect(event)">
+          <div id="restore-preview"></div>
+          <div style="margin-top:12px;" id="restore-file-actions" style="display:none;">
+            <button class="btn btn-danger" id="btn-restore-file" onclick="doRestoreFromFile()" style="display:none;">
+              <i class="fas fa-redo"></i> 이 파일로 복원 실행
+            </button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="../js/app.js"></script>
+<script src="../js/api.js"></script>
+<script>
+  const token = localStorage.getItem('dangun_token');
+  function authHeader() { return { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + token }; }
+
+  let _selectedFileData = null; // 로컬 파일 선택 시 저장
+
+  document.addEventListener('DOMContentLoaded', () => {
+    applyTheme(getTheme());
+    // 관리자 이름 표시
+    try {
+      const admin = JSON.parse(localStorage.getItem('dangun_admin') || '{}');
+      const el = document.getElementById('admin-name');
+      if (el && admin.name) el.textContent = admin.name;
+    } catch(e) {}
+    loadBackupList();
+    setupDropZone();
+  });
+
+  /* ── 백업 생성 + 다운로드 ── */
+  async function doExport() {
+    const btn    = document.getElementById('btn-export');
+    const status = document.getElementById('export-status');
+    const prog   = document.getElementById('export-progress');
+    const fill   = document.getElementById('export-progress-fill');
+
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 백업 중...';
+    prog.style.display = 'block';
+
+    // 프로그레스 애니메이션 (실제 진행률 대신 시각적 피드백)
+    let pct = 0;
+    const timer = setInterval(() => { if (pct < 85) { pct += 5; fill.style.width = pct + '%'; } }, 120);
+
+    try {
+      const res = await fetch('/api/backup/export', {
+        method: 'POST',
+        headers: authHeader()
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || '백업 실패');
+      }
+
+      clearInterval(timer);
+      fill.style.width = '100%';
+
+      // 파일 다운로드 처리
+      const blob     = await res.blob();
+      const filename = res.headers.get('X-Backup-Filename')
+        || `dangun_backup_${new Date().toISOString().replace(/[-:T]/g,'').slice(0,15)}.json`;
+      const url  = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href     = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+
+      const sizekb = (blob.size / 1024).toFixed(1);
+      status.textContent = `✅ 백업 완료: ${filename} (${sizekb} KB)`;
+      status.style.color = 'var(--accent-green)';
+      showToast('백업 생성 및 다운로드 완료!', 'success');
+
+      // 목록 갱신
+      await loadBackupList();
+
+    } catch(e) {
+      clearInterval(timer);
+      status.textContent = '❌ ' + e.message;
+      status.style.color = '#e74c3c';
+      showToast('백업 실패: ' + e.message, 'error');
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = '<i class="fas fa-database"></i> 지금 백업 생성 + 다운로드';
+      setTimeout(() => { prog.style.display = 'none'; fill.style.width = '0%'; }, 1500);
+    }
+  }
+
+  /* ── 백업 파일 목록 로드 ── */
+  async function loadBackupList() {
+    try {
+      const res  = await fetch('/api/backup/list', { headers: authHeader() });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      const badge = document.getElementById('backup-count-badge');
+      if (badge) badge.textContent = (data.count || 0) + '개';
+
+      // select 옵션 갱신
+      const sel = document.getElementById('restore-select');
+      sel.innerHTML = '<option value="">— 복원할 백업 파일 선택 —</option>';
+
+      const listEl = document.getElementById('backup-list');
+      if (!data.files || data.files.length === 0) {
+        listEl.innerHTML = `<div style="text-align:center;padding:30px;color:var(--text-muted);font-size:13px;">
+          <i class="fas fa-inbox" style="font-size:24px;margin-bottom:10px;display:block;"></i>저장된 백업 파일이 없습니다.</div>`;
+        return;
+      }
+
+      listEl.innerHTML = data.files.map(f => {
+        const dt = new Date(f.created_at).toLocaleString('ko-KR');
+        return `
+          <div class="backup-file-row" id="bfr-${f.filename}">
+            <div>
+              <div class="file-name"><i class="fas fa-file-code" style="margin-right:6px;color:var(--accent-gold);font-size:12px;"></i>${f.filename}</div>
+              <div class="file-meta">생성: ${dt} &nbsp;|&nbsp; 크기: ${f.size_kb} KB</div>
+            </div>
+            <div class="file-actions">
+              <a href="/api/backup/download/${encodeURIComponent(f.filename)}"
+                 onclick="this.setAttribute('href','/api/backup/download/${encodeURIComponent(f.filename)}');addAuthToLink(this);"
+                 class="btn btn-outline btn-sm" title="다운로드">
+                <i class="fas fa-download"></i>
+              </a>
+              <button class="btn btn-sm" style="background:rgba(231,76,60,0.15);border:1px solid rgba(231,76,60,0.4);color:#e74c3c;"
+                onclick="deleteBackup('${f.filename}')" title="삭제">
+                <i class="fas fa-trash"></i>
+              </button>
+            </div>
+          </div>`;
+      }).join('');
+
+      // select 옵션 추가
+      data.files.forEach(f => {
+        const opt = document.createElement('option');
+        opt.value = f.filename;
+        opt.textContent = `${f.filename} (${f.size_kb} KB)`;
+        sel.appendChild(opt);
+      });
+
+    } catch(e) {
+      document.getElementById('backup-list').innerHTML =
+        `<div style="text-align:center;padding:20px;color:#e74c3c;">목록 로드 실패: ${e.message}</div>`;
+    }
+  }
+
+  /* 다운로드 링크에 Authorization 헤더 추가 (fetch로 대체) */
+  function addAuthToLink(a) {
+    a.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const filename = a.getAttribute('href').split('/').pop();
+      try {
+        const res = await fetch(`/api/backup/download/${filename}`, { headers: authHeader() });
+        if (!res.ok) throw new Error('다운로드 실패');
+        const blob = await res.blob();
+        const url  = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url; link.download = decodeURIComponent(filename); link.click();
+        URL.revokeObjectURL(url);
+      } catch(err) { showToast(err.message, 'error'); }
+    }, { once: true });
+  }
+
+  /* ── 서버 파일로 복원 ── */
+  async function doRestoreFromServer() {
+    const sel      = document.getElementById('restore-select');
+    const filename = sel.value;
+    if (!filename) { showToast('복원할 파일을 선택하세요.', 'warning'); return; }
+
+    if (!confirm(`⚠️ 경고: '${filename}' 파일로 DB를 복원합니다.\n현재 모든 데이터가 백업 시점으로 되돌아갑니다.\n\n계속하시겠습니까?`)) return;
+    const confirmTxt = prompt("복원을 확인하려면 'RESTORE'를 입력하세요:");
+    if (confirmTxt !== 'RESTORE') { showToast('취소되었습니다.', 'info'); return; }
+
+    await _executeRestore({ filename, confirm_text: 'RESTORE' });
+  }
+
+  /* ── 로컬 파일로 복원 ── */
+  async function doRestoreFromFile() {
+    if (!_selectedFileData) { showToast('파일을 먼저 선택하세요.', 'warning'); return; }
+
+    if (!confirm(`⚠️ 경고: 업로드한 백업 파일로 DB를 복원합니다.\n현재 모든 데이터가 백업 시점으로 되돌아갑니다.\n\n계속하시겠습니까?`)) return;
+    const confirmTxt = prompt("복원을 확인하려면 'RESTORE'를 입력하세요:");
+    if (confirmTxt !== 'RESTORE') { showToast('취소되었습니다.', 'info'); return; }
+
+    await _executeRestore({ json_data: _selectedFileData, confirm_text: 'RESTORE' });
+  }
+
+  async function _executeRestore(body) {
+    showToast('복원 중입니다... 잠시 기다려주세요.', 'info');
+    try {
+      const res  = await fetch('/api/backup/restore', {
+        method: 'POST',
+        headers: authHeader(),
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // 결과 상세 표시
+      const restored = Object.entries(data.result.restored || {}).map(([t,c]) => `${t}: ${c}건`).join(', ');
+      const errors   = Object.keys(data.result.errors || {}).length;
+      showToast(
+        `복원 완료! (${restored || '없음'}${errors ? ` / 오류 ${errors}건` : ''})`,
+        errors ? 'warning' : 'success',
+        6000
+      );
+
+      // 페이지 새로고침 (세션은 유지됨)
+      setTimeout(() => location.reload(), 2000);
+    } catch(e) {
+      showToast('복원 실패: ' + e.message, 'error');
+    }
+  }
+
+  /* ── 백업 파일 삭제 ── */
+  async function deleteBackup(filename) {
+    if (!confirm(`'${filename}' 백업 파일을 삭제하시겠습니까?`)) return;
+    try {
+      const res = await fetch(`/api/backup/${encodeURIComponent(filename)}`, {
+        method: 'DELETE',
+        headers: authHeader()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+      showToast(data.message || '삭제 완료', 'success');
+      // 해당 행 즉시 제거
+      const row = document.getElementById(`bfr-${filename}`);
+      if (row) { row.style.opacity = '0'; setTimeout(() => { row.remove(); loadBackupList(); }, 300); }
+    } catch(e) { showToast('삭제 실패: ' + e.message, 'error'); }
+  }
+
+  /* ── 드래그앤드롭 설정 ── */
+  function setupDropZone() {
+    const zone = document.getElementById('drop-zone');
+    zone.addEventListener('dragover', (e) => { e.preventDefault(); zone.classList.add('drag-over'); });
+    zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+    zone.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zone.classList.remove('drag-over');
+      const file = e.dataTransfer.files[0];
+      if (file) processJsonFile(file);
+    });
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files[0];
+    if (file) processJsonFile(file);
+  }
+
+  function processJsonFile(file) {
+    if (!file.name.endsWith('.json')) {
+      showToast('JSON 파일만 지원합니다.', 'error'); return;
+    }
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const data    = JSON.parse(e.target.result);
+        _selectedFileData = data;
+
+        // 미리보기
+        const preview = document.getElementById('restore-preview');
+        const meta    = data.meta || {};
+        const tables  = Object.entries(data.data || {}).map(([t,rows]) => `${t}: ${rows.length}건`).join('\n');
+        preview.style.display = 'block';
+        preview.textContent =
+          `📦 백업 파일 정보\n` +
+          `─────────────────────────\n` +
+          `파일명:     ${file.name}\n` +
+          `버전:       ${meta.version || '-'}\n` +
+          `생성 시각:  ${meta.exported_at ? new Date(meta.exported_at).toLocaleString('ko-KR') : '-'}\n` +
+          `생성자:     ${meta.exported_by || '-'}\n` +
+          `─────────────────────────\n` +
+          `테이블별 데이터:\n${tables}`;
+
+        const btnRestore = document.getElementById('btn-restore-file');
+        btnRestore.style.display = 'inline-flex';
+
+        const zone = document.getElementById('drop-zone');
+        zone.innerHTML = `<i class="fas fa-file-check" style="color:var(--accent-green);"></i>
+          <p style="color:var(--accent-green);font-weight:700;">${file.name}</p>
+          <small>파일 선택 완료 — 아래 복원 버튼을 클릭하세요</small>`;
+
+      } catch(pe) {
+        showToast('유효하지 않은 JSON 파일입니다.', 'error');
+        _selectedFileData = null;
+      }
+    };
+    reader.readAsText(file);
+  }
+</script>
+</body>
+</html>

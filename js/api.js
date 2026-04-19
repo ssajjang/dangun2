@@ -186,6 +186,8 @@
     withdraw: function (id)     { return patch('/commissions/' + id + '/withdraw', {}); },
     // 출금대기(withdraw_status=pending) 목록 전용 - 관리자 대시보드용
     pending:  function (limit)  { return get('/commissions', { withdraw_status: 'pending', limit: limit || 100, page: 1 }); },
+    // 월별 수당 집계 (차트용)
+    monthly:  function ()       { return get('/commissions/monthly'); },
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━

@@ -93,6 +93,7 @@ app.use('/api/investments', require('./api/routes/investments'));
 app.use('/api/withdrawals', require('./api/routes/withdrawals'));
 app.use('/api/commissions', require('./api/routes/commissions'));
 app.use('/api/dashboard',   require('./api/routes/dashboard'));
+app.use('/api/backup',      require('./api/routes/backup'));   // 백업/복원
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 정적 파일 & SPA Fallback

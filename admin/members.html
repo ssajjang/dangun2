@@ -36,6 +36,7 @@
         <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
         <a class="nav-item" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
         <a class="nav-item" href="simulate.html"><span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션</a>
+        <a class="nav-item" href="backup.html"><span class="nav-icon"><i class="fas fa-database"></i></span> 백업 / 복원</a>
         <a class="nav-item" href="reset.html"><span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가</a>
         <div class="nav-section" style="margin-top:16px;">설정</div>
         <a class="nav-item" href="#" onclick="doLogout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
@@ -119,6 +120,7 @@
                     <th>아이디</th>
                     <th>이름</th>
                     <th>전화번호</th>
+                    <th>추천인 아이디<br><span style="font-weight:400;color:var(--text-muted);font-size:10px;">(referrer_id)</span></th>
                     <th>은행/계좌</th>
                     <th>직급</th>
                     <th>투자금</th>
@@ -320,7 +322,7 @@
     function renderTable(members) {
       const tbody = document.getElementById('members-tbody');
       if (members.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text-muted);">검색 결과가 없습니다.</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="13" style="text-align:center;padding:24px;color:var(--text-muted);">검색 결과가 없습니다.</td></tr>`;
       } else {
         tbody.innerHTML = members.map(m => `
           <tr>
@@ -333,6 +335,15 @@
             </td>
             <td>${m.name}</td>
             <td style="font-size:12px;">${m.phone}</td>
+            <td style="font-size:12px;">
+              ${m.recommender_user_id
+                ? `<div style="display:flex;flex-direction:column;gap:2px;">
+                    <span style="font-weight:700;color:var(--accent-gold);font-family:'Orbitron',sans-serif;font-size:11px;letter-spacing:0.5px;">${m.recommender_user_id}</span>
+                    <span style="font-size:10px;color:var(--text-muted);">${m.recommender_name||''}</span>
+                    <span style="font-size:10px;color:var(--text-secondary);font-family:monospace;">ID: ${m.recommender_id||m.referrer_id||'-'}</span>
+                   </div>`
+                : `<span style="color:var(--text-muted);font-size:11px;">없음</span>`}
+            </td>
             <td style="font-size:12px;">${m.bank_name||'-'}<br><span style="color:var(--text-muted);">${m.account_number||'-'}</span></td>
             <td>
               <select class="rank-select" onchange="changeRank(${m.id}, this.value)" title="직급 변경">
@@ -473,7 +484,34 @@
     }
 
     function exportCSV() {
-      showToast('CSV 내보내기 기능은 추후 업데이트 예정입니다.', 'info');
+      // CSV 내보내기 (현재 페이지 데이터 기준)
+      try {
+        const tbody = document.getElementById('members-tbody');
+        const rows = tbody.querySelectorAll('tr');
+        if (!rows.length || rows[0].cells.length < 2) {
+          showToast('내보낼 데이터가 없습니다.', 'warning');
+          return;
+        }
+        const headers = ['ID','아이디','이름','전화번호','추천인아이디(referrer_id)','은행/계좌','직급','투자금','주차','잔여지급액','가입일','상태'];
+        const lines = [headers.join(',')];
+        rows.forEach(tr => {
+          if (tr.cells.length < 6) return;
+          const cells = Array.from(tr.cells).map(td => {
+            const txt = (td.textContent || '').replace(/\s+/g, ' ').trim().replace(/,/g, '·');
+            return `"${txt}"`;
+          });
+          lines.push(cells.slice(0, headers.length).join(','));
+        });
+        const blob = new Blob(['\uFEFF' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+        const url  = URL.createObjectURL(blob);
+        const a    = document.createElement('a');
+        a.href = url; a.download = `members_${new Date().toISOString().slice(0,10)}.csv`;
+        document.body.appendChild(a); a.click();
+        document.body.removeChild(a); URL.revokeObjectURL(url);
+        showToast('CSV 내보내기 완료', 'success');
+      } catch(e) {
+        showToast('CSV 내보내기 실패: ' + e.message, 'error');
+      }
     }
 
     // ── 비밀번호 변경 모달 ────────────────────────────────────

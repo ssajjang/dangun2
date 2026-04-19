@@ -73,6 +73,7 @@
         <a class="nav-item" href="withdrawal.html"><span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금</a>
         <a class="nav-item active" href="commission.html"><span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당</a>
         <a class="nav-item" href="simulate.html"><span class="nav-icon"><i class="fas fa-play-circle"></i></span> 지급 시뮬레이션</a>
+        <a class="nav-item" href="backup.html"><span class="nav-icon"><i class="fas fa-database"></i></span> 백업 / 복원</a>
         <a class="nav-item" href="reset.html"><span class="nav-icon"><i class="fas fa-trash-alt"></i></span> 초기화/회원추가</a>
         <div class="nav-section" style="margin-top:16px;">설정</div>
         <a class="nav-item" href="#" onclick="doLogout()"><span class="nav-icon"><i class="fas fa-sign-out-alt"></i></span> 로그아웃</a>
@@ -100,19 +101,50 @@
         <div class="grid grid-4 mb-24" style="gap:14px;">
           <div class="stat-card anim-fadeInUp delay-1">
             <div class="stat-icon"><i class="fas fa-receipt"></i></div>
-            <div class="stat-value" id="stat-total-comm-count">-</div><div class="stat-label">전체 수당 건수</div>
+            <div class="stat-value" id="stat-total-comm-count">-</div>
+            <div class="stat-label">전체 수당 건수</div>
+            <div class="stat-change" id="stat-comm-pending-count" style="color:var(--accent-gold);"><i class="fas fa-clock"></i> 출금대기 0건</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-2">
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:#9b59b6;"><i class="fas fa-crown"></i></div>
-            <div class="stat-value" id="stat-bonbu-comm" style="font-size:20px;">-</div><div class="stat-label">본부장 수당 누계</div>
+            <div class="stat-value" id="stat-bonbu-comm" style="font-size:20px;">-</div>
+            <div class="stat-label">본부장 수당 누계</div>
           </div>
           <div class="stat-card blue anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-star"></i></div>
-            <div class="stat-value" id="stat-team-comm" style="font-size:20px;">-</div><div class="stat-label">팀장 수당 누계</div>
+            <div class="stat-value" id="stat-team-comm" style="font-size:20px;">-</div>
+            <div class="stat-label">팀장 수당 누계</div>
           </div>
           <div class="stat-card green anim-fadeInUp delay-4">
             <div class="stat-icon"><i class="fas fa-coins"></i></div>
-            <div class="stat-value" id="stat-total-comm" style="font-size:20px;">-</div><div class="stat-label">전체 수당 누계</div>
+            <div class="stat-value" id="stat-total-comm" style="font-size:20px;">-</div>
+            <div class="stat-label">전체 수당 누계</div>
+            <div class="stat-change" id="stat-comm-withdrawn-amt" style="color:var(--accent-green);"><i class="fas fa-check-circle"></i> 출금완료 ₩0</div>
+          </div>
+        </div>
+
+        <!-- 출금 현황 요약 바 -->
+        <div class="card mb-24 anim-fadeInUp" style="border:1px solid rgba(212,160,23,0.2);">
+          <div class="card-body" style="padding:16px 20px;">
+            <div style="display:flex;align-items:center;gap:24px;flex-wrap:wrap;">
+              <div style="font-size:13px;font-weight:700;color:var(--text-secondary);"><i class="fas fa-hand-holding-usd" style="color:var(--accent-gold);margin-right:6px;"></i>직급수당 출금 현황</div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="padding:4px 12px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:20px;font-size:12px;font-weight:700;">⏳ 출금대기</span>
+                <span style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:#e74c3c;" id="bar-pending-amt">₩0</span>
+                <span style="font-size:11px;color:var(--text-muted);" id="bar-pending-cnt">(0건)</span>
+              </div>
+              <div style="width:1px;height:28px;background:var(--border-color);"></div>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <span style="padding:4px 12px;background:rgba(39,174,96,0.12);color:var(--accent-green);border-radius:20px;font-size:12px;font-weight:700;">&#10003; 출금완료</span>
+                <span style="font-family:'Orbitron',sans-serif;font-size:15px;font-weight:900;color:var(--accent-green);" id="bar-done-amt">₩0</span>
+                <span style="font-size:11px;color:var(--text-muted);" id="bar-done-cnt">(0건)</span>
+              </div>
+              <div style="margin-left:auto;">
+                <button class="btn btn-sm" style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);" onclick="bulkWithdraw()">
+                  <i class="fas fa-check-double"></i> 선택 출금완료
+                </button>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -227,9 +259,7 @@
 
     document.addEventListener('DOMContentLoaded', async () => {
       applyTheme(getTheme());
-      // renderCharts는 오류 격리 처리 (Chart.js 로드 실패해도 테이블은 반드시 로드)
-      try { renderCharts(); } catch(e) { console.warn('[commission] 차트 렌더링 오류 (무시됨):', e.message); }
-      await loadCommissions();
+      await loadCommissions(); // 데이터 로드 후 차트에 stats 전달
     });
 
     async function loadCommissions() {
@@ -251,10 +281,27 @@
         // ── KPI 카드 DB 데이터로 업데이트 ──
         const s = data.stats || {};
         const setEl = (id, v) => { const el = document.getElementById(id); if(el) el.textContent = v; };
-        setEl('stat-total-comm-count', s.total_count    || data.total || 0);
+        const setHtml = (id, v) => { const el = document.getElementById(id); if(el) el.innerHTML = v; };
+        setEl('stat-total-comm-count', s.total_count    || 0);
         setEl('stat-total-comm',       formatMoney(s.total_amount    || 0));
         setEl('stat-bonbu-comm',       formatMoney(s.bonbujang_total || 0));
         setEl('stat-team-comm',        formatMoney(s.teamjang_total  || 0));
+
+        // ── 출금 현황 바 ──
+        const pendingCnt = s.pending_count    || 0;
+        const pendingAmt = s.pending_amount   || 0;
+        const doneCnt    = s.withdrawn_count  || 0;
+        const doneAmt    = s.withdrawn_amount || 0;
+
+        setEl('bar-pending-amt',  formatMoney(pendingAmt));
+        setEl('bar-pending-cnt',  `(${pendingCnt}건)`);
+        setEl('bar-done-amt',     formatMoney(doneAmt));
+        setEl('bar-done-cnt',     `(${doneCnt}건)`);
+        setHtml('stat-comm-pending-count',   `<i class="fas fa-clock"></i> 출금대기 ${pendingCnt}건`);
+        setHtml('stat-comm-withdrawn-amt',   `<i class="fas fa-check-circle"></i> 출금완료 ${formatMoney(doneAmt)}`);
+
+        // ── 차트 갱신 (최초 로드 시 또는 필터 초기화 시) ──
+        try { await renderCharts(s); } catch(ce) { console.warn('[commission] 차트 오류:', ce.message); }
       } catch(err) {
         showToast('수당 목록 로드 실패: ' + err.message, 'error');
       }
@@ -410,52 +457,107 @@
       }
     }
 
-    function renderCharts() {
+    let _trendChart = null;
+    let _pieChart   = null;
+
+    async function renderCharts(statsOverride) {
       const isDark    = document.documentElement.getAttribute('data-theme') === 'dark';
       const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
       const textColor = isDark ? 'rgba(200,200,230,0.7)'  : 'rgba(50,50,80,0.7)';
 
-      new Chart(document.getElementById('commTrendChart'), {
-        type: 'line',
-        data: {
-          labels: ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'],
-          datasets: [
-            { label: '본부장 수당', data: [0,0,0,0,0,0,0,0,0,0,0,0], borderColor:'rgba(142,68,173,0.9)', backgroundColor:'rgba(142,68,173,0.05)', fill:true, tension:0.4, pointRadius:3 },
-            { label: '팀장 수당',   data: [0,0,0,0,0,0,0,0,0,0,0,0], borderColor:'rgba(212,160,23,0.9)', backgroundColor:'rgba(212,160,23,0.05)', fill:true, tension:0.4, pointRadius:3 }
-          ]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { position:'top', labels:{color:textColor,font:{size:11}} },
-            tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ₩${(c.raw*10000).toLocaleString()}` } }
-          },
-          scales: {
-            x: { grid:{color:gridColor}, ticks:{color:textColor,font:{size:10}} },
-            y: { grid:{color:gridColor}, ticks:{color:textColor, callback: v => v+'만'} }
-          }
-        }
-      });
+      // ── 월별 추이 차트: 실제 DB 데이터 ──
+      try {
+        const monthly = await CommissionsAPI.monthly();
+        const rows    = monthly.data || [];
+        const now     = new Date();
 
-      new Chart(document.getElementById('commPieChart'), {
-        type: 'pie',
-        data: {
-          labels: ['본부장 20% 단독', '본부장 10% (팀장포함)', '팀장 10%'],
-          datasets: [{
-            data: [35, 26, 39],
-            backgroundColor: ['rgba(142,68,173,0.8)','rgba(212,160,23,0.8)','rgba(90,123,255,0.8)'],
-            borderColor: isDark ? '#12122a' : '#fff',
-            borderWidth: 3,
-          }]
-        },
-        options: {
-          responsive: true, maintainAspectRatio: false,
-          plugins: {
-            legend: { position:'bottom', labels:{color:textColor,font:{size:10},padding:10} },
-            tooltip: { callbacks: { label: c => ` ${c.label}: ${c.raw}%` } }
-          }
+        // 최근 12개월 레이블 생성
+        const labels   = [];
+        const bonbData = [];
+        const teamData = [];
+        for (let i = 11; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          const key = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+          labels.push(`${d.getMonth()+1}월`);
+          const found = rows.find(r => r.month === key);
+          // 만원 단위로 변환 (툴팁에서 원화로 환산)
+          bonbData.push(found ? Math.round((found.bonbujang_amount || 0) / 10000) : 0);
+          teamData.push(found ? Math.round((found.teamjang_amount  || 0) / 10000) : 0);
         }
-      });
+
+        if (_trendChart) _trendChart.destroy();
+        _trendChart = new Chart(document.getElementById('commTrendChart'), {
+          type: 'line',
+          data: {
+            labels,
+            datasets: [
+              { label: '본부장 수당', data: bonbData, borderColor:'rgba(142,68,173,0.9)', backgroundColor:'rgba(142,68,173,0.08)', fill:true, tension:0.4, pointRadius:4, pointHoverRadius:6 },
+              { label: '팀장 수당',   data: teamData, borderColor:'rgba(212,160,23,0.9)',  backgroundColor:'rgba(212,160,23,0.08)',  fill:true, tension:0.4, pointRadius:4, pointHoverRadius:6 }
+            ]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            plugins: {
+              legend: { position:'top', labels:{color:textColor,font:{size:11}} },
+              tooltip: { callbacks: { label: c => ` ${c.dataset.label}: ₩${(c.raw*10000).toLocaleString()}원` } }
+            },
+            scales: {
+              x: { grid:{color:gridColor}, ticks:{color:textColor,font:{size:10}} },
+              y: { grid:{color:gridColor}, ticks:{color:textColor, callback: v => v ? v+'만' : '0'}, beginAtZero:true }
+            }
+          }
+        });
+      } catch(e) {
+        console.warn('[commission] 월별 차트 로드 실패:', e.message);
+      }
+
+      // ── 직급별 비율 파이차트: KPI 통계 활용 ──
+      try {
+        // statsOverride가 있으면 사용, 없으면 API 재조회
+        let bonbTotal = 0, teamTotal = 0;
+        if (statsOverride) {
+          bonbTotal = statsOverride.bonbujang_total || 0;
+          teamTotal = statsOverride.teamjang_total  || 0;
+        } else {
+          const data = await CommissionsAPI.list({ page:1, limit:1 });
+          const s = data.stats || {};
+          bonbTotal = s.bonbujang_total || 0;
+          teamTotal = s.teamjang_total  || 0;
+        }
+
+        const grandTotal = bonbTotal + teamTotal || 1;
+        const bonbPct = Math.round(bonbTotal / grandTotal * 100);
+        const teamPct = 100 - bonbPct;
+
+        if (_pieChart) _pieChart.destroy();
+        _pieChart = new Chart(document.getElementById('commPieChart'), {
+          type: 'doughnut',
+          data: {
+            labels: ['본부장 수당', '팀장 수당'],
+            datasets: [{
+              data: [bonbPct, teamPct],
+              backgroundColor: ['rgba(142,68,173,0.85)', 'rgba(212,160,23,0.85)'],
+              borderColor: isDark ? '#12122a' : '#fff',
+              borderWidth: 3,
+            }]
+          },
+          options: {
+            responsive: true, maintainAspectRatio: false,
+            cutout: '55%',
+            plugins: {
+              legend: { position:'bottom', labels:{color:textColor,font:{size:11},padding:12} },
+              tooltip: { callbacks: {
+                label: c => {
+                  const amt = c.label === '본부장 수당' ? bonbTotal : teamTotal;
+                  return ` ${c.label}: ${c.raw}% (₩${Math.round(amt).toLocaleString()})`;
+                }
+              }}
+            }
+          }
+        });
+      } catch(e) {
+        console.warn('[commission] 비율 차트 로드 실패:', e.message);
+      }
     }
   </script>
 </body>

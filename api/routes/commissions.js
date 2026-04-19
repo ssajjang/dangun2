@@ -55,9 +55,15 @@ router.get('/', authAdmin, async (req, res) => {
     );
 
     const stats = await db.get(
-      `SELECT COUNT(*) as total_count, SUM(commission_amount) as total_amount,
-              SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END) as teamjang_total,
-              SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END) as bonbujang_total
+      `SELECT
+        COUNT(*)                                                                    AS total_count,
+        SUM(commission_amount)                                                      AS total_amount,
+        SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END)     AS teamjang_total,
+        SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END)    AS bonbujang_total,
+        SUM(CASE WHEN withdraw_status='pending' THEN commission_amount ELSE 0 END) AS pending_amount,
+        SUM(CASE WHEN withdraw_status='done'    THEN commission_amount ELSE 0 END) AS withdrawn_amount,
+        SUM(CASE WHEN withdraw_status='pending' THEN 1 ELSE 0 END)                AS pending_count,
+        SUM(CASE WHEN withdraw_status='done'    THEN 1 ELSE 0 END)                AS withdrawn_count
        FROM rank_commissions WHERE status='paid'`
     );
 
@@ -89,6 +95,33 @@ router.get('/my', authMember, async (req, res) => {
 
     return res.json({ data: rows, stats });
   } catch (e) {
+    return res.status(500).json({ error: e.message });
+  }
+});
+
+/* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   GET /api/commissions/monthly  ── 관리자: 월별 수당 집계 (최근 12개월)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+router.get('/monthly', authAdmin, async (req, res) => {
+  try {
+    const db = await getDb();
+    const rows = await db.all(`
+      SELECT
+        strftime('%Y-%m', paid_at) AS month,
+        SUM(CASE WHEN receiver_rank='팀장'  THEN commission_amount ELSE 0 END) AS teamjang_amount,
+        SUM(CASE WHEN receiver_rank='본부장' THEN commission_amount ELSE 0 END) AS bonbujang_amount,
+        SUM(commission_amount) AS total_amount,
+        COUNT(*) AS count,
+        SUM(CASE WHEN withdraw_status='pending' THEN commission_amount ELSE 0 END) AS pending_amount,
+        SUM(CASE WHEN withdraw_status='done'    THEN commission_amount ELSE 0 END) AS withdrawn_amount
+      FROM rank_commissions
+      WHERE status='paid' AND paid_at >= date('now', '-12 months', 'localtime')
+      GROUP BY month
+      ORDER BY month
+    `);
+    return res.json({ data: rows });
+  } catch (e) {
+    console.error('GET /commissions/monthly error:', e);
     return res.status(500).json({ error: e.message });
   }
 });
