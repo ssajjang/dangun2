@@ -80,7 +80,7 @@
         <div class="nav-section">회원 관리</div>
         <a class="nav-item" href="members.html">
           <span class="nav-icon"><i class="fas fa-users"></i></span> 회원 정보
-          <span class="nav-badge" id="badge-pending-members">3</span>
+          <span class="nav-badge" id="badge-pending-members">0</span>
         </a>
 
         <div class="nav-section">투자 관리</div>
@@ -89,7 +89,7 @@
         </a>
         <a class="nav-item" href="withdrawal.html">
           <span class="nav-icon"><i class="fas fa-arrow-circle-up"></i></span> 투자금 출금
-          <span class="nav-badge" id="badge-pending-withdraw">5</span>
+          <span class="nav-badge" id="badge-pending-withdraw">0</span>
         </a>
         <a class="nav-item" href="commission.html">
           <span class="nav-icon"><i class="fas fa-hand-holding-usd"></i></span> 직급 수당
@@ -188,7 +188,7 @@
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-percentage"></i></div>
             <div class="stat-value" id="kpi-commission" style="font-size:22px;">₩0</div>
             <div class="stat-label">총 직급수당 지급</div>
-            <div class="stat-change up"><i class="fas fa-arrow-up"></i> 이번 달 +₩480만</div>
+            <div class="stat-change up"><i class="fas fa-arrow-up"></i> 이번 달 상승중</div>
           </div>
           <div class="stat-card red anim-fadeInUp delay-5">
             <div class="stat-icon"><i class="fas fa-clock"></i></div>
@@ -204,9 +204,6 @@
           <div class="card anim-fadeInUp delay-1">
             <div class="card-header">
               <span class="card-title"><i class="fas fa-chart-bar icon"></i> 월별 투자금 현황</span>
-              <select class="form-control" style="width:100px;padding:6px 10px;font-size:11px;" id="chart-year">
-                <option>2025</option><option>2026</option>
-              </select>
             </div>
             <div class="card-body">
               <div class="chart-container">
@@ -228,43 +225,7 @@
           </div>
         </div>
 
-        <!-- ── Row 2: Pending + Activity ── -->
-        <div class="grid grid-3 mb-24" style="gap:20px;">
-
-          <!-- Pending Withdrawals — 모든 키드 노출 (신청일 제거) -->
-          <div class="card anim-fadeInUp delay-1">
-            <div class="card-header">
-              <span class="card-title"><i class="fas fa-clock icon"></i> 투자금 출금 내역</span>
-              <a href="withdrawal.html" class="btn btn-outline btn-sm">전체보기</a>
-            </div>
-            <div class="card-body" style="padding:0;">
-              <div id="pending-withdraw-list"></div>
-            </div>
-          </div>
-
-          <!-- Pending Members -->
-          <div class="card anim-fadeInUp delay-2">
-            <div class="card-header">
-              <span class="card-title"><i class="fas fa-user-clock icon"></i> 승인 대기 회원</span>
-              <a href="members.html" class="btn btn-outline btn-sm">전체보기</a>
-            </div>
-            <div class="card-body">
-              <div id="pending-member-list"></div>
-            </div>
-          </div>
-
-          <!-- Activity Log -->
-          <div class="card anim-fadeInUp delay-3">
-            <div class="card-header">
-              <span class="card-title"><i class="fas fa-history icon"></i> 최근 활동</span>
-            </div>
-            <div class="card-body">
-              <div id="activity-log"></div>
-            </div>
-          </div>
-        </div>
-
-        <!-- ── 직급수당 출금 대기 (신규 발생 즉시 표시) ── -->
+        <!-- ── 직급수당 출금 대기 ── -->
         <div class="card mb-24 anim-fadeInUp delay-1" style="border:1px solid rgba(212,160,23,0.3);">
           <div class="card-header" style="background:rgba(212,160,23,0.04);">
             <span class="card-title">
@@ -299,6 +260,42 @@
                   <tr><td colspan="9" style="text-align:center;padding:20px;color:var(--text-muted);">불러오는 중...</td></tr>
                 </tbody>
               </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── Row 2: Pending + Activity ── -->
+        <div class="grid grid-3 mb-24" style="gap:20px;">
+
+          <!-- Pending Withdrawals -->
+          <div class="card anim-fadeInUp delay-1">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-clock icon"></i> 투자금 출금 내역</span>
+              <a href="withdrawal.html" class="btn btn-outline btn-sm">전체보기</a>
+            </div>
+            <div class="card-body" style="padding:0;">
+              <div id="pending-withdraw-list"></div>
+            </div>
+          </div>
+
+          <!-- Pending Members -->
+          <div class="card anim-fadeInUp delay-2">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-user-clock icon"></i> 승인 대기 회원</span>
+              <a href="members.html" class="btn btn-outline btn-sm">전체보기</a>
+            </div>
+            <div class="card-body">
+              <div id="pending-member-list"></div>
+            </div>
+          </div>
+
+          <!-- Activity Log -->
+          <div class="card anim-fadeInUp delay-3">
+            <div class="card-header">
+              <span class="card-title"><i class="fas fa-history icon"></i> 최근 활동</span>
+            </div>
+            <div class="card-body">
+              <div id="activity-log"></div>
             </div>
           </div>
         </div>
@@ -360,8 +357,13 @@
   <script src="../js/api.js"></script>
   <script src="../js/dgn.js"></script>
   <script>
+    // 전역 안전 함수 
+    const safeFormatMoney = val => typeof formatMoney === 'function' ? formatMoney(val) : `₩${Number(val||0).toLocaleString()}`;
+    const safeRankBadge = rank => typeof rankBadge === 'function' ? rankBadge(rank) : (rank || '-');
+    const safeFormatDate = dt => typeof formatDateTime === 'function' ? formatDateTime(dt) : dt;
+
     async function refreshDashboard() {
-      showToast('대시보드 데이터를 새로고침합니다...', 'info');
+      if(typeof showToast === 'function') showToast('대시보드 데이터를 새로고침합니다...', 'info');
       await loadDashboard();
     }
 
@@ -371,9 +373,9 @@
     let _commissionChart = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
-      applyTheme(getTheme());
+      if(typeof applyTheme === 'function') applyTheme(typeof getTheme === 'function' ? getTheme() : 'dark');
       setCurrentDate();
-      await DGN.init();   // 코인 환율 로드
+      if(window.DGN) await DGN.init();
       await loadDashboard();
     });
 
@@ -385,43 +387,38 @@
     }
 
     async function loadDashboard() {
-      // API 객체 존재 여부 확인
       if (typeof DashboardAPI === 'undefined') {
-        showToast('API 모듈이 로드되지 않았습니다. 페이지를 새로고침하세요.', 'error');
-        console.error('[dashboard] DashboardAPI is not defined - api.js 로드 확인 필요');
+        if(typeof showToast === 'function') showToast('API 모듈이 로드되지 않았습니다.', 'error');
         return;
       }
       try {
         const data = await DashboardAPI.admin();
-        if (!data) {
-          showToast('대시보드 데이터를 불러올 수 없습니다.', 'error');
-          return;
-        }
+        if (!data) throw new Error('Data Empty');
+        
         _dashData = data;
         renderKPIs(data);
         renderCharts(data);
         renderPendingLists(data);
         renderActivityLog(data);
         renderWeeklyPayouts(data);
-        renderCommPending(data.comm_pending || []);  // 직급수당 출금대기 (dashboard comm_pending 직접 사용)
+        
+        // 직급수당 배열 안전 확보
+        const commData = Array.isArray(data.comm_pending) ? data.comm_pending : [];
+        renderCommPending(commData);
+        
       } catch(err) {
         console.error('[dashboard] loadDashboard error:', err);
         const msg = err.message || '알 수 없는 오류';
         if (msg.includes('401') || msg.includes('403') || msg.includes('인증')) {
-          showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
-          setTimeout(() => { Auth.clear(); location.replace('/index.html'); }, 2000);
-        } else if (msg.includes('404') || msg.includes('경로')) {
-          showToast('API 서버에 연결할 수 없습니다. 서버 상태를 확인하세요.', 'error');
-          renderEmptyDashboard();
+          if(typeof showToast === 'function') showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
+          setTimeout(() => { if(typeof Auth !== 'undefined') Auth.clear(); location.replace('/index.html'); }, 2000);
         } else {
-          showToast('대시보드 데이터 로드 오류: ' + msg, 'error');
           renderEmptyDashboard();
         }
       }
     }
 
     function renderEmptyDashboard() {
-      // 빈 데이터로 UI 초기화
       const emptyData = {
         member_stats: {}, invest_stats: {}, payout_stats: {}, comm_stats: {},
         withdraw_stats: {}, monthly_invest: [], recent_activities: [],
@@ -440,27 +437,21 @@
       const commission       = d.comm_stats?.total_amount     || d.comm_stats?.total || 0;
       const withdrawPending  = d.withdraw_stats?.pending_count || 0;
       const payoutPending    = d.payout_stats?.pending_count  || 0;
-      // 직급수당 출금 대기 건수 (백엔드에서 새로 추가된 필드)
       const commPending      = d.comm_stats?.pending_comm_count || 0;
-      const commPendingAmt   = d.comm_stats?.pending_comm_amount || 0;
-      // 전체 출금대기 = 투자 출금 + 직급수당 출금대기
       const pendingCount     = withdrawPending + commPending;
 
       const totalMembers     = d.member_stats?.total          || 0;
       const activeMembers    = d.member_stats?.active         || 0;
       const inactiveMembers  = d.member_stats?.inactive       || 0;
 
-      // 전체 회원
       const totalEl = document.getElementById('kpi-total-members');
       if (totalEl) totalEl.textContent = totalMembers;
       const activeBadge = document.getElementById('kpi-active-badge');
       if (activeBadge) activeBadge.innerHTML = `<i class="fas fa-user-check"></i> 활성 ${activeMembers}명`;
 
-      // 출금 대기 (투자 출금 + 직급수당 출금대기 합산)
       const pendingEl = document.getElementById('kpi-pending');
       if (pendingEl) pendingEl.textContent = pendingCount;
 
-      // 출금 대기 상세 (직급수당 출금대기 강조)
       const pendingSubEl = document.getElementById('kpi-pending-sub');
       if (pendingSubEl) {
         if (commPending > 0) {
@@ -474,24 +465,23 @@
 
       document.getElementById('kpi-invest').textContent     = totalInvest >= 100000000
         ? '₩' + (totalInvest / 100000000).toFixed(1) + '억'
-        : formatMoney(totalInvest);
-      document.getElementById('kpi-paid').textContent       = formatMoney(weeklyPaid);
+        : safeFormatMoney(totalInvest);
+      document.getElementById('kpi-paid').textContent       = safeFormatMoney(weeklyPaid);
       document.getElementById('kpi-commission').textContent = commission >= 10000000
         ? '₩' + (commission / 10000).toFixed(0) + '만'
-        : formatMoney(commission);
+        : safeFormatMoney(commission);
 
-      // ── DGN 코인 환산 표시 (전체 KPI 카드) ──
       const dgnInvestEl = document.getElementById('kpi-invest-dgn');
-      if (dgnInvestEl) {
+      if (dgnInvestEl && window.DGN) {
         dgnInvestEl.innerHTML = '<i class="fas fa-coins"></i> ' + (DGN.inline(totalInvest) || '≒ - DGN');
       }
-      DGN.applyTo('kpi-paid',       weeklyPaid);
-      DGN.applyTo('kpi-commission', commission);
+      if(window.DGN) {
+        DGN.applyTo('kpi-paid',       weeklyPaid);
+        DGN.applyTo('kpi-commission', commission);
+      }
 
-      // 사이드바 미승인 회원 배지
       const mBadge = document.getElementById('badge-pending-members');
       if (mBadge) mBadge.textContent = inactiveMembers || 0;
-      // 출금 대기 배지 (전체 합산)
       const wBadge = document.getElementById('badge-pending-withdraw');
       if (wBadge) wBadge.textContent = pendingCount || 0;
     }
@@ -501,8 +491,7 @@
       const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
       const textColor = isDark ? 'rgba(200,200,230,0.7)'  : 'rgba(50,50,80,0.7)';
 
-      // 월별 투자 데이터 구성
-      const monthlyRaw = d.monthly_invest || [];
+      const monthlyRaw = Array.isArray(d.monthly_invest) ? d.monthly_invest : [];
       const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
       const now = new Date();
       const monthData = months.map((_, idx) => {
@@ -511,7 +500,6 @@
         return found ? found.amount : 0;
       });
 
-      // Revenue Bar Chart
       if (_revenueChart) _revenueChart.destroy();
       _revenueChart = new Chart(document.getElementById('revenueChart'), {
         type: 'bar',
@@ -543,7 +531,6 @@
         }
       });
 
-      // Commission Doughnut
       const cs   = d.comm_stats || {};
       const teamT = cs.teamjang  || 0;
       const bonbT = cs.bonbujang || 0;
@@ -577,7 +564,6 @@
       });
     }
 
-    // 출금 상태 한글 변환 헬퍼
     function withdrawStatusLabel(status) {
       if (status === 'pending')  return `<span style="padding:2px 7px;background:rgba(231,76,60,0.12);color:#e74c3c;border-radius:6px;font-size:10px;font-weight:700;">⏳ 대기</span>`;
       if (status === 'paid')     return `<span style="padding:2px 7px;background:rgba(39,174,96,0.12);color:var(--accent-green);border-radius:6px;font-size:10px;font-weight:700;">✓ 완료</span>`;
@@ -586,22 +572,11 @@
     }
 
     function renderPendingLists(d) {
-      /* ──────────────────────────────────────────────────────────
-       * 투자금 출금 내역
-       *   - d.withdraw_pending: 모든 상태(paid/rejected/pending) 영구 보존
-       *   - DB 컬럼 명칭과 1:1 매칭:
-       *       wr.id, wr.member_id, wr.amount, wr.bank_name, wr.account_number,
-       *       wr.account_holder, wr.week_number, wr.investment_amount,
-       *       wr.status, wr.withdraw_date, wr.reject_reason,
-       *       m.user_id (→ w.user_id), m.name (→ w.name)
-       *   - 신청일(request_date / created_at) 컬럼 완전 제거
-       * ──────────────────────────────────────────────────────────*/
-      const wList = d.withdraw_pending || [];
+      const wList = Array.isArray(d.withdraw_pending) ? d.withdraw_pending : [];
       const wEl   = document.getElementById('pending-withdraw-list');
       if (wList.length === 0) {
         wEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">출금 내역이 없습니다.</div>`;
       } else {
-        // ── 테이블 형식으로 출력 (신청일 컬럼 제외) ──
         const rows = wList.map(w => {
           const bankInfo = [w.bank_name, w.account_number, w.account_holder].filter(Boolean).join(' · ');
           const weekTag  = w.week_number ? `<span class="badge badge-blue" style="font-size:10px;">${w.week_number}주차</span>` : '-';
@@ -619,7 +594,7 @@
               <td style="font-size:12px;">${w.name||'-'}</td>
               <td style="font-size:11px;color:var(--text-muted);">${bankInfo||'-'}</td>
               <td>${weekTag}</td>
-              <td style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;color:var(--accent-gold);">${formatMoney(w.amount)}</td>
+              <td style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;color:var(--accent-gold);">${safeFormatMoney(w.amount)}</td>
               <td>${withdrawStatusLabel(w.status)}</td>
               <td>${actionCell}</td>
             </tr>`;
@@ -641,8 +616,7 @@
           </table>`;
       }
 
-      // 대기 회원 승인
-      const mList = d.pending_members || [];
+      const mList = Array.isArray(d.pending_members) ? d.pending_members : [];
       const mEl   = document.getElementById('pending-member-list');
       if (mList.length === 0) {
         mEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">대기 중인 회원 없음</div>`;
@@ -651,7 +625,7 @@
           <div class="pending-item" id="pm-${m.id}">
             <div>
               <div style="font-weight:700;font-size:13px;">${m.user_id} · ${m.name}</div>
-              <div style="font-size:11px;color:var(--text-muted);">${m.phone} · ${formatDate(m.created_at)}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${m.phone} · ${safeFormatDate(m.created_at)}</div>
             </div>
             <button class="btn btn-primary btn-sm" style="font-size:10px;" onclick="approveMember(${m.id})">
               <i class="fas fa-check"></i> 승인
@@ -661,7 +635,6 @@
       }
     }
 
-    // 활동 아이콘 매핑
     const ACTION_ICON = {
       'investment_deposit':    { color:'var(--accent-green)',  icon:'💰' },
       'withdrawal_approve':    { color:'var(--accent-gold)',   icon:'💸' },
@@ -676,7 +649,7 @@
     };
 
     function renderActivityLog(d) {
-      const acts = d.recent_activities || [];
+      const acts = Array.isArray(d.recent_activities) ? d.recent_activities : [];
       const el   = document.getElementById('activity-log');
       if (acts.length === 0) {
         el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">활동 내역 없음</div>`;
@@ -698,7 +671,7 @@
     }
 
     function renderWeeklyPayouts(d) {
-      const list  = (d && d.weekly_pending) || [];
+      const list  = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
       const tbody = document.getElementById('weekly-payout-tbody');
       if (list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">이번 주 지급 대기 없음</td></tr>`;
@@ -711,8 +684,8 @@
           <td>${w.name}</td>
           <td style="font-size:12px;">${w.bank_name} · ${w.account_number}</td>
           <td><span class="badge badge-blue">${w.week_number}주차</span></td>
-          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${formatMoney(w.total_payout)}</td>
-          <td>${statusBadge(w.status)}</td>
+          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w.total_payout)}</td>
+          <td>${typeof statusBadge === 'function' ? statusBadge(w.status) : w.status}</td>
           <td>
             <div style="display:flex;gap:6px;">
               <button class="btn btn-success btn-sm" onclick="approvePayoutItem(${w.id})">
@@ -724,20 +697,19 @@
       `).join('');
     }
 
-    // ── 출금 승인 (실제 API) ──
     async function approveWithdraw(id) {
       confirmCallback = async () => {
         try {
           await WithdrawalsAPI.approve(id);
           const el = document.getElementById(`pw-${id}`);
           if (el) el.remove();
-          showToast('출금 승인 처리 완료', 'success');
+          if(typeof showToast === 'function') showToast('출금 승인 처리 완료', 'success');
           await loadDashboard();
-        } catch(err) { showToast(err.message, 'error'); }
+        } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
       };
       document.getElementById('confirm-title').textContent = '출금 승인';
       document.getElementById('confirm-message').textContent = `ID ${id} 출금 요청을 승인하시겠습니까?`;
-      openModal('modal-confirm');
+      if(typeof openModal === 'function') openModal('modal-confirm');
     }
 
     async function rejectWithdraw(id) {
@@ -747,38 +719,38 @@
         await WithdrawalsAPI.reject(id, reason);
         const el = document.getElementById(`pw-${id}`);
         if (el) el.remove();
-        showToast('출금 거절 처리 완료', 'warning');
+        if(typeof showToast === 'function') showToast('출금 거절 처리 완료', 'warning');
         await loadDashboard();
-      } catch(err) { showToast(err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
     }
 
-    // ── 회원 승인 (실제 API) ──
     async function approveMember(id) {
       try {
         await MembersAPI.update(id, { status: 'active' });
         const el = document.getElementById(`pm-${id}`);
         if (el) el.remove();
-        showToast('회원 승인 완료', 'success');
-      } catch(err) { showToast(err.message, 'error'); }
+        if(typeof showToast === 'function') showToast('회원 승인 완료', 'success');
+      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
     }
 
-    // ── 주간 지급 개별 처리 ──
     async function approvePayoutItem(payoutId) {
       try {
         await InvestmentsAPI.payOne(payoutId);
         const row = document.getElementById(`row-${payoutId}`);
         if (row) {
-          row.cells[6].innerHTML = statusBadge('paid');
+          row.cells[6].innerHTML = typeof statusBadge === 'function' ? statusBadge('paid') : 'paid';
           row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 지급완료</span>`;
         }
-        showToast('지급 처리 완료', 'success');
-      } catch(err) { showToast(err.message, 'error'); }
+        if(typeof showToast === 'function') showToast('지급 처리 완료', 'success');
+      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
     }
 
-    // ── 일괄 지급 승인 ──
     async function bulkApprove() {
       const checked = document.querySelectorAll('.row-check:checked');
-      if (checked.length === 0) { showToast('선택된 항목이 없습니다.', 'warning'); return; }
+      if (checked.length === 0) { 
+        if(typeof showToast === 'function') showToast('선택된 항목이 없습니다.', 'warning'); 
+        return; 
+      }
       confirmCallback = async () => {
         const ids = Array.from(checked).map(cb => parseInt(cb.dataset.id));
         try {
@@ -786,44 +758,29 @@
           checked.forEach(cb => {
             const row = document.getElementById(`row-${cb.dataset.id}`);
             if (row) {
-              row.cells[6].innerHTML = statusBadge('paid');
+              row.cells[6].innerHTML = typeof statusBadge === 'function' ? statusBadge('paid') : 'paid';
               row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 처리완료</span>`;
             }
           });
-          showToast(`${checked.length}건 일괄 지급 완료`, 'success');
+          if(typeof showToast === 'function') showToast(`${checked.length}건 일괄 지급 완료`, 'success');
           document.getElementById('check-all').checked = false;
-        } catch(err) { showToast(err.message, 'error'); }
+        } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
       };
       document.getElementById('confirm-title').textContent = '일괄 지급';
       document.getElementById('confirm-message').textContent = `${checked.length}건을 일괄 지급 처리하시겠습니까?`;
-      openModal('modal-confirm');
+      if(typeof openModal === 'function') openModal('modal-confirm');
     }
 
     function toggleAll(el) {
       document.querySelectorAll('.row-check').forEach(cb => cb.checked = el.checked);
     }
 
-    // ── 주간지급 배지 업데이트 ──
-    function updateWeeklyBadge(list) {
-      const badge = document.getElementById('weekly-pending-badge');
-      if (badge) badge.textContent = `승인 대기 ${(list||[]).length}건`;
-    }
-
     function executeConfirm() {
       if (confirmCallback) { confirmCallback(); confirmCallback = null; }
-      closeModal('modal-confirm');
+      if(typeof closeModal === 'function') closeModal('modal-confirm');
     }
 
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-    // 직급수당 출금대기 목록 렌더링
-    //  ✔ 파라미터: rows = d.comm_pending || [] (DashboardAPI 응답값)
-    //  ✔ DB 콼럼명 1:1 매핑:
-    //    rc.id, rc.receiver_rank, rc.commission_rate, rc.investment_amount,
-    //    rc.commission_amount, rc.paid_at, rc.created_at,
-    //    rcv.user_id→receiver_user_id, rcv.name→receiver_name,
-    //    rcv.bank_name→receiver_bank_name, rcv.account_number→receiver_account_number,
-    //    inv_m.user_id→investor_user_id, inv_m.name→investor_name
-    // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+    // ── 직급수당 출금대기 렌더링 ──
     function renderCommPending(rows) {
       const tbody = document.getElementById('comm-pending-tbody');
       const badge = document.getElementById('comm-pending-badge');
@@ -839,18 +796,18 @@
       }
 
       tbody.innerHTML = rows.map(c => {
-        // ✅ DB 콼럼명 엄격 벤드링 (undefined 방어)
+        // 안전한 변수 치환
         const rcvUserId = c.receiver_user_id        || '-';
-        const rcvName   = c.receiver_name           || '-';
+        const rcvName   = c.receiver_name           || '알수없음';
         const rcvBank   = c.receiver_bank_name      || '';
         const rcvAcct   = c.receiver_account_number || '';
         const invUserId = c.investor_user_id        || '-';
         const invName   = c.investor_name           || '-';
-        const invAmt    = c.investment_amount        || 0;
-        const commAmt   = c.commission_amount        || 0;
-        const rate      = Number(c.commission_rate   || 0);
+        const invAmt    = c.investment_amount       || 0;
+        const commAmt   = c.commission_amount       || 0;
         const dateStr   = (c.paid_at || c.created_at || '').slice(0, 16);
         const acct      = [rcvBank, rcvAcct].filter(Boolean).join(' ') || '-';
+
         return `
           <tr id="cpr-${c.id}">
             <td style="text-align:center;">
@@ -861,18 +818,18 @@
               <div style="font-size:10px;color:var(--text-muted);">${rcvName}</div>
             </td>
             <td style="font-family:monospace;font-size:11px;color:var(--text-secondary);">${acct}</td>
-            <td>${rankBadge(c.receiver_rank)}</td>
+            <td>${safeRankBadge(c.receiver_rank)}</td>
             <td>
               <div style="font-size:11px;font-weight:700;">${invUserId}</div>
               <div style="font-size:10px;color:var(--text-muted);">${invName}</div>
             </td>
             <td style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">
-              ${formatMoney(invAmt)}<br>
-              <small style="font-size:10px;color:var(--accent-gold);opacity:0.8;">${DGN.inline(invAmt)}</small>
+              ${safeFormatMoney(invAmt)}<br>
+              <small style="font-size:10px;color:var(--accent-gold);opacity:0.8;">${window.DGN ? DGN.inline(invAmt) : ''}</small>
             </td>
             <td style="font-family:'Orbitron',sans-serif;font-weight:900;color:var(--accent-gold);">
-              ${formatMoney(commAmt)}<br>
-              <small style="font-size:10px;color:var(--accent-gold);opacity:0.8;">${DGN.inline(commAmt)}</small>
+              ${safeFormatMoney(commAmt)}<br>
+              <small style="font-size:10px;color:var(--accent-gold);opacity:0.8;">${window.DGN ? DGN.inline(commAmt) : ''}</small>
             </td>
             <td style="font-size:11px;">${dateStr}</td>
             <td>
@@ -886,25 +843,19 @@
       }).join('');
     }
 
-    // 단건 수당 출금완료 (POST /api/commissions/approve → withdraw_status=completed)
-    // 페이지 새로고침 없이 해당 행만 즉시 UI 전환
     async function approveCommWithdraw(id) {
       if (!confirm('이 수당을 출금완료 처리하시겠습니까?\n(수령자 지갑에서 출금 처리되고 내역이 저장됩니다.)')) return;
 
       const row = document.getElementById(`cpr-${id}`);
       const btn = row ? row.querySelector('button[onclick]') : null;
 
-      // ① 버튼 즉시 비활성화 + 스피너 (중복 클릭 방지)
       if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 처리중...'; }
 
       try {
-        // POST /api/commissions/approve  { id: commission_id }
         const res = await CommissionsAPI.approve(id);
-        showToast(res.message || '출금완료 처리되었습니다.', 'success');
+        if(typeof showToast === 'function') showToast(res.message || '출금완료 처리되었습니다.', 'success');
 
-        // ② 해당 행 즉시 "출금완료" 뱃지로 교체 후 페이드아웃 제거
         if (row) {
-          // 마지막 셀(처리 버튼) → 완료 배지로 교체
           const lastCell = row.cells[row.cells.length - 1];
           if (lastCell) {
             lastCell.innerHTML = `<span style="padding:3px 10px;background:rgba(39,174,96,0.2);
@@ -914,11 +865,9 @@
           row.style.transition = 'opacity 0.5s';
           row.style.opacity    = '0.3';
 
-          // 0.7초 후 목록에서 제거 + 배지 카운트 갱신
           setTimeout(async () => {
             row.remove();
-            await _updateCommBadge();
-            // KPI '출금 대기 건수' 카드도 갱신
+            _updateCommBadge();
             const kpiEl = document.getElementById('kpi-pending');
             if (kpiEl) {
               const cur = parseInt(kpiEl.textContent) || 0;
@@ -926,31 +875,30 @@
             }
           }, 700);
         } else {
-          // row를 찾지 못한 경우 대시보드 전체 재로드
           await loadDashboard();
         }
       } catch(err) {
-        // 실패 시 버튼 원상 복구
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 출금완료'; }
-        showToast('처리 실패: ' + err.message, 'error');
+        if(typeof showToast === 'function') showToast('처리 실패: ' + err.message, 'error');
       }
     }
 
-    // 배지 카운트만 갱신: DOM에 남아있는 행 수를 기준으로 배지 갱신
     function _updateCommBadge() {
       const badge     = document.getElementById('comm-pending-badge');
       const remaining = document.querySelectorAll('#comm-pending-tbody .comm-row-cb').length;
       if (badge) badge.textContent = remaining + '건';
     }
 
-    // 선택 일괄 출금완료
     function toggleCommAll(el) {
       document.querySelectorAll('.comm-row-cb').forEach(cb => cb.checked = el.checked);
     }
 
     async function bulkApproveComm() {
       const checked = [...document.querySelectorAll('.comm-row-cb:checked')];
-      if (!checked.length) { showToast('출금완료 처리할 항목을 선택하세요.', 'warning'); return; }
+      if (!checked.length) { 
+        if(typeof showToast === 'function') showToast('출금완료 처리할 항목을 선택하세요.', 'warning'); 
+        return; 
+      }
       const total = checked.length;
       if (!confirm(`${total}건의 수당을 일괄 출금완료 처리하시겠습니까?\n※ 수령자 지갑에서 각 금액이 차감됩니다.`)) return;
 
@@ -958,16 +906,13 @@
       for (const cb of checked) {
         const id  = cb.dataset.id;
         const row = document.getElementById(`cpr-${id}`);
-        // 처리중 표시
         if (row) {
           const btn = row.querySelector('button[onclick]');
           if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>'; }
         }
         try {
-          // POST /api/commissions/approve 사용 (completed + history 저장)
           await CommissionsAPI.approve(id);
           ok++;
-          // 즉시 행 흐리기 + 완료 배지
           if (row) {
             row.style.transition = 'opacity 0.3s';
             row.style.opacity = '0.3';
@@ -976,7 +921,6 @@
           }
         } catch(e) {
           fail++;
-          // 실패한 행 버튼 복구
           if (row) {
             const btn = row.querySelector('button');
             if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 출금완료'; }
@@ -984,14 +928,11 @@
         }
       }
 
-      showToast(`${ok}건 완료${fail ? `, ${fail}건 실패` : ''}`, ok > 0 ? 'success' : 'error');
+      if(typeof showToast === 'function') showToast(`${ok}건 완료${fail ? `, ${fail}건 실패` : ''}`, ok > 0 ? 'success' : 'error');
 
-      // 완료된 행 0.5초 후 제거 + 배지 갱신
       setTimeout(async () => {
-        // 희미해진 행 제거
         document.querySelectorAll('#comm-pending-tbody tr[style*="opacity: 0.3"], #comm-pending-tbody tr[style*="opacity:0.3"]').forEach(r => r.remove());
         _updateCommBadge();
-        // KPI 카운터 갱신
         const kpiEl = document.getElementById('kpi-pending');
         if (kpiEl) {
           const cur = parseInt(kpiEl.textContent) || 0;
@@ -1001,7 +942,6 @@
       }, 500);
     }
 
-    // ── 시간 경과 표시 ──
     function timeAgo(dateStr) {
       if (!dateStr) return '-';
       const diff = Date.now() - new Date(dateStr).getTime();
