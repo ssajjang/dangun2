@@ -672,31 +672,36 @@
     function renderWeeklyPayouts(d) {
       let list = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
       
-      // ✅ 미래 지급예정(2주차 등) 완벽 차단: 날짜를 0시0분0초 세팅 후 순수 비교 연산
+      // ✅ 미래 지급예정 완벽 차단: 날짜를 0시0분0초(자정) 세팅 후 순수 비교, 비정상 날짜는 숨김 처리
       const today = new Date();
       today.setHours(0, 0, 0, 0); 
       
       list = list.filter(w => {
-        if (w.status && w.status !== 'pending') return false;
+        if (w.status && w.status !== 'pending') return true;
         
         let targetDateStr = w.payout_date || w.due_date || w.expected_date;
         let targetDate;
 
         if (targetDateStr) {
           targetDate = new Date(targetDateStr);
-          targetDate.setHours(0, 0, 0, 0);
         } else if (w.created_at && w.week_number) {
-          const baseDate = new Date(w.created_at);
-          baseDate.setHours(0, 0, 0, 0);
-          targetDate = new Date(baseDate.getTime());
+          targetDate = new Date(w.created_at);
           targetDate.setDate(targetDate.getDate() + (parseInt(w.week_number) * 7));
         } else {
           targetDate = new Date(w.created_at || Date.now());
-          targetDate.setHours(0, 0, 0, 0);
         }
 
-        // 미래 날짜의 데이터라면 리스트에서 제거 (출력하지 않음)
-        return targetDate.getTime() <= today.getTime();
+        // 날짜 변환이 불가능한 오류 데이터는 안전하게 차단
+        if (!targetDate || isNaN(targetDate.getTime())) return false;
+        
+        targetDate.setHours(0, 0, 0, 0);
+
+        // 오늘(자정 기준)을 초과하는 미래 날짜의 데이터라면 무조건 리스트에서 제거
+        if (targetDate.getTime() > today.getTime()) {
+            return false;
+        }
+
+        return true;
       });
 
       const tbody = document.getElementById('weekly-payout-tbody');
