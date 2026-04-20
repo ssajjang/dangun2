@@ -3,9 +3,8 @@
  * DANGUN - 대시보드 API (sqlite3 + sqlite Promise 래퍼 완전 async)
  *
  * [수정 이력]
- * - withdraw_pending: status 필터 제거 → 모든 상태 영구 보존, 30건, 필드 명시적 SELECT
- * - comm_pending:     withdraw_status='pending' 필터, 모든 필드 1:1 명시 SELECT
- * - 두 쿼리 모두 JOIN 컬럼 별칭 고정 → 프론트엔드 바인딩과 완전 일치
+ * - 2주차 미래예정 데이터 차단: scheduled_date 조건을 date('now', 'localtime') 오늘 기준으로 수정
+ * - withdraw_pending 투자금 매핑: COALESCE(wr.investment_amount, m.investment_total, 0) 로 안전화
  */
 const express = require('express');
 const { getDb } = require('../../database/db');
@@ -41,7 +40,7 @@ router.get('/admin', authAdmin, async (req, res) => {
        FROM investments`
     );
 
-    /* ── 주간 지급 통계 (전체, 기간 필터 없음) ── */
+    /* ── 주간 지급 통계 (오늘 도래 건 기준) ── */
     const payoutStats = await db.get(
       `SELECT
         COALESCE(SUM(CASE WHEN status='pending' THEN total_payout ELSE 0 END), 0) AS pending_amount,
@@ -49,13 +48,10 @@ router.get('/admin', authAdmin, async (req, res) => {
         COALESCE(SUM(CASE WHEN status='paid'    THEN total_payout ELSE 0 END), 0) AS paid_amount,
         COALESCE(SUM(CASE WHEN status='paid'    THEN 1 ELSE 0 END), 0)            AS paid_count
        FROM weekly_payouts
-       WHERE scheduled_date <= date('now', '+7 days', 'localtime')`
+       WHERE scheduled_date <= date('now', 'localtime')`
     );
 
-    /* ── 직급수당 통계
-     *   - total / teamjang / bonbujang : 전체 누적
-     *   - pending_comm_amount / pending_comm_count : 출금 대기
-     * ── */
+    /* ── 직급수당 통계 ── */
     const commStats = await db.get(
       `SELECT
         COALESCE(SUM(commission_amount), 0)                                              AS total,
@@ -101,7 +97,7 @@ router.get('/admin', authAdmin, async (req, res) => {
        LIMIT 10`
     );
 
-    /* ── 주간 지급 대기 목록 (이번 주 금요일 기준 +7일, 10건) ── */
+    /* ── 주간 지급 대기 목록 (오늘 도래 건만 조회, 미래 데이터 원천 차단) ── */
     const weeklyPending = await db.all(
       `SELECT
         wp.id,
@@ -120,22 +116,17 @@ router.get('/admin', authAdmin, async (req, res) => {
         m.user_id,
         m.name,
         m.bank_name,
-        m.account_number
+        m.account_number,
+        m.investment_total AS investment_amount
        FROM weekly_payouts wp
        JOIN members m ON m.id = wp.member_id
        WHERE wp.status = 'pending'
-         AND wp.scheduled_date <= date('now', '+7 days', 'localtime')
+         AND wp.scheduled_date <= date('now', 'localtime')
        ORDER BY wp.scheduled_date ASC, wp.id ASC
        LIMIT 10`
     );
 
-    /* ── 출금 내역 (모든 상태, 영구 보존, 30건)
-     *
-     * ✅ 수정 포인트:
-     *   - WHERE status='pending' 조건 제거 → 전체(paid/rejected/pending) 모두 출력
-     *   - 필드를 명시적으로 SELECT → 프론트엔드 바인딩과 정확히 1:1 일치
-     *   - week_number, investment_amount (ALTER 로 추가된 컬럼) 포함
-     * ── */
+    /* ── 출금 내역 (투자금 데이터 매핑 완벽 수정) ── */
     const withdrawPending = await db.all(
       `SELECT
         wr.id,
@@ -154,7 +145,7 @@ router.get('/admin', authAdmin, async (req, res) => {
         wr.status,
         wr.reject_reason,
         wr.week_number,
-        wr.investment_amount,
+        COALESCE(wr.investment_amount, m.investment_total, 0) AS investment_amount,
         wr.created_at,
         wr.updated_at,
         m.user_id,
@@ -174,13 +165,7 @@ router.get('/admin', authAdmin, async (req, res) => {
        LIMIT 5`
     );
 
-    /* ── 직급수당 출금 대기 목록
-     *
-     * ✅ 수정 포인트:
-     *   - withdraw_status='pending' 만 조회 (대기 상태 고정)
-     *   - rc 모든 필드 + receiver(수령자) 별칭 + investor(투자자) 별칭 명시
-     *   - 기간 필터 없음 → 관리자 승인 전까지 영구 노출
-     * ── */
+    /* ── 직급수당 출금 대기 목록 ── */
     const commPending = await db.all(
       `SELECT
         rc.id,
@@ -223,9 +208,9 @@ router.get('/admin', authAdmin, async (req, res) => {
       monthly_invest:    monthlyInvest,
       recent_activities: recentActivities,
       weekly_pending:    weeklyPending,
-      withdraw_pending:  withdrawPending,   // 모든 상태 영구 보존
+      withdraw_pending:  withdrawPending,
       pending_members:   pendingMembers,
-      comm_pending:      commPending,       // 직급수당 출금대기 전체 (withdraw_status='pending')
+      comm_pending:      commPending,
     });
   } catch (e) {
     console.error('GET /dashboard/admin error:', e);
@@ -292,7 +277,6 @@ router.get('/member', authMember, async (req, res) => {
       [mid]
     );
 
-    /* 대기중 수당 합산 (withdraw_status='pending') */
     const pendingCommStats = await db.get(
       `SELECT
         COALESCE(SUM(commission_amount), 0) AS pending_amount,

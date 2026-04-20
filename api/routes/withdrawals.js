@@ -1,6 +1,10 @@
 'use strict';
 /**
  * DANGUN - 출금신청 API (sqlite3 + sqlite Promise 래퍼 완전 async)
+ *
+ * [수정 이력]
+ * - GET /api/withdrawals: LEFT JOIN investments 제거 (행 중복 버그 방지)
+ * - investment_amount 필드를 m.investment_total 로 안전하게 매핑
  */
 const express = require('express');
 const { getDb } = require('../../database/db');
@@ -82,6 +86,8 @@ router.get('/', authAdmin, async (req, res) => {
 
     const where = conds.join(' AND ');
 
+    // ✅ LEFT JOIN investments 삭제 (중복 행 원천 차단)
+    // ✅ COALESCE 를 통해 투자금 필드를 멤버 테이블에서 정확히 가져옴
     const rows = await db.all(
       `SELECT
         wr.id,
@@ -105,10 +111,9 @@ router.get('/', authAdmin, async (req, res) => {
         m.user_id,
         m.name,
         m.rank,
-        COALESCE(wr.investment_amount, i.amount, 0) AS investment_amount
+        COALESCE(wr.investment_amount, m.investment_total, 0) AS investment_amount
        FROM withdrawal_requests wr
        JOIN members m ON m.id = wr.member_id
-       LEFT JOIN investments i ON i.member_id = wr.member_id AND i.status IN ('active','completed')
        WHERE ${where} ORDER BY wr.created_at DESC LIMIT ? OFFSET ?`,
       [...params, limit, offset]
     );

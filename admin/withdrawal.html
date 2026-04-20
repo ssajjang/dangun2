@@ -204,30 +204,29 @@
       if (status) params.status = status;
 
       try {
-        // 1. 일반 수동 출금 내역 (Withdrawals) 가져오기 - 빈 값 및 타입 에러 원천 차단 (?. 사용)
+        // 1. 백엔드에서 받아온 정상적인 데이터
         const wDataRes = await WithdrawalsAPI.list(params);
         let rows = (wDataRes?.data || []).map(w => ({...(w || {}), _type: 'withdrawal'}));
 
-        // 2. 대시보드의 주차별 이자 자동지급 (Payouts - weekly_pending) 가져오기 및 날짜 필터링
+        // 2. 대시보드의 주차별 이자 자동지급 (Payouts - weekly_pending) 가져오기
         if (currentPageW === 1 && (status === 'pending' || !status)) {
           try {
             const dDataRes = await DashboardAPI.admin();
             let payoutRows = dDataRes?.weekly_pending || [];
             
-            // ✅ 완벽한 날짜 필터링: 자정(00시) 기준 순수비교, 미래 일자 강력 차단
+            // ✅ 프론트엔드 안전망: 백엔드가 고쳐졌지만 혹시 모를 변수를 위해 프론트에서도 한 번 더 차단!
             const today = new Date();
             today.setHours(0, 0, 0, 0); 
             
             payoutRows = payoutRows.filter(p => {
               if (p?.status && p.status !== 'pending') return true; 
 
-              let targetDateStr = p?.payout_date || p?.due_date || p?.expected_date || p?.target_date;
+              let targetDateStr = p?.payout_date || p?.due_date || p?.expected_date || p?.target_date || p?.scheduled_date;
               let targetDate = null;
 
               if (targetDateStr) {
                 targetDate = new Date(targetDateStr);
               } else if (p?.week_number) {
-                // 백엔드에서 날짜를 주지 않았다면, 가입일/투자일 기준으로 계산
                 let baseDateStr = p?.investment_date || p?.invest_date || p?.created_at;
                 if (baseDateStr) {
                    targetDate = new Date(baseDateStr);
@@ -235,18 +234,15 @@
                 }
               }
 
-              // 날짜 도출이 가능하고, 그 날짜가 오늘보다 미래라면 화면 및 계산에서 완전히 제거!
               if (targetDate && !isNaN(targetDate.getTime())) {
                 targetDate.setHours(0, 0, 0, 0);
                 if (targetDate.getTime() > today.getTime()) {
                     return false; 
                 }
               }
-              
               return true;
             });
             
-            // 검색어가 있으면 Payout 데이터도 필터링
             if (q) {
               payoutRows = payoutRows.filter(p => 
                 (p?.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || 
@@ -254,13 +250,10 @@
               );
             }
             
-            // 타입 태그 부착
             payoutRows = payoutRows.map(p => ({...(p || {}), _type: 'payout'}));
-            
-            // 리스트 최상단에 이자 지급(Payout) 내역 병합
             rows = [...payoutRows, ...rows];
 
-            // Payout 관련 건수 및 금액을 KPI 데이터에 합산 (옵셔널 체이닝으로 방어)
+            // Payout 통계 합산 로직 (옵셔널 체이닝으로 방어)
             wDataRes.stats = wDataRes?.stats || {};
             wDataRes.stats.pending_count = (wDataRes.stats.pending_count || 0) + payoutRows.length;
             wDataRes.stats.total_count   = (wDataRes.stats.total_count || 0) + payoutRows.length;
@@ -316,26 +309,24 @@
           const typeBdg  = isPayout ? `<span class="badge-payout">이자지급</span>` : '';
           const trClass  = isPayout ? 'row-payout' : '';
           
-          // 출금/지급 표시 금액 분기 처리
+          // 출금/지급 표시 금액
           const displayAmount = isPayout ? (w?.total_payout || w?.payout_amount || 0) : (w?.amount || 0);
           
-          // ✅ 핵심 수정부: undefined 속성 접근 에러 방지용 완벽 매핑
-          // w.investment 가 null 이라도 w?.investment?.amount 형태로 접근하여 절대 에러가 나지 않음.
+          // ✅ 확실한 투자금 매핑 로직 (백엔드에서 고친 데이터를 바탕으로 우선 적용)
           let invAmt = w?.investment_amount ?? w?.invest_amount ?? w?.principal ?? w?.principal_amount ?? w?.investment?.amount;
           
-          // 만약 데이터가 이자지급(Payout)인데도 투자금 필드가 다 비어있다면 최후의 보루로 w.amount를 확인
+          // 만약 빈 값이라면 최후 보루 확인
           if (isPayout && (invAmt === undefined || invAmt === null)) {
              invAmt = w?.amount;
           }
 
-          // 그래도 없으면 0이 아니라 대시(-) 처리
           const formattedInvestment = (invAmt !== undefined && invAmt !== null && invAmt !== '') 
               ? safeFormatMoney(invAmt) 
               : '<span style="color:var(--text-muted);" title="데이터를 불러올 수 없습니다.">-</span>';
 
           const weekTag = w?.week_number ? `<span class="badge badge-blue">${w.week_number}주차</span>` : '-';
           
-          // 버튼 및 액션 분기 처리
+          // 버튼 분기
           let actionHtml = '';
           if (w?.status === 'pending') {
             if (isPayout) {
@@ -384,7 +375,7 @@
       }
     }
 
-    // --- 수동 출금 요청 개별 처리 ---
+    // --- 개별 처리 ---
     async function approveOne(id) {
       try {
         await WithdrawalsAPI.approve(id);
@@ -410,7 +401,6 @@
       } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
-    // --- 자동 이자 지급 개별 처리 (Payout) ---
     async function approvePayoutItem(payoutId) {
       if(!confirm('해당 주차 이자를 지급 처리하시겠습니까?')) return;
       try {
@@ -420,14 +410,12 @@
       } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
-    // --- 일괄 승인 / 지급 하이브리드 처리 ---
+    // --- 일괄 처리 ---
     async function bulkApprove() {
       const checked = document.querySelectorAll('.list-checkbox:checked:not(:disabled)');
       if (checked.length === 0) { if(typeof showToast === 'function') showToast('선택된 대기 항목이 없습니다.', 'warning'); return; }
       
-      const wIds = []; // 일반 출금 ID
-      const pIds = []; // Payout ID
-      
+      const wIds = [], pIds = [];
       checked.forEach(cb => {
         if(cb.dataset.type === 'payout') pIds.push(parseInt(cb.dataset.id));
         else wIds.push(parseInt(cb.dataset.id));
@@ -437,16 +425,8 @@
 
       try {
         let successCount = 0;
-        // 일반 출금 API 전송
-        if(wIds.length > 0) {
-          await WithdrawalsAPI.bulkApprove(wIds);
-          successCount += wIds.length;
-        }
-        // 이자 지급 API 전송
-        if(pIds.length > 0) {
-          await InvestmentsAPI.bulkPay(pIds);
-          successCount += pIds.length;
-        }
+        if(wIds.length > 0) { await WithdrawalsAPI.bulkApprove(wIds); successCount += wIds.length; }
+        if(pIds.length > 0) { await InvestmentsAPI.bulkPay(pIds); successCount += pIds.length; }
         
         if(typeof showToast === 'function') showToast(`${successCount}건 일괄 처리 완료`, 'success');
         document.getElementById('check-all-w').checked = false;
@@ -454,7 +434,6 @@
       } catch(err) { if(typeof showToast === 'function') showToast('일괄 처리 중 오류 발생: ' + err?.message, 'error'); }
     }
 
-    // --- 일괄 거절 처리 (일반 출금 건만 허용) ---
     async function bulkReject() {
       const checked = document.querySelectorAll('.list-checkbox:checked:not(:disabled)');
       if (checked.length === 0) { if(typeof showToast === 'function') showToast('선택된 대기 항목이 없습니다.', 'warning'); return; }
@@ -481,7 +460,7 @@
       document.querySelectorAll('.list-checkbox:not(:disabled)').forEach(cb => cb.checked = el.checked);
     }
 
-    // --- CSV 엑셀 다운로드 (통합 데이터용) ---
+    // --- CSV 다운로드 ---
     async function exportWithdrawCSV() {
       try {
         if(typeof showToast === 'function') showToast('엑셀 생성 중입니다...', 'info');
@@ -494,11 +473,9 @@
         if (!showAll && !status) status = 'pending';
         if (status) params.status = status;
 
-        // 1. 일반 출금 전체 로드
         const wDataRes = await WithdrawalsAPI.list(params);
         let rows = (wDataRes?.data || []).map(w => ({...(w || {}), _type: 'withdrawal'}));
 
-        // 2. 이자 지급 전체 로드 병합 및 필터링 (동일한 방어/날짜 로직 적용)
         if (status === 'pending' || !status) {
           try {
             const dDataRes = await DashboardAPI.admin();
@@ -510,7 +487,7 @@
             pRows = pRows.filter(p => {
               if(p?.status && p.status !== 'pending') return true;
               
-              let targetDateStr = p?.payout_date || p?.due_date || p?.expected_date || p?.target_date;
+              let targetDateStr = p?.payout_date || p?.due_date || p?.expected_date || p?.target_date || p?.scheduled_date;
               let targetDate = null;
 
               if (targetDateStr) {
@@ -527,7 +504,6 @@
                 targetDate.setHours(0,0,0,0);
                 if(targetDate.getTime() > today.getTime()) return false;
               }
-              
               return true;
             });
 
@@ -552,9 +528,7 @@
           const rDate    = w?.request_date || w?.created_at;
           
           let invAmt = w?.investment_amount ?? w?.invest_amount ?? w?.principal ?? w?.principal_amount ?? w?.investment?.amount;
-          if (isPayout && (invAmt === undefined || invAmt === null)) {
-             invAmt = w?.amount;
-          }
+          if (isPayout && (invAmt === undefined || invAmt === null)) invAmt = w?.amount;
 
           return [
             `"${typeName}"`,
