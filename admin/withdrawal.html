@@ -214,35 +214,31 @@
             const dDataRes = await DashboardAPI.admin();
             let payoutRows = dDataRes.weekly_pending || [];
             
-            // ✅ 날짜 필터링 로직: 발생일 + 주차 계산으로 미래 예정금액 철저히 차단
+            // ✅ 완벽한 날짜 필터링: 발생일 기준 주차 계산 후 자정(00시) 순수비교
             const today = new Date();
-            today.setHours(0, 0, 0, 0); // 자정 기준으로 맞춤
+            today.setHours(0, 0, 0, 0); 
             
             payoutRows = payoutRows.filter(p => {
-              // 대기(pending) 건이 아니라면 필터 통과 (과거 기록 조회용)
-              if (p.status && p.status !== 'pending') return true;
+              if (p.status && p.status !== 'pending') return true; // 히스토리 조회 패스
 
-              // 지급 예상일자 도출
               let targetDateStr = p.payout_date || p.due_date || p.expected_date;
               let targetDate;
 
               if (targetDateStr) {
                 targetDate = new Date(targetDateStr);
+                targetDate.setHours(0, 0, 0, 0);
               } else if (p.created_at && p.week_number) {
-                // 명시적 날짜가 없다면 가입일/발생일 + (주차수 * 7일) 계산
-                targetDate = new Date(p.created_at);
+                const baseDate = new Date(p.created_at);
+                baseDate.setHours(0, 0, 0, 0); 
+                targetDate = new Date(baseDate.getTime());
                 targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
               } else {
                 targetDate = new Date(p.created_at || Date.now());
+                targetDate.setHours(0, 0, 0, 0);
               }
 
-              targetDate.setHours(0, 0, 0, 0);
-
-              // 목표 날짜가 오늘보다 미래라면(예: 아직 도래하지 않은 2주차) 리스트에서 제외
-              if (targetDate.getTime() > today.getTime()) {
-                return false;
-              }
-              return true;
+              // 아직 도래하지 않은 미래 날짜면 리스트에서 강력 차단
+              return targetDate.getTime() <= today.getTime();
             });
             
             // 검색어가 있으면 Payout 데이터도 필터링
@@ -264,7 +260,7 @@
             wDataRes.stats.pending_count = (wDataRes.stats.pending_count || 0) + payoutRows.length;
             wDataRes.stats.total_count   = (wDataRes.stats.total_count || 0) + payoutRows.length;
             
-            const payoutAmountSum = payoutRows.reduce((acc, p) => acc + (Number(p.total_payout || p.payout_amount) || 0), 0);
+            const payoutAmountSum = payoutRows.reduce((acc, p) => acc + (Number(p.total_payout || p.amount) || 0), 0);
             wDataRes.stats.pending_amount = (wDataRes.stats.pending_amount || 0) + payoutAmountSum;
 
           } catch(e) { console.warn('Dashboard Payout data load failed:', e); }
@@ -318,12 +314,17 @@
           // 출금/지급 표시 금액 분기 처리
           const displayAmount = isPayout ? (w.total_payout || w.payout_amount || 0) : (w.amount || 0);
           
-          // ✅ 투자금 맵핑 처리 강화: Payout API에선 'amount'가 투자 원금일 수 있음
-          const investmentAmt = isPayout 
-              ? (w.investment_amount || w.invest_amount || w.amount || null)
-              : (w.investment_amount || w.invest_amount || w.principal || null);
+          // ✅ 투자금(원금) 강력 매핑 (commission.html 로직 참조 및 백엔드 변수 방어)
+          let invAmt = w.investment_amount;
+          if (invAmt === undefined || invAmt === null) invAmt = w.invest_amount;
+          if (invAmt === undefined || invAmt === null) invAmt = w.principal;
+          if (invAmt === undefined || invAmt === null) invAmt = w.principal_amount;
+          if (invAmt === undefined || invAmt === null && w.investment && w.investment.amount) invAmt = w.investment.amount;
 
-          const formattedInvestment = investmentAmt ? safeFormatMoney(investmentAmt) : '<span style="color:var(--text-muted);" title="데이터 없음">-</span>';
+          // 투자금 정상 노출 보정 처리
+          const formattedInvestment = (invAmt !== undefined && invAmt !== null && invAmt !== '') 
+              ? safeFormatMoney(invAmt) 
+              : '<span style="color:var(--text-muted);" title="데이터를 불러올 수 없습니다.">-</span>';
 
           const weekTag = w.week_number ? `<span class="badge badge-blue">${w.week_number}주차</span>` : '-';
           
@@ -498,6 +499,7 @@
             
             const today = new Date();
             today.setHours(0,0,0,0);
+            
             pRows = pRows.filter(p => {
               if(p.status && p.status !== 'pending') return true;
               
@@ -506,14 +508,17 @@
 
               if (targetDateStr) {
                 targetDate = new Date(targetDateStr);
+                targetDate.setHours(0,0,0,0);
               } else if (p.created_at && p.week_number) {
-                targetDate = new Date(p.created_at);
+                const baseDate = new Date(p.created_at);
+                baseDate.setHours(0,0,0,0);
+                targetDate = new Date(baseDate.getTime());
                 targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
               } else {
                 targetDate = new Date(p.created_at || Date.now());
+                targetDate.setHours(0,0,0,0);
               }
 
-              targetDate.setHours(0,0,0,0);
               if(targetDate.getTime() > today.getTime()) return false;
               
               return true;
@@ -538,9 +543,13 @@
           const typeName = isPayout ? '주간이자지급' : '수동출금요청';
           const amount   = isPayout ? (w.total_payout || w.payout_amount || 0) : (w.amount || 0);
           const rDate    = w.request_date || w.created_at;
-          const invAmt   = isPayout 
-              ? (w.investment_amount || w.invest_amount || w.amount || 0)
-              : (w.investment_amount || w.invest_amount || w.principal || 0);
+          
+          let invAmt = w.investment_amount;
+          if (invAmt === undefined || invAmt === null) invAmt = w.invest_amount;
+          if (invAmt === undefined || invAmt === null) invAmt = w.principal;
+          if (invAmt === undefined || invAmt === null) invAmt = w.principal_amount;
+          if (invAmt === undefined || invAmt === null && w.investment && w.investment.amount) invAmt = w.investment.amount;
+          if (invAmt === undefined || invAmt === null) invAmt = 0;
 
           return [
             `"${typeName}"`,

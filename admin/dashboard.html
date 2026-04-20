@@ -180,8 +180,8 @@
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="stat-value" id="kpi-paid">₩0</div>
-            <div class="stat-label">이번 주 지급 예정</div>
-            <div class="stat-change" style="color:var(--text-muted);">다음 금요일</div>
+            <div class="stat-label">오늘 출금 예정</div>
+            <div class="stat-change" style="color:var(--text-muted);">금일 마감</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-4">
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-percentage"></i></div>
@@ -672,12 +672,11 @@
     function renderWeeklyPayouts(d) {
       let list = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
       
-      // ✅ 오늘 날짜 필터링: 발생일 + (주차 * 7일) 계산하여 도래한 건만 노출
+      // ✅ 미래 지급예정(2주차 등) 완벽 차단: 날짜를 0시0분0초 세팅 후 순수 비교 연산
       const today = new Date();
-      today.setHours(0, 0, 0, 0); // 시간 제거 후 날짜만 비교
+      today.setHours(0, 0, 0, 0); 
       
       list = list.filter(w => {
-        // 이미 승인된 건은 제외, 대기(pending) 상태만 확인
         if (w.status && w.status !== 'pending') return false;
         
         let targetDateStr = w.payout_date || w.due_date || w.expected_date;
@@ -685,22 +684,19 @@
 
         if (targetDateStr) {
           targetDate = new Date(targetDateStr);
+          targetDate.setHours(0, 0, 0, 0);
         } else if (w.created_at && w.week_number) {
-          // 명시적 날짜가 없다면 가입일/발생일 + (주차수 * 7일) 계산
-          targetDate = new Date(w.created_at);
+          const baseDate = new Date(w.created_at);
+          baseDate.setHours(0, 0, 0, 0);
+          targetDate = new Date(baseDate.getTime());
           targetDate.setDate(targetDate.getDate() + (parseInt(w.week_number) * 7));
         } else {
-          // 계산 불가할 경우 안전하게 created_at 사용
           targetDate = new Date(w.created_at || Date.now());
+          targetDate.setHours(0, 0, 0, 0);
         }
 
-        targetDate.setHours(0, 0, 0, 0);
-
-        // 7일 도래 기준: 목표일이 오늘보다 미래라면 숨김
-        if (targetDate.getTime() > today.getTime()) {
-          return false;
-        }
-        return true;
+        // 미래 날짜의 데이터라면 리스트에서 제거 (출력하지 않음)
+        return targetDate.getTime() <= today.getTime();
       });
 
       const tbody = document.getElementById('weekly-payout-tbody');
@@ -720,7 +716,7 @@
           <td>${w.name}</td>
           <td style="font-size:12px;">${w.bank_name} · ${w.account_number}</td>
           <td><span class="badge badge-blue">${w.week_number}주차</span></td>
-          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w.total_payout || w.payout_amount)}</td>
+          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w.total_payout || w.amount || 0)}</td>
           <td>${typeof statusBadge === 'function' ? statusBadge(w.status) : w.status}</td>
           <td>
             <div style="display:flex;gap:6px;">
