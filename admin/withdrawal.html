@@ -204,80 +204,79 @@
       if (status) params.status = status;
 
       try {
-        // 1. 일반 수동 출금 내역 (Withdrawals) 가져오기
+        // 1. 일반 수동 출금 내역 (Withdrawals) 가져오기 - 빈 값 및 타입 에러 원천 차단 (?. 사용)
         const wDataRes = await WithdrawalsAPI.list(params);
-        let rows = (wDataRes.data || []).map(w => ({...w, _type: 'withdrawal'}));
+        let rows = (wDataRes?.data || []).map(w => ({...(w || {}), _type: 'withdrawal'}));
 
         // 2. 대시보드의 주차별 이자 자동지급 (Payouts - weekly_pending) 가져오기 및 날짜 필터링
         if (currentPageW === 1 && (status === 'pending' || !status)) {
           try {
             const dDataRes = await DashboardAPI.admin();
-            let payoutRows = dDataRes.weekly_pending || [];
+            let payoutRows = dDataRes?.weekly_pending || [];
             
-            // ✅ 완벽한 날짜 필터링: 미래 일자 강력 차단
+            // ✅ 완벽한 날짜 필터링: 자정(00시) 기준 순수비교, 미래 일자 강력 차단
             const today = new Date();
             today.setHours(0, 0, 0, 0); 
             
             payoutRows = payoutRows.filter(p => {
-              if (p.status && p.status !== 'pending') return true; // 히스토리 조회 패스
+              if (p?.status && p.status !== 'pending') return true; 
 
-              let targetDateStr = p.payout_date || p.due_date || p.expected_date;
-              let targetDate;
+              let targetDateStr = p?.payout_date || p?.due_date || p?.expected_date || p?.target_date;
+              let targetDate = null;
 
               if (targetDateStr) {
                 targetDate = new Date(targetDateStr);
-              } else if (p.created_at && p.week_number) {
-                targetDate = new Date(p.created_at);
-                targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
-              } else {
-                targetDate = new Date(p.created_at || Date.now());
+              } else if (p?.week_number) {
+                // 백엔드에서 날짜를 주지 않았다면, 가입일/투자일 기준으로 계산
+                let baseDateStr = p?.investment_date || p?.invest_date || p?.created_at;
+                if (baseDateStr) {
+                   targetDate = new Date(baseDateStr);
+                   targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
+                }
               }
 
-              // 오류 데이터 차단
-              if (!targetDate || isNaN(targetDate.getTime())) return false;
-
-              // 시분초 완전 제거 후 자정 기준으로 순수 날짜만 비교
-              targetDate.setHours(0, 0, 0, 0);
-
-              // 🚫 대상 날짜가 오늘보다 크다 = 내일 이후 미래 예정 금액 -> 화면 출력 완전 차단!
-              if (targetDate.getTime() > today.getTime()) {
-                  return false;
+              // 날짜 도출이 가능하고, 그 날짜가 오늘보다 미래라면 화면 및 계산에서 완전히 제거!
+              if (targetDate && !isNaN(targetDate.getTime())) {
+                targetDate.setHours(0, 0, 0, 0);
+                if (targetDate.getTime() > today.getTime()) {
+                    return false; 
+                }
               }
-
+              
               return true;
             });
             
             // 검색어가 있으면 Payout 데이터도 필터링
             if (q) {
               payoutRows = payoutRows.filter(p => 
-                (p.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || 
-                (p.name && p.name.toLowerCase().includes(q.toLowerCase()))
+                (p?.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || 
+                (p?.name && p.name.toLowerCase().includes(q.toLowerCase()))
               );
             }
             
             // 타입 태그 부착
-            payoutRows = payoutRows.map(p => ({...p, _type: 'payout'}));
+            payoutRows = payoutRows.map(p => ({...(p || {}), _type: 'payout'}));
             
             // 리스트 최상단에 이자 지급(Payout) 내역 병합
             rows = [...payoutRows, ...rows];
 
-            // Payout 관련 건수 및 금액을 KPI 데이터에 합산
-            wDataRes.stats = wDataRes.stats || {};
+            // Payout 관련 건수 및 금액을 KPI 데이터에 합산 (옵셔널 체이닝으로 방어)
+            wDataRes.stats = wDataRes?.stats || {};
             wDataRes.stats.pending_count = (wDataRes.stats.pending_count || 0) + payoutRows.length;
             wDataRes.stats.total_count   = (wDataRes.stats.total_count || 0) + payoutRows.length;
             
-            const payoutAmountSum = payoutRows.reduce((acc, p) => acc + (Number(p.total_payout || p.amount) || 0), 0);
+            const payoutAmountSum = payoutRows.reduce((acc, p) => acc + (Number(p?.total_payout || p?.amount || 0) || 0), 0);
             wDataRes.stats.pending_amount = (wDataRes.stats.pending_amount || 0) + payoutAmountSum;
 
           } catch(e) { console.warn('Dashboard Payout data load failed:', e); }
         }
 
-        totalCountW = wDataRes.total || 0;
+        totalCountW = wDataRes?.total || 0;
 
         // 3. KPI 렌더링 반영
-        const s = wDataRes.stats || {};
+        const s = wDataRes?.stats || {};
         const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-        setEl('kpi-total-w',   s.total_count   || wDataRes.total || 0);
+        setEl('kpi-total-w',   s.total_count   || wDataRes?.total || 0);
         setEl('kpi-pending-w', s.pending_count || 0);
         setEl('kpi-done-w',    s.paid_count    || 0);
         
@@ -288,7 +287,7 @@
         renderWithdrawalTable(rows);
 
       } catch(err) {
-        if(typeof showToast === 'function') showToast('출금 목록 로드 실패: ' + err.message, 'error');
+        if(typeof showToast === 'function') showToast('출금 목록 로드 실패: ' + err?.message, 'error');
       }
     }
 
@@ -307,50 +306,52 @@
     }
 
     function renderWithdrawalTable(rows) {
-      if (!rows.length) {
+      if (!rows || !rows.length) {
         document.getElementById('withdrawal-tbody').innerHTML =
           `<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text-muted);">조회된 출금 및 지급 내역이 없습니다.</td></tr>`;
       } else {
         document.getElementById('withdrawal-tbody').innerHTML = rows.map(w => {
-          const isPayout = w._type === 'payout';
-          const rowId    = isPayout ? `prow-${w.id}` : `wrow-${w.id}`;
+          const isPayout = w?._type === 'payout';
+          const rowId    = isPayout ? `prow-${w?.id}` : `wrow-${w?.id}`;
           const typeBdg  = isPayout ? `<span class="badge-payout">이자지급</span>` : '';
           const trClass  = isPayout ? 'row-payout' : '';
           
           // 출금/지급 표시 금액 분기 처리
-          const displayAmount = isPayout ? (w.total_payout || w.payout_amount || 0) : (w.amount || 0);
+          const displayAmount = isPayout ? (w?.total_payout || w?.payout_amount || 0) : (w?.amount || 0);
           
-          // ✅ 오류를 잡은 핵심: undefined 객체 프로퍼티(amount) 접근 방지 매핑
-          let invAmt = w.investment_amount;
-          if (invAmt == null) invAmt = w.invest_amount;
-          if (invAmt == null) invAmt = w.principal;
-          if (invAmt == null) invAmt = w.principal_amount;
-          if (invAmt == null && w.investment && w.investment.amount != null) invAmt = w.investment.amount;
-          if (invAmt == null) invAmt = w.amount; // 최종 백업 (Payout용)
+          // ✅ 핵심 수정부: undefined 속성 접근 에러 방지용 완벽 매핑
+          // w.investment 가 null 이라도 w?.investment?.amount 형태로 접근하여 절대 에러가 나지 않음.
+          let invAmt = w?.investment_amount ?? w?.invest_amount ?? w?.principal ?? w?.principal_amount ?? w?.investment?.amount;
+          
+          // 만약 데이터가 이자지급(Payout)인데도 투자금 필드가 다 비어있다면 최후의 보루로 w.amount를 확인
+          if (isPayout && (invAmt === undefined || invAmt === null)) {
+             invAmt = w?.amount;
+          }
 
-          const formattedInvestment = (invAmt != null && invAmt !== '') 
+          // 그래도 없으면 0이 아니라 대시(-) 처리
+          const formattedInvestment = (invAmt !== undefined && invAmt !== null && invAmt !== '') 
               ? safeFormatMoney(invAmt) 
               : '<span style="color:var(--text-muted);" title="데이터를 불러올 수 없습니다.">-</span>';
 
-          const weekTag = w.week_number ? `<span class="badge badge-blue">${w.week_number}주차</span>` : '-';
+          const weekTag = w?.week_number ? `<span class="badge badge-blue">${w.week_number}주차</span>` : '-';
           
           // 버튼 및 액션 분기 처리
           let actionHtml = '';
-          if (w.status === 'pending') {
+          if (w?.status === 'pending') {
             if (isPayout) {
               actionHtml = `
                 <div style="display:flex;gap:4px;">
-                  <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="approvePayoutItem(${w.id})">
+                  <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="approvePayoutItem(${w?.id})">
                     <i class="fas fa-check"></i> 자동지급 승인
                   </button>
                 </div>`;
             } else {
               actionHtml = `
                 <div style="display:flex;gap:4px;">
-                  <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="approveOne(${w.id})">
+                  <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="approveOne(${w?.id})">
                     <i class="fas fa-check"></i> 출금 승인
                   </button>
-                  <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:11px;" onclick="openReject(${w.id})">
+                  <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:11px;" onclick="openReject(${w?.id})">
                     <i class="fas fa-times"></i>
                   </button>
                 </div>`;
@@ -361,17 +362,17 @@
 
           return `
             <tr id="${rowId}" class="${trClass}">
-              <td><input type="checkbox" class="list-checkbox" data-id="${w.id}" data-type="${w._type}" style="accent-color:var(--accent-gold);" ${w.status !== 'pending' ? 'disabled' : ''}></td>
-              <td style="font-weight:700;">${w.user_id} ${typeBdg}</td>
-              <td>${w.name}</td>
-              <td style="font-size:12px;">${w.bank_name||'-'}<br><span style="color:var(--text-muted);">${w.account_number||'-'}</span></td>
+              <td><input type="checkbox" class="list-checkbox" data-id="${w?.id}" data-type="${w?._type}" style="accent-color:var(--accent-gold);" ${w?.status !== 'pending' ? 'disabled' : ''}></td>
+              <td style="font-weight:700;">${w?.user_id || '-'} ${typeBdg}</td>
+              <td>${w?.name || '-'}</td>
+              <td style="font-size:12px;">${w?.bank_name||'-'}<br><span style="color:var(--text-muted);">${w?.account_number||'-'}</span></td>
               <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${formattedInvestment}</td>
               <td>${weekTag}</td>
               <td style="font-weight:700;color:${isPayout ? 'var(--accent-blue)' : 'var(--accent-gold)'};">${safeFormatMoney(displayAmount)}</td>
-              <td style="font-size:12px;">${safeFormatDate(w.request_date||w.created_at)}</td>
-              <td style="font-size:12px;">${safeFormatDate(w.withdraw_date||w.paid_at)}</td>
-              <td id="status-${w._type}-${w.id}">${safeStatusBadge(w.status)}</td>
-              <td id="action-${w._type}-${w.id}">${actionHtml}</td>
+              <td style="font-size:12px;">${safeFormatDate(w?.request_date||w?.created_at)}</td>
+              <td style="font-size:12px;">${safeFormatDate(w?.withdraw_date||w?.paid_at)}</td>
+              <td id="status-${w?._type}-${w?.id}">${safeStatusBadge(w?.status)}</td>
+              <td id="action-${w?._type}-${w?.id}">${actionHtml}</td>
             </tr>
           `;
         }).join('');
@@ -389,7 +390,7 @@
         await WithdrawalsAPI.approve(id);
         if(typeof showToast === 'function') showToast('출금 승인 처리 완료', 'success');
         await loadWithdrawals();
-      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
     function openReject(id) {
@@ -406,7 +407,7 @@
         if(typeof showToast === 'function') showToast('출금 거절 처리 완료', 'warning');
         if(typeof closeModal === 'function') closeModal('modal-reject');
         await loadWithdrawals();
-      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
     // --- 자동 이자 지급 개별 처리 (Payout) ---
@@ -416,7 +417,7 @@
         await InvestmentsAPI.payOne(payoutId);
         if(typeof showToast === 'function') showToast('지급 처리 완료', 'success');
         await loadWithdrawals();
-      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
     // --- 일괄 승인 / 지급 하이브리드 처리 ---
@@ -450,7 +451,7 @@
         if(typeof showToast === 'function') showToast(`${successCount}건 일괄 처리 완료`, 'success');
         document.getElementById('check-all-w').checked = false;
         await loadWithdrawals();
-      } catch(err) { if(typeof showToast === 'function') showToast('일괄 처리 중 오류 발생: ' + err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast('일괄 처리 중 오류 발생: ' + err?.message, 'error'); }
     }
 
     // --- 일괄 거절 처리 (일반 출금 건만 허용) ---
@@ -495,78 +496,77 @@
 
         // 1. 일반 출금 전체 로드
         const wDataRes = await WithdrawalsAPI.list(params);
-        let rows = (wDataRes.data || []).map(w => ({...w, _type: 'withdrawal'}));
+        let rows = (wDataRes?.data || []).map(w => ({...(w || {}), _type: 'withdrawal'}));
 
-        // 2. 이자 지급 전체 로드 병합 및 필터링 적용 (동일한 날짜 계산 로직 사용)
+        // 2. 이자 지급 전체 로드 병합 및 필터링 (동일한 방어/날짜 로직 적용)
         if (status === 'pending' || !status) {
           try {
             const dDataRes = await DashboardAPI.admin();
-            let pRows = dDataRes.weekly_pending || [];
+            let pRows = dDataRes?.weekly_pending || [];
             
             const today = new Date();
             today.setHours(0,0,0,0);
             
             pRows = pRows.filter(p => {
-              if(p.status && p.status !== 'pending') return true;
+              if(p?.status && p.status !== 'pending') return true;
               
-              let targetDateStr = p.payout_date || p.due_date || p.expected_date;
-              let targetDate;
+              let targetDateStr = p?.payout_date || p?.due_date || p?.expected_date || p?.target_date;
+              let targetDate = null;
 
               if (targetDateStr) {
                 targetDate = new Date(targetDateStr);
-              } else if (p.created_at && p.week_number) {
-                targetDate = new Date(p.created_at);
-                targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
-              } else {
-                targetDate = new Date(p.created_at || Date.now());
+              } else if (p?.week_number) {
+                let baseDateStr = p?.investment_date || p?.invest_date || p?.created_at;
+                if (baseDateStr) {
+                   targetDate = new Date(baseDateStr);
+                   targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
+                }
               }
 
-              if (!targetDate || isNaN(targetDate.getTime())) return false;
-              
-              targetDate.setHours(0,0,0,0);
-              if(targetDate.getTime() > today.getTime()) return false;
+              if (targetDate && !isNaN(targetDate.getTime())) {
+                targetDate.setHours(0,0,0,0);
+                if(targetDate.getTime() > today.getTime()) return false;
+              }
               
               return true;
             });
 
             if(q) {
-              pRows = pRows.filter(p => (p.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || (p.name && p.name.toLowerCase().includes(q.toLowerCase())));
+              pRows = pRows.filter(p => (p?.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || (p?.name && p.name.toLowerCase().includes(q.toLowerCase())));
             }
-            pRows = pRows.map(p => ({...p, _type: 'payout'}));
+            pRows = pRows.map(p => ({...(p || {}), _type: 'payout'}));
             rows = [...pRows, ...rows];
           } catch(e) {}
         }
 
-        if (!rows.length) { if(typeof showToast === 'function') showToast('다운로드할 데이터가 없습니다.', 'warning'); return; }
+        if (!rows || !rows.length) { if(typeof showToast === 'function') showToast('다운로드할 데이터가 없습니다.', 'warning'); return; }
 
         const stMap = { pending:'대기', paid:'지급완료', rejected:'거절' };
         const BOM    = '\uFEFF';
         const header = ['구분', '이름', '아이디', '은행명', '계좌번호', '투자금액(원)', '주차', '출금(지급)금액(원)', '신청일(발생일)', '상태'].join(',');
         
         const csvRows = rows.map(w => {
-          const isPayout = w._type === 'payout';
+          const isPayout = w?._type === 'payout';
           const typeName = isPayout ? '주간이자지급' : '수동출금요청';
-          const amount   = isPayout ? (w.total_payout || w.payout_amount || 0) : (w.amount || 0);
-          const rDate    = w.request_date || w.created_at;
+          const amount   = isPayout ? (w?.total_payout || w?.payout_amount || 0) : (w?.amount || 0);
+          const rDate    = w?.request_date || w?.created_at;
           
-          let invAmt = w.investment_amount;
-          if (invAmt == null) invAmt = w.invest_amount;
-          if (invAmt == null) invAmt = w.principal;
-          if (invAmt == null) invAmt = w.principal_amount;
-          if (invAmt == null && w.investment && w.investment.amount != null) invAmt = w.investment.amount;
-          if (invAmt == null) invAmt = w.amount;
+          let invAmt = w?.investment_amount ?? w?.invest_amount ?? w?.principal ?? w?.principal_amount ?? w?.investment?.amount;
+          if (isPayout && (invAmt === undefined || invAmt === null)) {
+             invAmt = w?.amount;
+          }
 
           return [
             `"${typeName}"`,
-            `"${(w.name||'').replace(/"/g,'""')}"`,
-            `"${(w.user_id||'').replace(/"/g,'""')}"`,
-            `"${(w.bank_name||'').replace(/"/g,'""')}"`,
-            `"${(w.account_number||'').replace(/"/g,'""')}"`,
+            `"${(w?.name||'').replace(/"/g,'""')}"`,
+            `"${(w?.user_id||'').replace(/"/g,'""')}"`,
+            `"${(w?.bank_name||'').replace(/"/g,'""')}"`,
+            `"${(w?.account_number||'').replace(/"/g,'""')}"`,
             invAmt || 0,
-            w.week_number || '',
+            w?.week_number || '',
             amount,
             `"${rDate ? safeFormatDate(rDate) : '-'}"`,
-            `"${stMap[w.status] || w.status || '-'}"`
+            `"${stMap[w?.status] || w?.status || '-'}"`
           ].join(',');
         });
 
@@ -581,7 +581,7 @@
         setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
         if(typeof showToast === 'function') showToast(`총 ${rows.length}건 엑셀 다운로드 완료`, 'success');
       } catch(err) {
-        if(typeof showToast === 'function') showToast('다운로드 실패: ' + err.message, 'error');
+        if(typeof showToast === 'function') showToast('다운로드 실패: ' + err?.message, 'error');
       }
     }
   </script>

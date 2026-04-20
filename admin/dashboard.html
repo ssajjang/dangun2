@@ -302,7 +302,7 @@
         <!-- ── Weekly Payout Preview ── -->
         <div class="card anim-fadeInUp delay-2">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-calendar-week icon"></i> 오늘 출금(지급) 예정 내역</span>
+            <span class="card-title"><i class="fas fa-calendar-day icon"></i> 오늘 출금(지급) 예정 내역</span>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="badge badge-orange anim-pulse" id="weekly-pending-badge">승인 대기 0건</span>
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
@@ -356,7 +356,7 @@
   <script src="../js/api.js"></script>
   <script src="../js/dgn.js"></script>
   <script>
-    // 전역 안전 함수 
+    // 전역 안전 함수 (옵셔널 체이닝과 예외처리 완벽 적용)
     const safeFormatMoney = val => typeof formatMoney === 'function' ? formatMoney(val) : `₩${Number(val||0).toLocaleString()}`;
     const safeRankBadge = rank => typeof rankBadge === 'function' ? rankBadge(rank) : (rank || '-');
     const safeFormatDate = dt => typeof formatDateTime === 'function' ? formatDateTime(dt) : dt;
@@ -401,13 +401,12 @@
         renderActivityLog(data);
         renderWeeklyPayouts(data);
         
-        // 직급수당 배열 안전 확보
         const commData = Array.isArray(data.comm_pending) ? data.comm_pending : [];
         renderCommPending(commData);
         
       } catch(err) {
         console.error('[dashboard] loadDashboard error:', err);
-        const msg = err.message || '알 수 없는 오류';
+        const msg = err?.message || '알 수 없는 오류';
         if (msg.includes('401') || msg.includes('403') || msg.includes('인증')) {
           if(typeof showToast === 'function') showToast('세션이 만료되었습니다. 다시 로그인해주세요.', 'error');
           setTimeout(() => { if(typeof Auth !== 'undefined') Auth.clear(); location.replace('/index.html'); }, 2000);
@@ -431,17 +430,17 @@
     }
 
     function renderKPIs(d) {
-      const totalInvest      = d.invest_stats?.total_amount   || 0;
-      const weeklyPaid       = d.payout_stats?.paid_amount    || 0;
-      const commission       = d.comm_stats?.total_amount     || d.comm_stats?.total || 0;
-      const withdrawPending  = d.withdraw_stats?.pending_count || 0;
-      const payoutPending    = d.payout_stats?.pending_count  || 0;
-      const commPending      = d.comm_stats?.pending_comm_count || 0;
+      const totalInvest      = d?.invest_stats?.total_amount   || 0;
+      const weeklyPaid       = d?.payout_stats?.paid_amount    || 0;
+      const commission       = d?.comm_stats?.total_amount     || d?.comm_stats?.total || 0;
+      const withdrawPending  = d?.withdraw_stats?.pending_count || 0;
+      const payoutPending    = d?.payout_stats?.pending_count  || 0;
+      const commPending      = d?.comm_stats?.pending_comm_count || 0;
       const pendingCount     = withdrawPending + commPending;
 
-      const totalMembers     = d.member_stats?.total          || 0;
-      const activeMembers    = d.member_stats?.active         || 0;
-      const inactiveMembers  = d.member_stats?.inactive       || 0;
+      const totalMembers     = d?.member_stats?.total          || 0;
+      const activeMembers    = d?.member_stats?.active         || 0;
+      const inactiveMembers  = d?.member_stats?.inactive       || 0;
 
       const totalEl = document.getElementById('kpi-total-members');
       if (totalEl) totalEl.textContent = totalMembers;
@@ -490,13 +489,13 @@
       const gridColor = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)';
       const textColor = isDark ? 'rgba(200,200,230,0.7)'  : 'rgba(50,50,80,0.7)';
 
-      const monthlyRaw = Array.isArray(d.monthly_invest) ? d.monthly_invest : [];
+      const monthlyRaw = Array.isArray(d?.monthly_invest) ? d.monthly_invest : [];
       const months = ['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
       const now = new Date();
       const monthData = months.map((_, idx) => {
         const key = `${now.getFullYear()}-${String(idx+1).padStart(2,'0')}`;
-        const found = monthlyRaw.find(r => r.month === key);
-        return found ? found.amount : 0;
+        const found = monthlyRaw.find(r => r?.month === key);
+        return found ? (found.amount || 0) : 0;
       });
 
       if (_revenueChart) _revenueChart.destroy();
@@ -530,10 +529,10 @@
         }
       });
 
-      const cs   = d.comm_stats || {};
+      const cs   = d?.comm_stats || {};
       const teamT = cs.teamjang  || 0;
       const bonbT = cs.bonbujang || 0;
-      const payT  = d.payout_stats?.paid_amount || 0;
+      const payT  = d?.payout_stats?.paid_amount || 0;
       const total = teamT + bonbT + payT || 1;
 
       if (_commissionChart) _commissionChart.destroy();
@@ -571,30 +570,30 @@
     }
 
     function renderPendingLists(d) {
-      const wList = Array.isArray(d.withdraw_pending) ? d.withdraw_pending : [];
+      const wList = Array.isArray(d?.withdraw_pending) ? d.withdraw_pending : [];
       const wEl   = document.getElementById('pending-withdraw-list');
       if (wList.length === 0) {
         wEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">출금 내역이 없습니다.</div>`;
       } else {
         const rows = wList.map(w => {
-          const bankInfo = [w.bank_name, w.account_number, w.account_holder].filter(Boolean).join(' · ');
-          const weekTag  = w.week_number ? `<span class="badge badge-blue" style="font-size:10px;">${w.week_number}주차</span>` : '-';
-          const actionCell = w.status === 'pending'
+          const bankInfo = [w?.bank_name, w?.account_number, w?.account_holder].filter(Boolean).join(' · ');
+          const weekTag  = w?.week_number ? `<span class="badge badge-blue" style="font-size:10px;">${w.week_number}주차</span>` : '-';
+          const actionCell = w?.status === 'pending'
             ? `<div style="display:flex;gap:4px;">
                  <button class="btn btn-success btn-sm" style="padding:3px 8px;font-size:10px;" onclick="approveWithdraw(${w.id})">승인</button>
                  <button class="btn btn-danger btn-sm" style="padding:3px 8px;font-size:10px;" onclick="rejectWithdraw(${w.id})">거절</button>
                </div>`
-            : (w.status === 'rejected' && w.reject_reason
+            : (w?.status === 'rejected' && w?.reject_reason
                 ? `<span style="font-size:10px;color:#9b59b6;" title="${w.reject_reason}">거절사유 보기</span>`
                 : `<span style="font-size:10px;color:var(--text-muted);">처리완료</span>`);
           return `
-            <tr id="pw-${w.id}">
-              <td style="font-weight:700;font-size:12px;">${w.user_id||'-'}</td>
-              <td style="font-size:12px;">${w.name||'-'}</td>
+            <tr id="pw-${w?.id}">
+              <td style="font-weight:700;font-size:12px;">${w?.user_id||'-'}</td>
+              <td style="font-size:12px;">${w?.name||'-'}</td>
               <td style="font-size:11px;color:var(--text-muted);">${bankInfo||'-'}</td>
               <td>${weekTag}</td>
-              <td style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;color:var(--accent-gold);">${safeFormatMoney(w.amount)}</td>
-              <td>${withdrawStatusLabel(w.status)}</td>
+              <td style="font-family:'Orbitron',sans-serif;font-weight:700;font-size:12px;color:var(--accent-gold);">${safeFormatMoney(w?.amount)}</td>
+              <td>${withdrawStatusLabel(w?.status)}</td>
               <td>${actionCell}</td>
             </tr>`;
         }).join('');
@@ -615,18 +614,18 @@
           </table>`;
       }
 
-      const mList = Array.isArray(d.pending_members) ? d.pending_members : [];
+      const mList = Array.isArray(d?.pending_members) ? d.pending_members : [];
       const mEl   = document.getElementById('pending-member-list');
       if (mList.length === 0) {
         mEl.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">대기 중인 회원 없음</div>`;
       } else {
         mEl.innerHTML = mList.map(m => `
-          <div class="pending-item" id="pm-${m.id}">
+          <div class="pending-item" id="pm-${m?.id}">
             <div>
-              <div style="font-weight:700;font-size:13px;">${m.user_id} · ${m.name}</div>
-              <div style="font-size:11px;color:var(--text-muted);">${m.phone} · ${safeFormatDate(m.created_at)}</div>
+              <div style="font-weight:700;font-size:13px;">${m?.user_id} · ${m?.name}</div>
+              <div style="font-size:11px;color:var(--text-muted);">${m?.phone} · ${safeFormatDate(m?.created_at)}</div>
             </div>
-            <button class="btn btn-primary btn-sm" style="font-size:10px;" onclick="approveMember(${m.id})">
+            <button class="btn btn-primary btn-sm" style="font-size:10px;" onclick="approveMember(${m?.id})">
               <i class="fas fa-check"></i> 승인
             </button>
           </div>
@@ -648,20 +647,20 @@
     };
 
     function renderActivityLog(d) {
-      const acts = Array.isArray(d.recent_activities) ? d.recent_activities : [];
+      const acts = Array.isArray(d?.recent_activities) ? d.recent_activities : [];
       const el   = document.getElementById('activity-log');
       if (acts.length === 0) {
         el.innerHTML = `<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">활동 내역 없음</div>`;
         return;
       }
       el.innerHTML = acts.map(a => {
-        const cfg = ACTION_ICON[a.action] || { color:'var(--text-muted)', icon:'📋' };
-        const relTime = timeAgo(a.created_at);
+        const cfg = ACTION_ICON[a?.action] || { color:'var(--text-muted)', icon:'📋' };
+        const relTime = timeAgo(a?.created_at);
         return `
           <div class="activity-item">
             <div class="activity-dot" style="background:${cfg.color};box-shadow:0 0 6px ${cfg.color};"></div>
             <div style="flex:1;">
-              <div style="font-size:12px;color:var(--text-secondary);">${cfg.icon} ${a.description || a.action} (${a.actor_name || ''})</div>
+              <div style="font-size:12px;color:var(--text-secondary);">${cfg.icon} ${a?.description || a?.action} (${a?.actor_name || ''})</div>
               <div class="activity-time">${relTime}</div>
             </div>
           </div>
@@ -670,37 +669,37 @@
     }
 
     function renderWeeklyPayouts(d) {
-      let list = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
+      let list = Array.isArray(d?.weekly_pending) ? d.weekly_pending : [];
       
-      // ✅ 미래 지급예정 완벽 차단: 날짜를 0시0분0초(자정) 세팅 후 순수 비교, 비정상 날짜는 숨김 처리
+      // ✅ 미래 지급예정 완벽 차단: 시간을 철저히 자정(00:00:00)으로 세팅 후 순수 비교
       const today = new Date();
       today.setHours(0, 0, 0, 0); 
       
       list = list.filter(w => {
-        if (w.status && w.status !== 'pending') return true;
+        if (w?.status && w.status !== 'pending') return true;
         
-        let targetDateStr = w.payout_date || w.due_date || w.expected_date;
-        let targetDate;
+        let targetDateStr = w?.payout_date || w?.due_date || w?.expected_date || w?.target_date;
+        let targetDate = null;
 
         if (targetDateStr) {
           targetDate = new Date(targetDateStr);
-        } else if (w.created_at && w.week_number) {
-          targetDate = new Date(w.created_at);
-          targetDate.setDate(targetDate.getDate() + (parseInt(w.week_number) * 7));
-        } else {
-          targetDate = new Date(w.created_at || Date.now());
+        } else if (w?.week_number) {
+          // 날짜가 없으면 가입일(또는 투자일) + 주차*7 로 정확히 계산
+          let baseDateStr = w?.investment_date || w?.invest_date || w?.created_at;
+          if (baseDateStr) {
+             targetDate = new Date(baseDateStr);
+             targetDate.setDate(targetDate.getDate() + (parseInt(w.week_number) * 7));
+          }
         }
 
-        // 날짜 변환이 불가능한 오류 데이터는 안전하게 차단
-        if (!targetDate || isNaN(targetDate.getTime())) return false;
+        // 도출해낸 날짜가 정상이고 오늘보다 미래(내일 이후)라면 원천 차단 (숨김)
+        if (targetDate && !isNaN(targetDate.getTime())) {
+          targetDate.setHours(0, 0, 0, 0);
+          if (targetDate.getTime() > today.getTime()) {
+              return false; // 화면에 노출하지 않음
+          }
+        }
         
-        targetDate.setHours(0, 0, 0, 0);
-
-        // 오늘(자정 기준)을 초과하는 미래 날짜의 데이터라면 무조건 리스트에서 제거
-        if (targetDate.getTime() > today.getTime()) {
-            return false;
-        }
-
         return true;
       });
 
@@ -715,17 +714,17 @@
       }
       
       tbody.innerHTML = list.map(w => `
-        <tr id="row-${w.id}">
-          <td><input type="checkbox" class="row-check" data-id="${w.id}" style="accent-color:var(--accent-gold);"></td>
-          <td style="font-weight:700;">${w.user_id}</td>
-          <td>${w.name}</td>
-          <td style="font-size:12px;">${w.bank_name} · ${w.account_number}</td>
-          <td><span class="badge badge-blue">${w.week_number}주차</span></td>
-          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w.total_payout || w.amount || 0)}</td>
-          <td>${typeof statusBadge === 'function' ? statusBadge(w.status) : w.status}</td>
+        <tr id="row-${w?.id}">
+          <td><input type="checkbox" class="row-check" data-id="${w?.id}" style="accent-color:var(--accent-gold);"></td>
+          <td style="font-weight:700;">${w?.user_id}</td>
+          <td>${w?.name}</td>
+          <td style="font-size:12px;">${w?.bank_name} · ${w?.account_number}</td>
+          <td><span class="badge badge-blue">${w?.week_number}주차</span></td>
+          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w?.total_payout || w?.amount || 0)}</td>
+          <td>${typeof statusBadge === 'function' ? statusBadge(w?.status) : w?.status}</td>
           <td>
             <div style="display:flex;gap:6px;">
-              <button class="btn btn-success btn-sm" onclick="approvePayoutItem(${w.id})">
+              <button class="btn btn-success btn-sm" onclick="approvePayoutItem(${w?.id})">
                 <i class="fas fa-check"></i> 지급
               </button>
             </div>
@@ -742,7 +741,7 @@
           if (el) el.remove();
           if(typeof showToast === 'function') showToast('출금 승인 처리 완료', 'success');
           await loadDashboard();
-        } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+        } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
       };
       document.getElementById('confirm-title').textContent = '출금 승인';
       document.getElementById('confirm-message').textContent = `ID ${id} 출금 요청을 승인하시겠습니까?`;
@@ -758,7 +757,7 @@
         if (el) el.remove();
         if(typeof showToast === 'function') showToast('출금 거절 처리 완료', 'warning');
         await loadDashboard();
-      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
     async function approveMember(id) {
@@ -767,7 +766,7 @@
         const el = document.getElementById(`pm-${id}`);
         if (el) el.remove();
         if(typeof showToast === 'function') showToast('회원 승인 완료', 'success');
-      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
     async function approvePayoutItem(payoutId) {
@@ -780,7 +779,7 @@
         }
         if(typeof showToast === 'function') showToast('지급 처리 완료', 'success');
         await loadDashboard();
-      } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+      } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
     }
 
     async function bulkApprove() {
@@ -803,7 +802,7 @@
           if(typeof showToast === 'function') showToast(`${checked.length}건 일괄 지급 완료`, 'success');
           document.getElementById('check-all').checked = false;
           await loadDashboard();
-        } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
+        } catch(err) { if(typeof showToast === 'function') showToast(err?.message, 'error'); }
       };
       document.getElementById('confirm-title').textContent = '일괄 지급';
       document.getElementById('confirm-message').textContent = `${checked.length}건을 일괄 지급 처리하시겠습니까?`;
@@ -835,29 +834,28 @@
       }
 
       tbody.innerHTML = rows.map(c => {
-        // 안전한 변수 치환
-        const rcvUserId = c.receiver_user_id        || '-';
-        const rcvName   = c.receiver_name           || '알수없음';
-        const rcvBank   = c.receiver_bank_name      || '';
-        const rcvAcct   = c.receiver_account_number || '';
-        const invUserId = c.investor_user_id        || '-';
-        const invName   = c.investor_name           || '-';
-        const invAmt    = c.investment_amount       || 0;
-        const commAmt   = c.commission_amount       || 0;
-        const dateStr   = (c.paid_at || c.created_at || '').slice(0, 16);
+        const rcvUserId = c?.receiver_user_id        || '-';
+        const rcvName   = c?.receiver_name           || '알수없음';
+        const rcvBank   = c?.receiver_bank_name      || '';
+        const rcvAcct   = c?.receiver_account_number || '';
+        const invUserId = c?.investor_user_id        || '-';
+        const invName   = c?.investor_name           || '-';
+        const invAmt    = c?.investment_amount       || 0;
+        const commAmt   = c?.commission_amount       || 0;
+        const dateStr   = (c?.paid_at || c?.created_at || '').slice(0, 16);
         const acct      = [rcvBank, rcvAcct].filter(Boolean).join(' ') || '-';
 
         return `
-          <tr id="cpr-${c.id}">
+          <tr id="cpr-${c?.id}">
             <td style="text-align:center;">
-              <input type="checkbox" class="comm-row-cb" data-id="${c.id}" style="accent-color:var(--accent-gold);">
+              <input type="checkbox" class="comm-row-cb" data-id="${c?.id}" style="accent-color:var(--accent-gold);">
             </td>
             <td>
               <div style="font-weight:700;font-size:12px;">${rcvUserId}</div>
               <div style="font-size:10px;color:var(--text-muted);">${rcvName}</div>
             </td>
             <td style="font-family:monospace;font-size:11px;color:var(--text-secondary);">${acct}</td>
-            <td>${safeRankBadge(c.receiver_rank)}</td>
+            <td>${safeRankBadge(c?.receiver_rank)}</td>
             <td>
               <div style="font-size:11px;font-weight:700;">${invUserId}</div>
               <div style="font-size:10px;color:var(--text-muted);">${invName}</div>
@@ -872,7 +870,7 @@
             </td>
             <td style="font-size:11px;">${dateStr}</td>
             <td>
-              <button onclick="approveCommWithdraw(${c.id})"
+              <button onclick="approveCommWithdraw(${c?.id})"
                 style="background:rgba(39,174,96,0.15);border:1px solid rgba(39,174,96,0.4);color:var(--accent-green);padding:4px 10px;border-radius:6px;font-size:11px;font-weight:700;cursor:pointer;white-space:nowrap;">
                 <i class="fas fa-check"></i> 출금완료
               </button>
@@ -892,7 +890,7 @@
 
       try {
         const res = await CommissionsAPI.approve(id);
-        if(typeof showToast === 'function') showToast(res.message || '출금완료 처리되었습니다.', 'success');
+        if(typeof showToast === 'function') showToast(res?.message || '출금완료 처리되었습니다.', 'success');
 
         if (row) {
           const lastCell = row.cells[row.cells.length - 1];
@@ -918,7 +916,7 @@
         }
       } catch(err) {
         if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fas fa-check"></i> 출금완료'; }
-        if(typeof showToast === 'function') showToast('처리 실패: ' + err.message, 'error');
+        if(typeof showToast === 'function') showToast('처리 실패: ' + err?.message, 'error');
       }
     }
 
