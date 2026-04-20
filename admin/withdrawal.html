@@ -214,7 +214,7 @@
             const dDataRes = await DashboardAPI.admin();
             let payoutRows = dDataRes.weekly_pending || [];
             
-            // ✅ 날짜 필터링 로직 추가: 아직 도래하지 않은 미래의 지급 예정 건수 숨김 처리
+            // ✅ 날짜 필터링 로직: 발생일 + 주차 계산으로 미래 예정금액 철저히 차단
             const today = new Date();
             today.setHours(0, 0, 0, 0); // 자정 기준으로 맞춤
             
@@ -222,15 +222,25 @@
               // 대기(pending) 건이 아니라면 필터 통과 (과거 기록 조회용)
               if (p.status && p.status !== 'pending') return true;
 
-              // 지급 예상일자 필드 확인
-              const targetDateStr = p.payout_date || p.due_date || p.expected_date || p.created_at;
+              // 지급 예상일자 도출
+              let targetDateStr = p.payout_date || p.due_date || p.expected_date;
+              let targetDate;
+
               if (targetDateStr) {
-                const targetDate = new Date(targetDateStr);
-                targetDate.setHours(0, 0, 0, 0);
-                // 목표 날짜가 오늘보다 미래라면(예: 아직 도래하지 않은 2주차) 리스트에서 제외
-                if (targetDate.getTime() > today.getTime()) {
-                  return false;
-                }
+                targetDate = new Date(targetDateStr);
+              } else if (p.created_at && p.week_number) {
+                // 명시적 날짜가 없다면 가입일/발생일 + (주차수 * 7일) 계산
+                targetDate = new Date(p.created_at);
+                targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
+              } else {
+                targetDate = new Date(p.created_at || Date.now());
+              }
+
+              targetDate.setHours(0, 0, 0, 0);
+
+              // 목표 날짜가 오늘보다 미래라면(예: 아직 도래하지 않은 2주차) 리스트에서 제외
+              if (targetDate.getTime() > today.getTime()) {
+                return false;
               }
               return true;
             });
@@ -254,7 +264,7 @@
             wDataRes.stats.pending_count = (wDataRes.stats.pending_count || 0) + payoutRows.length;
             wDataRes.stats.total_count   = (wDataRes.stats.total_count || 0) + payoutRows.length;
             
-            const payoutAmountSum = payoutRows.reduce((acc, p) => acc + (Number(p.total_payout) || 0), 0);
+            const payoutAmountSum = payoutRows.reduce((acc, p) => acc + (Number(p.total_payout || p.payout_amount) || 0), 0);
             wDataRes.stats.pending_amount = (wDataRes.stats.pending_amount || 0) + payoutAmountSum;
 
           } catch(e) { console.warn('Dashboard Payout data load failed:', e); }
@@ -305,11 +315,14 @@
           const typeBdg  = isPayout ? `<span class="badge-payout">이자지급</span>` : '';
           const trClass  = isPayout ? 'row-payout' : '';
           
-          // 금액 및 데이터 매핑 보정
-          const displayAmount = isPayout ? (w.total_payout || 0) : (w.amount || 0);
+          // 출금/지급 표시 금액 분기 처리
+          const displayAmount = isPayout ? (w.total_payout || w.payout_amount || 0) : (w.amount || 0);
           
-          // ✅ 투자금 0원 해결: 백엔드의 필드 이름 불일치 대비 및 빈칸 처리
-          const investmentAmt = w.investment_amount || w.invest_amount || w.principal || null;
+          // ✅ 투자금 맵핑 처리 강화: Payout API에선 'amount'가 투자 원금일 수 있음
+          const investmentAmt = isPayout 
+              ? (w.investment_amount || w.invest_amount || w.amount || null)
+              : (w.investment_amount || w.invest_amount || w.principal || null);
+
           const formattedInvestment = investmentAmt ? safeFormatMoney(investmentAmt) : '<span style="color:var(--text-muted);" title="데이터 없음">-</span>';
 
           const weekTag = w.week_number ? `<span class="badge badge-blue">${w.week_number}주차</span>` : '-';
@@ -477,7 +490,7 @@
         const wDataRes = await WithdrawalsAPI.list(params);
         let rows = (wDataRes.data || []).map(w => ({...w, _type: 'withdrawal'}));
 
-        // 2. 이자 지급 전체 로드 병합 및 필터링 적용
+        // 2. 이자 지급 전체 로드 병합 및 필터링 적용 (동일한 날짜 계산 로직 사용)
         if (status === 'pending' || !status) {
           try {
             const dDataRes = await DashboardAPI.admin();
@@ -487,12 +500,22 @@
             today.setHours(0,0,0,0);
             pRows = pRows.filter(p => {
               if(p.status && p.status !== 'pending') return true;
-              const dStr = p.payout_date || p.due_date || p.expected_date || p.created_at;
-              if(dStr) {
-                 const tDate = new Date(dStr);
-                 tDate.setHours(0,0,0,0);
-                 if(tDate.getTime() > today.getTime()) return false;
+              
+              let targetDateStr = p.payout_date || p.due_date || p.expected_date;
+              let targetDate;
+
+              if (targetDateStr) {
+                targetDate = new Date(targetDateStr);
+              } else if (p.created_at && p.week_number) {
+                targetDate = new Date(p.created_at);
+                targetDate.setDate(targetDate.getDate() + (parseInt(p.week_number) * 7));
+              } else {
+                targetDate = new Date(p.created_at || Date.now());
               }
+
+              targetDate.setHours(0,0,0,0);
+              if(targetDate.getTime() > today.getTime()) return false;
+              
               return true;
             });
 
@@ -513,9 +536,11 @@
         const csvRows = rows.map(w => {
           const isPayout = w._type === 'payout';
           const typeName = isPayout ? '주간이자지급' : '수동출금요청';
-          const amount   = isPayout ? (w.total_payout || 0) : (w.amount || 0);
+          const amount   = isPayout ? (w.total_payout || w.payout_amount || 0) : (w.amount || 0);
           const rDate    = w.request_date || w.created_at;
-          const invAmt   = w.investment_amount || w.invest_amount || w.principal || 0;
+          const invAmt   = isPayout 
+              ? (w.investment_amount || w.invest_amount || w.amount || 0)
+              : (w.investment_amount || w.invest_amount || w.principal || 0);
 
           return [
             `"${typeName}"`,

@@ -180,8 +180,8 @@
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="stat-value" id="kpi-paid">₩0</div>
-            <div class="stat-label">오늘 출금 예정 내역</div>
-            <div class="stat-change" style="color:var(--text-muted);">오늘 마감</div>
+            <div class="stat-label">이번 주 지급 예정</div>
+            <div class="stat-change" style="color:var(--text-muted);">다음 금요일</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-4">
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-percentage"></i></div>
@@ -302,7 +302,7 @@
         <!-- ── Weekly Payout Preview ── -->
         <div class="card anim-fadeInUp delay-2">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-calendar-day icon"></i> 오늘 출금(지급) 예정 내역</span>
+            <span class="card-title"><i class="fas fa-calendar-week icon"></i> 오늘 출금(지급) 예정 내역</span>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="badge badge-orange anim-pulse" id="weekly-pending-badge">승인 대기 0건</span>
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
@@ -356,6 +356,7 @@
   <script src="../js/api.js"></script>
   <script src="../js/dgn.js"></script>
   <script>
+    // 전역 안전 함수 
     const safeFormatMoney = val => typeof formatMoney === 'function' ? formatMoney(val) : `₩${Number(val||0).toLocaleString()}`;
     const safeRankBadge = rank => typeof rankBadge === 'function' ? rankBadge(rank) : (rank || '-');
     const safeFormatDate = dt => typeof formatDateTime === 'function' ? formatDateTime(dt) : dt;
@@ -400,6 +401,7 @@
         renderActivityLog(data);
         renderWeeklyPayouts(data);
         
+        // 직급수당 배열 안전 확보
         const commData = Array.isArray(data.comm_pending) ? data.comm_pending : [];
         renderCommPending(commData);
         
@@ -670,7 +672,7 @@
     function renderWeeklyPayouts(d) {
       let list = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
       
-      // ✅ 오늘 날짜 필터링: 아직 도래하지 않은 2주차 등의 예비 지급내역 제외
+      // ✅ 오늘 날짜 필터링: 발생일 + (주차 * 7일) 계산하여 도래한 건만 노출
       const today = new Date();
       today.setHours(0, 0, 0, 0); // 시간 제거 후 날짜만 비교
       
@@ -678,15 +680,25 @@
         // 이미 승인된 건은 제외, 대기(pending) 상태만 확인
         if (w.status && w.status !== 'pending') return false;
         
-        // 날짜 필드가 존재할 경우 확인
-        const targetDateStr = w.payout_date || w.due_date || w.expected_date || w.created_at;
+        let targetDateStr = w.payout_date || w.due_date || w.expected_date;
+        let targetDate;
+
         if (targetDateStr) {
-          const targetDate = new Date(targetDateStr);
-          targetDate.setHours(0, 0, 0, 0);
-          // 7일 도래 기준: 목표일이 오늘보다 미래라면 숨김
-          if (targetDate.getTime() > today.getTime()) {
-            return false;
-          }
+          targetDate = new Date(targetDateStr);
+        } else if (w.created_at && w.week_number) {
+          // 명시적 날짜가 없다면 가입일/발생일 + (주차수 * 7일) 계산
+          targetDate = new Date(w.created_at);
+          targetDate.setDate(targetDate.getDate() + (parseInt(w.week_number) * 7));
+        } else {
+          // 계산 불가할 경우 안전하게 created_at 사용
+          targetDate = new Date(w.created_at || Date.now());
+        }
+
+        targetDate.setHours(0, 0, 0, 0);
+
+        // 7일 도래 기준: 목표일이 오늘보다 미래라면 숨김
+        if (targetDate.getTime() > today.getTime()) {
+          return false;
         }
         return true;
       });
@@ -708,7 +720,7 @@
           <td>${w.name}</td>
           <td style="font-size:12px;">${w.bank_name} · ${w.account_number}</td>
           <td><span class="badge badge-blue">${w.week_number}주차</span></td>
-          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w.total_payout)}</td>
+          <td style="font-family:'Orbitron',sans-serif;font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w.total_payout || w.payout_amount)}</td>
           <td>${typeof statusBadge === 'function' ? statusBadge(w.status) : w.status}</td>
           <td>
             <div style="display:flex;gap:6px;">
@@ -806,6 +818,7 @@
       if(typeof closeModal === 'function') closeModal('modal-confirm');
     }
 
+    // ── 직급수당 출금대기 렌더링 ──
     function renderCommPending(rows) {
       const tbody = document.getElementById('comm-pending-tbody');
       const badge = document.getElementById('comm-pending-badge');
@@ -821,6 +834,7 @@
       }
 
       tbody.innerHTML = rows.map(c => {
+        // 안전한 변수 치환
         const rcvUserId = c.receiver_user_id        || '-';
         const rcvName   = c.receiver_name           || '알수없음';
         const rcvBank   = c.receiver_bank_name      || '';
