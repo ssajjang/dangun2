@@ -89,7 +89,7 @@
           <div class="card-header">
             <span class="card-title">
               <i class="fas fa-table icon"></i> 출금 및 지급 대기 내역 
-              <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:8px;">(수동 출금 요청 및 주차별 자동 이자 지급 포함)</span>
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:8px;">(수동 출금 요청 및 금일 도래 자동 이자 지급 포함)</span>
             </span>
             <div style="display:flex;gap:8px;align-items:center;">
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
@@ -208,12 +208,32 @@
         const wDataRes = await WithdrawalsAPI.list(params);
         let rows = (wDataRes.data || []).map(w => ({...w, _type: 'withdrawal'}));
 
-        // 2. 대시보드의 주차별 이자 자동지급 (Payouts - weekly_pending) 가져오기
-        // (1페이지이고, 상태가 대기이거나 전체일 때 목록의 최상단에 통합하여 표시)
+        // 2. 대시보드의 주차별 이자 자동지급 (Payouts - weekly_pending) 가져오기 및 날짜 필터링
         if (currentPageW === 1 && (status === 'pending' || !status)) {
           try {
             const dDataRes = await DashboardAPI.admin();
             let payoutRows = dDataRes.weekly_pending || [];
+            
+            // ✅ 날짜 필터링 로직 추가: 아직 도래하지 않은 미래의 지급 예정 건수 숨김 처리
+            const today = new Date();
+            today.setHours(0, 0, 0, 0); // 자정 기준으로 맞춤
+            
+            payoutRows = payoutRows.filter(p => {
+              // 대기(pending) 건이 아니라면 필터 통과 (과거 기록 조회용)
+              if (p.status && p.status !== 'pending') return true;
+
+              // 지급 예상일자 필드 확인
+              const targetDateStr = p.payout_date || p.due_date || p.expected_date || p.created_at;
+              if (targetDateStr) {
+                const targetDate = new Date(targetDateStr);
+                targetDate.setHours(0, 0, 0, 0);
+                // 목표 날짜가 오늘보다 미래라면(예: 아직 도래하지 않은 2주차) 리스트에서 제외
+                if (targetDate.getTime() > today.getTime()) {
+                  return false;
+                }
+              }
+              return true;
+            });
             
             // 검색어가 있으면 Payout 데이터도 필터링
             if (q) {
@@ -287,9 +307,14 @@
           
           // 금액 및 데이터 매핑 보정
           const displayAmount = isPayout ? (w.total_payout || 0) : (w.amount || 0);
+          
+          // ✅ 투자금 0원 해결: 백엔드의 필드 이름 불일치 대비 및 빈칸 처리
+          const investmentAmt = w.investment_amount || w.invest_amount || w.principal || null;
+          const formattedInvestment = investmentAmt ? safeFormatMoney(investmentAmt) : '<span style="color:var(--text-muted);" title="데이터 없음">-</span>';
+
           const weekTag = w.week_number ? `<span class="badge badge-blue">${w.week_number}주차</span>` : '-';
           
-          // 버튼 및 액션 분기 처리 (Payout용 / Withdrawal용)
+          // 버튼 및 액션 분기 처리
           let actionHtml = '';
           if (w.status === 'pending') {
             if (isPayout) {
@@ -320,7 +345,7 @@
               <td style="font-weight:700;">${w.user_id} ${typeBdg}</td>
               <td>${w.name}</td>
               <td style="font-size:12px;">${w.bank_name||'-'}<br><span style="color:var(--text-muted);">${w.account_number||'-'}</span></td>
-              <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${safeFormatMoney(w.investment_amount||0)}</td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${formattedInvestment}</td>
               <td>${weekTag}</td>
               <td style="font-weight:700;color:${isPayout ? 'var(--accent-blue)' : 'var(--accent-gold)'};">${safeFormatMoney(displayAmount)}</td>
               <td style="font-size:12px;">${safeFormatDate(w.request_date||w.created_at)}</td>
@@ -452,11 +477,25 @@
         const wDataRes = await WithdrawalsAPI.list(params);
         let rows = (wDataRes.data || []).map(w => ({...w, _type: 'withdrawal'}));
 
-        // 2. 이자 지급 전체 로드 병합
+        // 2. 이자 지급 전체 로드 병합 및 필터링 적용
         if (status === 'pending' || !status) {
           try {
             const dDataRes = await DashboardAPI.admin();
             let pRows = dDataRes.weekly_pending || [];
+            
+            const today = new Date();
+            today.setHours(0,0,0,0);
+            pRows = pRows.filter(p => {
+              if(p.status && p.status !== 'pending') return true;
+              const dStr = p.payout_date || p.due_date || p.expected_date || p.created_at;
+              if(dStr) {
+                 const tDate = new Date(dStr);
+                 tDate.setHours(0,0,0,0);
+                 if(tDate.getTime() > today.getTime()) return false;
+              }
+              return true;
+            });
+
             if(q) {
               pRows = pRows.filter(p => (p.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || (p.name && p.name.toLowerCase().includes(q.toLowerCase())));
             }
@@ -469,7 +508,6 @@
 
         const stMap = { pending:'대기', paid:'지급완료', rejected:'거절' };
         const BOM    = '\uFEFF';
-        // '구분' 컬럼 추가
         const header = ['구분', '이름', '아이디', '은행명', '계좌번호', '투자금액(원)', '주차', '출금(지급)금액(원)', '신청일(발생일)', '상태'].join(',');
         
         const csvRows = rows.map(w => {
@@ -477,6 +515,7 @@
           const typeName = isPayout ? '주간이자지급' : '수동출금요청';
           const amount   = isPayout ? (w.total_payout || 0) : (w.amount || 0);
           const rDate    = w.request_date || w.created_at;
+          const invAmt   = w.investment_amount || w.invest_amount || w.principal || 0;
 
           return [
             `"${typeName}"`,
@@ -484,7 +523,7 @@
             `"${(w.user_id||'').replace(/"/g,'""')}"`,
             `"${(w.bank_name||'').replace(/"/g,'""')}"`,
             `"${(w.account_number||'').replace(/"/g,'""')}"`,
-            w.investment_amount || 0,
+            invAmt,
             w.week_number || '',
             amount,
             `"${rDate ? safeFormatDate(rDate) : '-'}"`,

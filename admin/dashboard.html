@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>DANGUN - 관리자 대시보드</title>
-  <!-- ✅ 즉시 실행 인증 가드: 외부 스크립트 로드 전 차단 -->
   <script>(function(){var t=localStorage.getItem('dangun_token');var a=null;try{a=JSON.parse(localStorage.getItem('dangun_admin')||'null');}catch(e){}if(!t||!a||!a.id){localStorage.removeItem('dangun_token');localStorage.removeItem('dangun_admin');localStorage.removeItem('dangun_user');location.replace('/index.html');}})();</script>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;900&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.4.0/css/all.min.css">
@@ -181,7 +180,6 @@
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="stat-value" id="kpi-paid">₩0</div>
-            <!-- 수정사항 1: 이번 주 지급 예정 -> 오늘 출금 예정 내역 -->
             <div class="stat-label">오늘 출금 예정 내역</div>
             <div class="stat-change" style="color:var(--text-muted);">오늘 마감</div>
           </div>
@@ -301,10 +299,10 @@
           </div>
         </div>
 
-        <!-- ── Weekly Payout Preview (오늘 출금 예정으로 타이틀 수정) ── -->
+        <!-- ── Weekly Payout Preview ── -->
         <div class="card anim-fadeInUp delay-2">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-calendar-day icon"></i> 오늘 출금 예정 내역</span>
+            <span class="card-title"><i class="fas fa-calendar-day icon"></i> 오늘 출금(지급) 예정 내역</span>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="badge badge-orange anim-pulse" id="weekly-pending-badge">승인 대기 0건</span>
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
@@ -358,7 +356,6 @@
   <script src="../js/api.js"></script>
   <script src="../js/dgn.js"></script>
   <script>
-    // 전역 안전 함수 
     const safeFormatMoney = val => typeof formatMoney === 'function' ? formatMoney(val) : `₩${Number(val||0).toLocaleString()}`;
     const safeRankBadge = rank => typeof rankBadge === 'function' ? rankBadge(rank) : (rank || '-');
     const safeFormatDate = dt => typeof formatDateTime === 'function' ? formatDateTime(dt) : dt;
@@ -403,7 +400,6 @@
         renderActivityLog(data);
         renderWeeklyPayouts(data);
         
-        // 직급수당 배열 안전 확보
         const commData = Array.isArray(data.comm_pending) ? data.comm_pending : [];
         renderCommPending(commData);
         
@@ -672,17 +668,39 @@
     }
 
     function renderWeeklyPayouts(d) {
-      const list  = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
-      const tbody = document.getElementById('weekly-payout-tbody');
+      let list = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
       
-      // 승인 대기 건수 배지 업데이트
+      // ✅ 오늘 날짜 필터링: 아직 도래하지 않은 2주차 등의 예비 지급내역 제외
+      const today = new Date();
+      today.setHours(0, 0, 0, 0); // 시간 제거 후 날짜만 비교
+      
+      list = list.filter(w => {
+        // 이미 승인된 건은 제외, 대기(pending) 상태만 확인
+        if (w.status && w.status !== 'pending') return false;
+        
+        // 날짜 필드가 존재할 경우 확인
+        const targetDateStr = w.payout_date || w.due_date || w.expected_date || w.created_at;
+        if (targetDateStr) {
+          const targetDate = new Date(targetDateStr);
+          targetDate.setHours(0, 0, 0, 0);
+          // 7일 도래 기준: 목표일이 오늘보다 미래라면 숨김
+          if (targetDate.getTime() > today.getTime()) {
+            return false;
+          }
+        }
+        return true;
+      });
+
+      const tbody = document.getElementById('weekly-payout-tbody');
       const badge = document.getElementById('weekly-pending-badge');
+      
       if (badge) badge.textContent = `승인 대기 ${list.length}건`;
 
       if (list.length === 0) {
         tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">오늘 출금(지급) 예정 내역이 없습니다.</td></tr>`;
         return;
       }
+      
       tbody.innerHTML = list.map(w => `
         <tr id="row-${w.id}">
           <td><input type="checkbox" class="row-check" data-id="${w.id}" style="accent-color:var(--accent-gold);"></td>
@@ -748,7 +766,6 @@
           row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 지급완료</span>`;
         }
         if(typeof showToast === 'function') showToast('지급 처리 완료', 'success');
-        // 배지 업데이트를 위해 대시보드 리로드
         await loadDashboard();
       } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
     }
@@ -789,7 +806,6 @@
       if(typeof closeModal === 'function') closeModal('modal-confirm');
     }
 
-    // ── 직급수당 출금대기 렌더링 ──
     function renderCommPending(rows) {
       const tbody = document.getElementById('comm-pending-tbody');
       const badge = document.getElementById('comm-pending-badge');
@@ -805,7 +821,6 @@
       }
 
       tbody.innerHTML = rows.map(c => {
-        // 안전한 변수 치환
         const rcvUserId = c.receiver_user_id        || '-';
         const rcvName   = c.receiver_name           || '알수없음';
         const rcvBank   = c.receiver_bank_name      || '';
