@@ -11,6 +11,10 @@
   <style>
     .filter-bar { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:20px; }
     .filter-bar .form-control { width:auto; min-width:120px; }
+    /* 이자 지급 행 시각적 구분 */
+    .row-payout { background: rgba(90, 123, 255, 0.04); }
+    .row-payout:hover { background: rgba(90, 123, 255, 0.08) !important; }
+    .badge-payout { font-size: 10px; background: rgba(90, 123, 255, 0.2); color: var(--accent-blue); padding: 2px 6px; border-radius: 4px; margin-left: 6px; }
   </style>
 </head>
 <body>
@@ -60,15 +64,15 @@
       </header>
 
       <div class="page-content">
-        <!-- KPIs (DB 연동) -->
+        <!-- KPIs -->
         <div class="grid grid-4 mb-24" style="gap:14px;">
           <div class="stat-card anim-fadeInUp delay-1">
             <div class="stat-icon"><i class="fas fa-list"></i></div>
-            <div class="stat-value" id="kpi-total-w">-</div><div class="stat-label">전체 출금 건수</div>
+            <div class="stat-value" id="kpi-total-w">-</div><div class="stat-label">전체 내역 건수</div>
           </div>
           <div class="stat-card red anim-fadeInUp delay-2">
             <div class="stat-icon"><i class="fas fa-clock"></i></div>
-            <div class="stat-value" id="kpi-pending-w">-</div><div class="stat-label">대기 건수</div>
+            <div class="stat-value" id="kpi-pending-w">-</div><div class="stat-label">총 대기 건수</div>
           </div>
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
@@ -76,17 +80,20 @@
           </div>
           <div class="stat-card blue anim-fadeInUp delay-4">
             <div class="stat-icon"><i class="fas fa-coins"></i></div>
-            <div class="stat-value" id="kpi-amount-w" style="font-size:18px;">-</div><div class="stat-label">대기 합계</div>
+            <div class="stat-value" id="kpi-amount-w" style="font-size:18px;">-</div><div class="stat-label">대기 금액 합계</div>
           </div>
         </div>
 
         <!-- Bulk Actions + Table -->
         <div class="card anim-fadeInUp">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-table icon"></i> 출금 내역</span>
+            <span class="card-title">
+              <i class="fas fa-table icon"></i> 출금 및 지급 대기 내역 
+              <span style="font-size:12px;font-weight:400;color:var(--text-muted);margin-left:8px;">(수동 출금 요청 및 주차별 자동 이자 지급 포함)</span>
+            </span>
             <div style="display:flex;gap:8px;align-items:center;">
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
-                <i class="fas fa-check-double"></i> 선택 일괄 승인
+                <i class="fas fa-check-double"></i> 선택 일괄 승인/지급
               </button>
               <button class="btn btn-danger btn-sm" onclick="bulkReject()">
                 <i class="fas fa-times-circle"></i> 선택 일괄 거절
@@ -119,15 +126,14 @@
                 <thead>
                   <tr>
                     <th><input type="checkbox" id="check-all-w" onchange="toggleAllW(this)" style="accent-color:var(--accent-gold);"></th>
-                    <th>아이디</th>
+                    <th>아이디 / 구분</th>
                     <th>이름</th>
                     <th>은행 / 계좌</th>
                     <th>투자금</th>
                     <th>주차</th>
-                    <th>지급 이자</th>
-                    <th>출금 금액</th>
-                    <th>신청일</th>
-                    <th>출금일</th>
+                    <th>출금/지급 금액</th>
+                    <th>발생일/신청일</th>
+                    <th>처리일</th>
                     <th>상태</th>
                     <th>처리</th>
                   </tr>
@@ -167,8 +173,7 @@
   <script src="../js/api.js"></script>
   <script src="../js/dgn.js"></script>
   <script>
-    // ✅ 데이터 바인딩 시 렌더링 중단을 막아주는 안전(Fallback) 함수 추가
-    // 이 함수들이 적용되어야 대시보드와 데이터 출력의 동기화가 깨지지 않습니다.
+    // ✅ 데이터 바인딩 시 렌더링 중단을 막아주는 안전(Fallback) 함수
     const safeFormatMoney = val => typeof formatMoney === 'function' ? formatMoney(val) : `₩${Number(val||0).toLocaleString()}`;
     const safeFormatDate = dt => {
       if (!dt) return '<span style="color:var(--text-muted);">-</span>';
@@ -192,25 +197,64 @@
       let   status  = document.getElementById('filter-status-w').value;
       const showAll = document.getElementById('show-all-w')?.checked || false;
       const params  = { page: currentPageW, limit: PAGE_LIMIT_W };
-      if (q)      params.search = q;
+      
+      if (q) params.search = q;
       // "전체 보기" 켜지 않으면 pending 강제 노출
       if (!showAll && !status) status = 'pending';
       if (status) params.status = status;
 
       try {
-        const data = await WithdrawalsAPI.list(params);
-        totalCountW = data.total || 0;
-        renderWithdrawalTable(data.data || []);
+        // 1. 일반 수동 출금 내역 (Withdrawals) 가져오기
+        const wDataRes = await WithdrawalsAPI.list(params);
+        let rows = (wDataRes.data || []).map(w => ({...w, _type: 'withdrawal'}));
 
-        // ── KPI 카드 DB 데이터로 업데이트 ──
-        const s = data.stats || {};
+        // 2. 대시보드의 주차별 이자 자동지급 (Payouts - weekly_pending) 가져오기
+        // (1페이지이고, 상태가 대기이거나 전체일 때 목록의 최상단에 통합하여 표시)
+        if (currentPageW === 1 && (status === 'pending' || !status)) {
+          try {
+            const dDataRes = await DashboardAPI.admin();
+            let payoutRows = dDataRes.weekly_pending || [];
+            
+            // 검색어가 있으면 Payout 데이터도 필터링
+            if (q) {
+              payoutRows = payoutRows.filter(p => 
+                (p.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || 
+                (p.name && p.name.toLowerCase().includes(q.toLowerCase()))
+              );
+            }
+            
+            // 타입 태그 부착
+            payoutRows = payoutRows.map(p => ({...p, _type: 'payout'}));
+            
+            // 리스트 최상단에 이자 지급(Payout) 내역 병합
+            rows = [...payoutRows, ...rows];
+
+            // Payout 관련 건수 및 금액을 KPI 데이터에 합산
+            wDataRes.stats = wDataRes.stats || {};
+            wDataRes.stats.pending_count = (wDataRes.stats.pending_count || 0) + payoutRows.length;
+            wDataRes.stats.total_count   = (wDataRes.stats.total_count || 0) + payoutRows.length;
+            
+            const payoutAmountSum = payoutRows.reduce((acc, p) => acc + (Number(p.total_payout) || 0), 0);
+            wDataRes.stats.pending_amount = (wDataRes.stats.pending_amount || 0) + payoutAmountSum;
+
+          } catch(e) { console.warn('Dashboard Payout data load failed:', e); }
+        }
+
+        totalCountW = wDataRes.total || 0;
+
+        // 3. KPI 렌더링 반영
+        const s = wDataRes.stats || {};
         const setEl = (id, val) => { const el = document.getElementById(id); if(el) el.textContent = val; };
-        setEl('kpi-total-w',   s.total_count   || data.total || 0);
+        setEl('kpi-total-w',   s.total_count   || wDataRes.total || 0);
         setEl('kpi-pending-w', s.pending_count || 0);
         setEl('kpi-done-w',    s.paid_count    || 0);
+        
         const kpiAmtEl = document.getElementById('kpi-amount-w');
-        // 안전 포맷 함수 적용
         if (kpiAmtEl) kpiAmtEl.innerHTML = safeFormatMoney(s.pending_amount || 0) + (window.DGN ? DGN.html(s.pending_amount || 0) : '');
+
+        // 4. 합쳐진 테이블 렌더링
+        renderWithdrawalTable(rows);
+
       } catch(err) {
         if(typeof showToast === 'function') showToast('출금 목록 로드 실패: ' + err.message, 'error');
       }
@@ -233,35 +277,59 @@
     function renderWithdrawalTable(rows) {
       if (!rows.length) {
         document.getElementById('withdrawal-tbody').innerHTML =
-          `<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text-muted);">출금 내역이 없습니다.</td></tr>`;
+          `<tr><td colspan="12" style="text-align:center;padding:24px;color:var(--text-muted);">조회된 출금 및 지급 내역이 없습니다.</td></tr>`;
       } else {
-        // 안전 함수(safeFormatMoney, safeFormatDate, safeStatusBadge)를 사용하여 렌더링 에러 방지
-        document.getElementById('withdrawal-tbody').innerHTML = rows.map(w => `
-          <tr id="wrow-${w.id}">
-            <td><input type="checkbox" class="wrow-check" data-id="${w.id}" style="accent-color:var(--accent-gold);" ${w.status !== 'pending' ? 'disabled' : ''}></td>
-            <td style="font-weight:700;">${w.user_id}</td>
-            <td>${w.name}</td>
-            <td style="font-size:12px;">${w.bank_name}<br><span style="color:var(--text-muted);">${w.account_number}</span></td>
-            <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${safeFormatMoney(w.investment_amount||0)}</td>
-            <td><span class="badge badge-blue">${w.week_number||'-'}주차</span></td>
-            <td style="color:var(--accent-green);">-</td>
-            <td style="font-weight:700;color:var(--accent-gold);">${safeFormatMoney(w.amount)}</td>
-            <td style="font-size:12px;">${safeFormatDate(w.request_date||w.created_at)}</td>
-            <td style="font-size:12px;">${safeFormatDate(w.withdraw_date)}</td>
-            <td id="wstatus-${w.id}">${safeStatusBadge(w.status)}</td>
-            <td id="waction-${w.id}">
-              ${w.status === 'pending' ? `
+        document.getElementById('withdrawal-tbody').innerHTML = rows.map(w => {
+          const isPayout = w._type === 'payout';
+          const rowId    = isPayout ? `prow-${w.id}` : `wrow-${w.id}`;
+          const typeBdg  = isPayout ? `<span class="badge-payout">이자지급</span>` : '';
+          const trClass  = isPayout ? 'row-payout' : '';
+          
+          // 금액 및 데이터 매핑 보정
+          const displayAmount = isPayout ? (w.total_payout || 0) : (w.amount || 0);
+          const weekTag = w.week_number ? `<span class="badge badge-blue">${w.week_number}주차</span>` : '-';
+          
+          // 버튼 및 액션 분기 처리 (Payout용 / Withdrawal용)
+          let actionHtml = '';
+          if (w.status === 'pending') {
+            if (isPayout) {
+              actionHtml = `
+                <div style="display:flex;gap:4px;">
+                  <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="approvePayoutItem(${w.id})">
+                    <i class="fas fa-check"></i> 자동지급 승인
+                  </button>
+                </div>`;
+            } else {
+              actionHtml = `
                 <div style="display:flex;gap:4px;">
                   <button class="btn btn-success btn-sm" style="padding:4px 10px;font-size:11px;" onclick="approveOne(${w.id})">
-                    <i class="fas fa-check"></i> 승인
+                    <i class="fas fa-check"></i> 출금 승인
                   </button>
                   <button class="btn btn-danger btn-sm" style="padding:4px 8px;font-size:11px;" onclick="openReject(${w.id})">
                     <i class="fas fa-times"></i>
                   </button>
-                </div>` : `<span style="font-size:11px;color:var(--text-muted);">처리완료</span>`}
-            </td>
-          </tr>
-        `).join('');
+                </div>`;
+            }
+          } else {
+            actionHtml = `<span style="font-size:11px;color:var(--text-muted);">처리완료</span>`;
+          }
+
+          return `
+            <tr id="${rowId}" class="${trClass}">
+              <td><input type="checkbox" class="list-checkbox" data-id="${w.id}" data-type="${w._type}" style="accent-color:var(--accent-gold);" ${w.status !== 'pending' ? 'disabled' : ''}></td>
+              <td style="font-weight:700;">${w.user_id} ${typeBdg}</td>
+              <td>${w.name}</td>
+              <td style="font-size:12px;">${w.bank_name||'-'}<br><span style="color:var(--text-muted);">${w.account_number||'-'}</span></td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:12px;">${safeFormatMoney(w.investment_amount||0)}</td>
+              <td>${weekTag}</td>
+              <td style="font-weight:700;color:${isPayout ? 'var(--accent-blue)' : 'var(--accent-gold)'};">${safeFormatMoney(displayAmount)}</td>
+              <td style="font-size:12px;">${safeFormatDate(w.request_date||w.created_at)}</td>
+              <td style="font-size:12px;">${safeFormatDate(w.withdraw_date||w.paid_at)}</td>
+              <td id="status-${w._type}-${w.id}">${safeStatusBadge(w.status)}</td>
+              <td id="action-${w._type}-${w.id}">${actionHtml}</td>
+            </tr>
+          `;
+        }).join('');
       }
 
       if(typeof renderPagination === 'function') {
@@ -270,6 +338,7 @@
       }
     }
 
+    // --- 수동 출금 요청 개별 처리 ---
     async function approveOne(id) {
       try {
         await WithdrawalsAPI.approve(id);
@@ -295,23 +364,64 @@
       } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
     }
 
-    async function bulkApprove() {
-      const checked = document.querySelectorAll('.wrow-check:checked:not(:disabled)');
-      if (checked.length === 0) { if(typeof showToast === 'function') showToast('선택된 대기 항목이 없습니다.', 'warning'); return; }
-      const ids = [...checked].map(cb => parseInt(cb.dataset.id));
+    // --- 자동 이자 지급 개별 처리 (Payout) ---
+    async function approvePayoutItem(payoutId) {
+      if(!confirm('해당 주차 이자를 지급 처리하시겠습니까?')) return;
       try {
-        await WithdrawalsAPI.bulkApprove(ids);
-        if(typeof showToast === 'function') showToast(`${ids.length}건 일괄 승인 처리되었습니다.`, 'success');
-        document.getElementById('check-all-w').checked = false;
+        await InvestmentsAPI.payOne(payoutId);
+        if(typeof showToast === 'function') showToast('지급 처리 완료', 'success');
         await loadWithdrawals();
       } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
     }
 
-    async function bulkReject() {
-      const checked = document.querySelectorAll('.wrow-check:checked:not(:disabled)');
+    // --- 일괄 승인 / 지급 하이브리드 처리 ---
+    async function bulkApprove() {
+      const checked = document.querySelectorAll('.list-checkbox:checked:not(:disabled)');
       if (checked.length === 0) { if(typeof showToast === 'function') showToast('선택된 대기 항목이 없습니다.', 'warning'); return; }
+      
+      const wIds = []; // 일반 출금 ID
+      const pIds = []; // Payout ID
+      
+      checked.forEach(cb => {
+        if(cb.dataset.type === 'payout') pIds.push(parseInt(cb.dataset.id));
+        else wIds.push(parseInt(cb.dataset.id));
+      });
+
+      if(!confirm(`총 ${checked.length}건 (일반출금 ${wIds.length}건, 이자지급 ${pIds.length}건)을 일괄 처리하시겠습니까?`)) return;
+
+      try {
+        let successCount = 0;
+        // 일반 출금 API 전송
+        if(wIds.length > 0) {
+          await WithdrawalsAPI.bulkApprove(wIds);
+          successCount += wIds.length;
+        }
+        // 이자 지급 API 전송
+        if(pIds.length > 0) {
+          await InvestmentsAPI.bulkPay(pIds);
+          successCount += pIds.length;
+        }
+        
+        if(typeof showToast === 'function') showToast(`${successCount}건 일괄 처리 완료`, 'success');
+        document.getElementById('check-all-w').checked = false;
+        await loadWithdrawals();
+      } catch(err) { if(typeof showToast === 'function') showToast('일괄 처리 중 오류 발생: ' + err.message, 'error'); }
+    }
+
+    // --- 일괄 거절 처리 (일반 출금 건만 허용) ---
+    async function bulkReject() {
+      const checked = document.querySelectorAll('.list-checkbox:checked:not(:disabled)');
+      if (checked.length === 0) { if(typeof showToast === 'function') showToast('선택된 대기 항목이 없습니다.', 'warning'); return; }
+      
+      const pChecked = Array.from(checked).filter(cb => cb.dataset.type === 'payout');
+      if (pChecked.length > 0) {
+        if(typeof showToast === 'function') showToast('이자 자동 지급 내역은 거절 처리할 수 없습니다. 선택을 해제해주세요.', 'warning');
+        return;
+      }
+
       const reason = prompt('일괄 거절 사유를 입력하세요:');
       if (!reason) return;
+      
       const ids = [...checked].map(cb => parseInt(cb.dataset.id));
       let cnt = 0;
       for (const id of ids) {
@@ -322,52 +432,76 @@
     }
 
     function toggleAllW(el) {
-      document.querySelectorAll('.wrow-check:not(:disabled)').forEach(cb => cb.checked = el.checked);
+      document.querySelectorAll('.list-checkbox:not(:disabled)').forEach(cb => cb.checked = el.checked);
     }
 
-    // ── CSV 엑셀 다운로드 ─────────────────────────────────────
+    // --- CSV 엑셀 다운로드 (통합 데이터용) ---
     async function exportWithdrawCSV() {
       try {
-        if(typeof showToast === 'function') showToast('작성 중입니다...', 'info');
+        if(typeof showToast === 'function') showToast('엑셀 생성 중입니다...', 'info');
         const q       = document.getElementById('search-w').value.trim();
         let   status  = document.getElementById('filter-status-w').value;
         const showAll = document.getElementById('show-all-w')?.checked || false;
         const params  = { page: 1, limit: 9999 };
+        
         if (q) params.search = q;
         if (!showAll && !status) status = 'pending';
         if (status) params.status = status;
 
-        const data = await WithdrawalsAPI.list(params);
-        const rows = data.data || [];
+        // 1. 일반 출금 전체 로드
+        const wDataRes = await WithdrawalsAPI.list(params);
+        let rows = (wDataRes.data || []).map(w => ({...w, _type: 'withdrawal'}));
+
+        // 2. 이자 지급 전체 로드 병합
+        if (status === 'pending' || !status) {
+          try {
+            const dDataRes = await DashboardAPI.admin();
+            let pRows = dDataRes.weekly_pending || [];
+            if(q) {
+              pRows = pRows.filter(p => (p.user_id && p.user_id.toLowerCase().includes(q.toLowerCase())) || (p.name && p.name.toLowerCase().includes(q.toLowerCase())));
+            }
+            pRows = pRows.map(p => ({...p, _type: 'payout'}));
+            rows = [...pRows, ...rows];
+          } catch(e) {}
+        }
+
         if (!rows.length) { if(typeof showToast === 'function') showToast('다운로드할 데이터가 없습니다.', 'warning'); return; }
 
         const stMap = { pending:'대기', paid:'지급완료', rejected:'거절' };
         const BOM    = '\uFEFF';
-        const header = ['이름', '아이디', '은행명', '계좌번호', '투자금액(원)', '주차', '출금금액(원)', '신청일', '상태'].join(',');
+        // '구분' 컬럼 추가
+        const header = ['구분', '이름', '아이디', '은행명', '계좌번호', '투자금액(원)', '주차', '출금(지급)금액(원)', '신청일(발생일)', '상태'].join(',');
         
-        // CSV에도 safeFormatDate 적용하여 에러 차단
-        const csvRows = rows.map(w => [
-          `"${(w.name||'').replace(/"/g,'""')}"`,
-          `"${(w.user_id||'').replace(/"/g,'""')}"`,
-          `"${(w.bank_name||'').replace(/"/g,'""')}"`,
-          `"${(w.account_number||'').replace(/"/g,'""')}"`,
-          w.investment_amount || 0,
-          w.week_number || '',
-          w.amount || 0,
-          `"${w.request_date ? safeFormatDate(w.request_date) : (w.created_at ? safeFormatDate(w.created_at) : '-')}"`,
-          `"${stMap[w.status] || w.status || '-'}"`
-        ].join(','));
+        const csvRows = rows.map(w => {
+          const isPayout = w._type === 'payout';
+          const typeName = isPayout ? '주간이자지급' : '수동출금요청';
+          const amount   = isPayout ? (w.total_payout || 0) : (w.amount || 0);
+          const rDate    = w.request_date || w.created_at;
+
+          return [
+            `"${typeName}"`,
+            `"${(w.name||'').replace(/"/g,'""')}"`,
+            `"${(w.user_id||'').replace(/"/g,'""')}"`,
+            `"${(w.bank_name||'').replace(/"/g,'""')}"`,
+            `"${(w.account_number||'').replace(/"/g,'""')}"`,
+            w.investment_amount || 0,
+            w.week_number || '',
+            amount,
+            `"${rDate ? safeFormatDate(rDate) : '-'}"`,
+            `"${stMap[w.status] || w.status || '-'}"`
+          ].join(',');
+        });
 
         const csv  = BOM + header + '\n' + csvRows.join('\n');
         const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
         const url  = URL.createObjectURL(blob);
         const a    = document.createElement('a');
         a.href     = url;
-        a.download = `투자출금_${new Date().toISOString().slice(0,10)}.csv`;
+        a.download = `출금및지급내역_${new Date().toISOString().slice(0,10)}.csv`;
         document.body.appendChild(a);
         a.click();
         setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 300);
-        if(typeof showToast === 'function') showToast(`${rows.length}건 CSV 다운로드 완료`, 'success');
+        if(typeof showToast === 'function') showToast(`총 ${rows.length}건 엑셀 다운로드 완료`, 'success');
       } catch(err) {
         if(typeof showToast === 'function') showToast('다운로드 실패: ' + err.message, 'error');
       }
