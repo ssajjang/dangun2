@@ -181,8 +181,9 @@
           <div class="stat-card green anim-fadeInUp delay-3">
             <div class="stat-icon"><i class="fas fa-hand-holding-usd"></i></div>
             <div class="stat-value" id="kpi-paid">₩0</div>
-            <div class="stat-label">이번 주 지급 예정</div>
-            <div class="stat-change" style="color:var(--text-muted);">다음 금요일</div>
+            <!-- 수정사항 1: 이번 주 지급 예정 -> 오늘 출금 예정 내역 -->
+            <div class="stat-label">오늘 출금 예정 내역</div>
+            <div class="stat-change" style="color:var(--text-muted);">오늘 마감</div>
           </div>
           <div class="stat-card anim-fadeInUp delay-4">
             <div class="stat-icon" style="background:rgba(142,68,173,0.1);color:var(--accent-purple);"><i class="fas fa-percentage"></i></div>
@@ -300,10 +301,10 @@
           </div>
         </div>
 
-        <!-- ── Weekly Payout Preview ── -->
+        <!-- ── Weekly Payout Preview (오늘 출금 예정으로 타이틀 수정) ── -->
         <div class="card anim-fadeInUp delay-2">
           <div class="card-header">
-            <span class="card-title"><i class="fas fa-calendar-week icon"></i> 이번 주 금요일 지급 예정 내역</span>
+            <span class="card-title"><i class="fas fa-calendar-day icon"></i> 오늘 출금 예정 내역</span>
             <div style="display:flex;gap:8px;align-items:center;">
               <span class="badge badge-orange anim-pulse" id="weekly-pending-badge">승인 대기 0건</span>
               <button class="btn btn-success btn-sm" onclick="bulkApprove()">
@@ -673,8 +674,13 @@
     function renderWeeklyPayouts(d) {
       const list  = Array.isArray(d.weekly_pending) ? d.weekly_pending : [];
       const tbody = document.getElementById('weekly-payout-tbody');
+      
+      // 승인 대기 건수 배지 업데이트
+      const badge = document.getElementById('weekly-pending-badge');
+      if (badge) badge.textContent = `승인 대기 ${list.length}건`;
+
       if (list.length === 0) {
-        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">이번 주 지급 대기 없음</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--text-muted);">오늘 출금(지급) 예정 내역이 없습니다.</td></tr>`;
         return;
       }
       tbody.innerHTML = list.map(w => `
@@ -742,6 +748,8 @@
           row.cells[7].innerHTML = `<span style="font-size:11px;color:var(--accent-green);">✓ 지급완료</span>`;
         }
         if(typeof showToast === 'function') showToast('지급 처리 완료', 'success');
+        // 배지 업데이트를 위해 대시보드 리로드
+        await loadDashboard();
       } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
     }
 
@@ -764,6 +772,7 @@
           });
           if(typeof showToast === 'function') showToast(`${checked.length}건 일괄 지급 완료`, 'success');
           document.getElementById('check-all').checked = false;
+          await loadDashboard();
         } catch(err) { if(typeof showToast === 'function') showToast(err.message, 'error'); }
       };
       document.getElementById('confirm-title').textContent = '일괄 지급';
