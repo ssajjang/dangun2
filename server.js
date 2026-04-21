@@ -13,8 +13,15 @@ const helmet    = require('helmet');
 const morgan    = require('morgan');
 const rateLimit = require('express-rate-limit');
 
-const PORT = parseInt(process.env.PORT, 10) || 3000;
+// Railway 환경에서는 process.env.PORT를 우선 사용하며, 없으면 8080을 기본값으로 설정합니다.
+const PORT = parseInt(process.env.PORT, 10) || 8080;
 const app  = express();
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 💡 [추가] Proxy 설정 (Cloudflare/Railway 환경 필수)
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 이 설정이 있어야 express-rate-limit이 Cloudflare의 IP 정보를 신뢰합니다.
+app.set('trust proxy', true);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 헬스체크 - 가장 먼저 (DB 없이 즉시 응답)
@@ -84,7 +91,7 @@ app.listen(PORT, '0.0.0.0', async () => {
 });
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-// API Routes (DB 준비 전에 등록해도 무방 - 요청은 이후에 옴)
+// API Routes
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 app.use('/api/auth',        require('./api/routes/auth'));
 app.use('/api/admin',       require('./api/routes/admin'));
@@ -93,8 +100,8 @@ app.use('/api/investments', require('./api/routes/investments'));
 app.use('/api/withdrawals', require('./api/routes/withdrawals'));
 app.use('/api/commissions', require('./api/routes/commissions'));
 app.use('/api/dashboard',   require('./api/routes/dashboard'));
-app.use('/api/backup',      require('./api/routes/backup'));   // 백업/복원
-app.use('/api/settings',    require('./api/routes/settings')); // 설정/코인환율/sub-admin
+app.use('/api/backup',      require('./api/routes/backup'));
+app.use('/api/settings',    require('./api/routes/settings'));
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 정적 파일 & SPA Fallback
