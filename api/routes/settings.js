@@ -1,20 +1,19 @@
 'use strict';
 /**
  * DANGUN - 시스템 설정 API
- *  - DANGUN 코인 환율 조회/수정
- *  - sub-admin 관리 (생성, 목록, 비밀번호 재설정, 상태 변경)
- * 
- * Routes:
- *   GET  /api/settings              — 공개 설정 조회 (토큰 불필요)
- *   GET  /api/settings/all          — 전체 설정 조회 (관리자)
- *   PUT  /api/settings/:key         — 설정 수정 (superadmin)
- *   POST /api/settings/batch        — 여러 설정 일괄 수정 (superadmin)
+ * - DANGUN 코인 환율 조회/수정
+ * - sub-admin 관리 (생성, 목록, 비밀번호 재설정, 상태 변경)
+ * * Routes:
+ * GET  /api/settings              — 공개 설정 조회 (토큰 불필요)
+ * GET  /api/settings/all          — 전체 설정 조회 (관리자)
+ * PUT  /api/settings/:key         — 설정 수정 (superadmin)
+ * POST /api/settings/batch        — 여러 설정 일괄 수정 (superadmin)
  *
- *   GET  /api/settings/admins       — sub-admin 목록 (superadmin)
- *   POST /api/settings/admins       — sub-admin 생성 (superadmin)
- *   PATCH /api/settings/admins/:id/password — 비밀번호 재설정 (superadmin)
- *   PATCH /api/settings/admins/:id/status  — 상태 변경 active/inactive (superadmin)
- *   DELETE /api/settings/admins/:id        — sub-admin 삭제 (superadmin)
+ * GET  /api/settings/admins       — sub-admin 목록 (superadmin)
+ * POST /api/settings/admins       — sub-admin 생성 (superadmin)
+ * PATCH /api/settings/admins/:id/password — 비밀번호 재설정 (superadmin)
+ * PATCH /api/settings/admins/:id/status  — 상태 변경 active/inactive (superadmin)
+ * DELETE /api/settings/admins/:id        — sub-admin 삭제 (superadmin)
  */
 const express = require('express');
 const bcrypt  = require('bcryptjs');
@@ -183,12 +182,25 @@ router.get('/admins', authSuperAdmin, async (req, res) => {
 /* POST /api/settings/admins — sub-admin 생성 */
 router.post('/admins', authSuperAdmin, async (req, res) => {
   try {
-    const { admin_id, password, name, email } = req.body;
+    let { admin_id, password, name, email } = req.body;
+    
+    // 값 다듬기 (공백 등 제거)
+    admin_id = (admin_id || '').trim();
+    name = (name || '').trim();
+    email = (email || '').trim();
+    password = password || '';
+
+    // 백엔드 측 필수값 및 길이 이중 검증 추가
     if (!admin_id || !password || !name)
-      return res.status(400).json({ error: 'admin_id, password, name 필수' });
+      return res.status(400).json({ error: '관리자 아이디, 비밀번호, 이름은 필수 항목입니다.' });
 
     if (password.length < 8)
       return res.status(400).json({ error: '비밀번호는 8자 이상이어야 합니다.' });
+
+    // 영문과 숫자만 허용하는 기본 정규식 검증 추가
+    if (!/^[a-zA-Z0-9_]+$/.test(admin_id)) {
+      return res.status(400).json({ error: '관리자 아이디는 영문자, 숫자, 언더바(_)만 사용할 수 있습니다.' });
+    }
 
     const db  = await getDb();
     const dup = await db.get('SELECT id FROM admins WHERE admin_id=?', [admin_id]);
@@ -207,11 +219,12 @@ router.post('/admins', authSuperAdmin, async (req, res) => {
       [req.admin.id, `서브관리자 생성: ${admin_id} (${name})`]);
 
     return res.status(201).json({
-      message: `서브관리자 '${name}(${admin_id})'이 생성되었습니다.`,
+      message: `서브관리자 '${name}(${admin_id})'이 정상적으로 생성되었습니다.`,
       id: result.lastID, admin_id, name, role: 'subadmin', status: 'active'
     });
   } catch (e) {
-    return res.status(500).json({ error: e.message });
+    console.error('[API Error - Admin Create]', e);
+    return res.status(500).json({ error: '서버 내부 오류가 발생했습니다. (' + e.message + ')' });
   }
 });
 
@@ -239,7 +252,7 @@ router.patch('/admins/:id/password', authSuperAdmin, async (req, res) => {
     await db.run(`INSERT INTO activity_logs (actor_type,actor_id,action,description) VALUES ('admin',?,'reset_password',?)`,
       [req.admin.id, `비밀번호 재설정: 관리자 ID ${admin.admin_id}`]);
 
-    return res.json({ message: '비밀번호가 재설정되었습니다.' });
+    return res.json({ message: '비밀번호가 안전하게 재설정되었습니다.' });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
@@ -252,7 +265,7 @@ router.patch('/admins/:id/status', authSuperAdmin, async (req, res) => {
     const { status } = req.body;
 
     if (!['active', 'inactive', 'suspended'].includes(status))
-      return res.status(400).json({ error: 'status는 active / inactive / suspended 중 하나' });
+      return res.status(400).json({ error: '올바르지 않은 상태 값입니다.' });
 
     const db    = await getDb();
     const admin = await db.get('SELECT id, admin_id, role FROM admins WHERE id=?', [id]);
@@ -268,7 +281,7 @@ router.patch('/admins/:id/status', authSuperAdmin, async (req, res) => {
     await db.run(`INSERT INTO activity_logs (actor_type,actor_id,action,description) VALUES ('admin',?,'change_admin_status',?)`,
       [req.admin.id, `관리자 상태 변경: ${admin.admin_id} → ${status}`]);
 
-    return res.json({ message: `관리자 상태가 '${status}'로 변경되었습니다.`, status });
+    return res.json({ message: `관리자 상태가 '${status}'(으)로 변경되었습니다.`, status });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }
@@ -284,14 +297,14 @@ router.delete('/admins/:id', authSuperAdmin, async (req, res) => {
     if (admin.role === 'superadmin')
       return res.status(403).json({ error: 'superadmin 계정은 삭제할 수 없습니다.' });
     if (Number(id) === req.admin.id)
-      return res.status(400).json({ error: '본인 계정은 삭제할 수 없습니다.' });
+      return res.status(400).json({ error: '현재 로그인 중인 본인 계정은 삭제할 수 없습니다.' });
 
     await db.run('DELETE FROM admins WHERE id=?', [id]);
 
     await db.run(`INSERT INTO activity_logs (actor_type,actor_id,action,description) VALUES ('admin',?,'delete_subadmin',?)`,
       [req.admin.id, `서브관리자 삭제: ${admin.admin_id}`]);
 
-    return res.json({ message: `서브관리자 '${admin.admin_id}'이 삭제되었습니다.` });
+    return res.json({ message: `서브관리자 '${admin.admin_id}' 계정이 삭제되었습니다.` });
   } catch (e) {
     return res.status(500).json({ error: e.message });
   }

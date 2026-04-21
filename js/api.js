@@ -65,7 +65,7 @@
   }
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 공통 fetch wrapper
+  // 공통 fetch wrapper (에러 파싱 로직 대폭 강화)
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   function request(method, endpoint, body) {
     var token = Auth.getToken();
@@ -77,29 +77,45 @@
 
     var url = API_BASE + endpoint;
 
-    return fetch(url, opts).then(function (res) {
-      return res.json().catch(function () { return {}; }).then(function (data) {
-        if (!res.ok) {
-          var msg = (data && data.error) ? data.error : ('HTTP ' + res.status);
-          // 401: 토큰 만료/무효 → 로그아웃 (단, 관리자 페이지인 경우만)
-          if (res.status === 401) {
-            // 현재 페이지가 admin/ 또는 member/ 하위인 경우에만 리다이렉트
-            var isProtected = global.location.pathname.indexOf('/admin/') !== -1 ||
-                              global.location.pathname.indexOf('/member/') !== -1;
-            if (isProtected) {
-              Auth.clear();
-              global.location.replace('/index.html');
-              return null;
-            }
+    return fetch(url, opts)
+      .then(function (res) {
+        // 서버 응답이 JSON이 아닐 가능성에 대비하여 text()로 먼저 받습니다.
+        return res.text().then(function (text) {
+          var data;
+          try {
+            data = text ? JSON.parse(text) : {};
+          } catch (e) {
+            // 서버다운이나 502 Bad Gateway 등 HTML 형태 에러 반환 시 안전하게 파싱
+            data = { error: '서버 응답을 해석할 수 없습니다. (HTTP ' + res.status + ')' };
+            console.error('[API Parse Error]', text);
           }
-          throw new Error(msg);
+
+          if (!res.ok) {
+            var msg = (data && data.error) ? data.error : ('HTTP Error ' + res.status);
+            
+            // 401: 토큰 만료/무효 → 로그아웃 (단, 관리자/회원 전용 페이지인 경우만 리다이렉트)
+            if (res.status === 401) {
+              var isProtected = global.location.pathname.indexOf('/admin/') !== -1 ||
+                                global.location.pathname.indexOf('/member/') !== -1;
+              if (isProtected) {
+                Auth.clear();
+                global.location.replace('/index.html');
+                return null;
+              }
+            }
+            throw new Error(msg);
+          }
+          return data;
+        });
+      })
+      .catch(function (err) {
+        // 네트워크 단절, CORS 오류 등 서버에 도달조차 못했을 경우
+        if (err.name === 'TypeError' && err.message === 'Failed to fetch') {
+          console.error('[API Network Error]', err);
+          throw new Error('서버와 연결할 수 없습니다. 네트워크 상태를 확인해주세요.');
         }
-        return data;
+        throw err;
       });
-    }).catch(function (err) {
-      // 네트워크 오류 또는 API 오류 - toast는 호출부에서 처리하도록 throw만
-      throw err;
-    });
   }
 
   function get(ep, params) {
@@ -184,18 +200,10 @@
     list:     function (params) { return get('/commissions', params); },
     my:       function ()       { return get('/commissions/my'); },
     withdraw: function (id)     { return patch('/commissions/' + id + '/withdraw', {}); },
-    // POST /api/commissions/approve  ── 신규 승인 엔드포인트
-    // withdraw_status: pending → completed, commissions_history 이력 저장
     approve:  function (id)     { return post('/commissions/approve', { id: id }); },
-    // 출금대기(withdraw_status=pending) 목록 전용 - 관리자 대시보드용
     pending:  function (limit)  {
-      return get('/commissions', {
-        withdraw_status: 'pending',
-        limit: limit || 100,
-        page: 1,
-      });
+      return get('/commissions', { withdraw_status: 'pending', limit: limit || 100, page: 1 });
     },
-    // 월별 수당 집계 (created_at 기준, 차트용)
     monthly:  function ()       { return get('/commissions/monthly'); },
   };
 
@@ -213,15 +221,10 @@
   // SETTINGS API — 코인 환율 + sub-admin 관리
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   var SettingsAPI = {
-    // 공개 설정 (토큰 불필요 — 코인 환율 읽기)
     getPublic:    function ()          { return get('/settings/public'); },
-    // 전체 설정 조회 (관리자)
     getAll:       function ()          { return get('/settings/all'); },
-    // 단일 설정 수정 (superadmin)
     set:          function (key, value){ return request('PUT', '/settings/' + key, { value: value }); },
-    // 일괄 설정 수정 (superadmin)
     batch:        function (settings)  { return post('/settings/batch', { settings: settings }); },
-    // 코인 환율 헬퍼
     getCoinRate:  function ()          { return get('/settings/public').then(function(d){ return d; }); },
   };
 
@@ -237,7 +240,7 @@
   };
 
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  // 전역(window) 노출 - 모든 HTML 인라인 스크립트에서 사용 가능
+  // 전역(window) 노출
   // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
   global.Auth               = Auth;
   global.requireMemberAuth  = requireMemberAuth;
@@ -253,10 +256,6 @@
   global.SettingsAPI        = SettingsAPI;
   global.AdminAccountsAPI   = AdminAccountsAPI;
 
-  // 로드 확인 로그 (개발용)
-  console.log('[api.js] ✅ 전역 API 로드 완료:', Object.keys({
-    Auth, DashboardAPI, MembersAPI, InvestmentsAPI, WithdrawalsAPI,
-    CommissionsAPI, AdminAPI, SettingsAPI, AdminAccountsAPI
-  }).join(', '));
+  console.log('[api.js] ✅ 전역 API 로드 완료');
 
 }(window));

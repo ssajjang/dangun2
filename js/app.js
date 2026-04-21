@@ -49,8 +49,19 @@ document.addEventListener('DOMContentLoaded', () => {
 let toastTimer = null;
 
 function showToast(message, type = 'info', duration = 3500) {
+  // 방어 코드: 메시지가 객체형태로 넘어오는 오류 방지
+  if (typeof message !== 'string') {
+    message = (message && message.message) ? message.message : String(message);
+  }
+
   const container = document.getElementById('toast-container');
-  if (!container) return;
+  // toast-container가 없을 경우 body에 강제로 추가 (화면에 에러가 안나타나는 현상 방지)
+  let targetContainer = container;
+  if (!targetContainer) {
+    targetContainer = document.createElement('div');
+    targetContainer.id = 'toast-container';
+    document.body.appendChild(targetContainer);
+  }
 
   const icons = {
     success: '✅',
@@ -67,12 +78,14 @@ function showToast(message, type = 'info', duration = 3500) {
     <span onclick="this.closest('.toast').remove()" style="cursor:pointer;opacity:0.5;font-size:12px;">✕</span>
   `;
 
-  container.appendChild(toast);
+  targetContainer.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('show'));
 
   setTimeout(() => {
     toast.classList.remove('show');
-    setTimeout(() => toast.remove(), 400);
+    setTimeout(() => {
+        if (toast.parentNode) toast.remove();
+    }, 400);
   }, duration);
 }
 
