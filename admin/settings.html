@@ -85,7 +85,8 @@
       white-space: nowrap;
     }
     .setting-save-btn:hover:not(:disabled) { opacity: 0.85; }
-    .setting-save-btn:disabled, 
+    
+    /* 비활성화 버튼 디자인 (하지만 더이상 기능 자체를 죽이진 않음) */
     .btn:disabled { 
       opacity: 0.4; 
       cursor: not-allowed; 
@@ -197,7 +198,8 @@
   </style>
 </head>
 <body>
-  <div id="toast-container"></div>
+  <!-- [해결 포인트] Toast 알림이 모달(z-index: 1000) 뒤에 숨지 않도록 최상단 고정 -->
+  <div id="toast-container" style="position:fixed; top:20px; right:20px; z-index:999999 !important; display:flex; flex-direction:column; gap:10px; pointer-events:none;"></div>
 
   <!-- 모달: sub-admin 추가 -->
   <div class="modal-overlay" id="modal-add-admin">
@@ -430,8 +432,8 @@
       <div class="setting-group">
         <div class="setting-group-title" style="justify-content:space-between;">
           <span><i class="fas fa-user-shield"></i> 관리자 계정 관리</span>
-          <!-- 수정됨: disabled 속성을 제거하고, 클릭 시 권한을 체크하는 함수로 변경 -->
-          <button class="btn btn-primary btn-sm" id="btn-add-admin" onclick="checkAndOpenAddAdminModal()" style="font-size:12px;padding:6px 16px;">
+          <!-- [해결 포인트] 클릭 무시 버그를 막기 위해 함수를 변경 -->
+          <button class="btn btn-primary btn-sm" id="btn-add-admin" onclick="checkSuperAdminAndOpenModal()" style="font-size:12px;padding:6px 16px;">
             <i class="fas fa-plus"></i> 서브관리자 추가
           </button>
         </div>
@@ -451,19 +453,12 @@
   <script src="../js/app.js"></script>
   <script>
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     전역 변수 설정
-  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  var currentAdmin = null;
-  var isSuperAdmin = false;
-
-  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      초기화
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  document.addEventListener('DOMContentLoaded', function () {
-    // 개선: 권한 체크를 DOM 로드 후에 실행하여 객체 초기화 문제 방지
-    currentAdmin = Auth.getAdmin();
-    isSuperAdmin = currentAdmin && currentAdmin.role && currentAdmin.role.toLowerCase() === 'superadmin';
+  var currentAdmin = Auth.getAdmin();
+  var isSuperAdmin = currentAdmin && currentAdmin.role && currentAdmin.role.toLowerCase() === 'superadmin';
 
+  document.addEventListener('DOMContentLoaded', function () {
     // 관리자 정보 표시
     if (currentAdmin) {
       document.getElementById('admin-name-header').textContent = currentAdmin.name || currentAdmin.admin_id;
@@ -477,20 +472,26 @@
       }
     }
 
-    // superadmin이 아니면 안내문 표시
+    // [해결 포인트] 모든 버튼의 .disabled = true 속성을 제거하여, 
+    // 클릭이 무시되어 '아무런 반응이 없는' 현상을 원천 차단했습니다.
     if (!isSuperAdmin) {
       document.getElementById('notice-not-super').style.display = 'block';
     }
 
     loadSettings();
     loadAdmins();
-
-    // 코인 입력칸 실시간 미리보기 연동
-    ['coin-rate','coin-symbol'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.addEventListener('input', updateCoinPreview);
-    });
   });
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     버튼 안전 클릭 함수 (먹통 현상 해결용)
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function checkSuperAdminAndOpenModal() {
+    if (!isSuperAdmin) {
+      showToast('최고관리자(superadmin)만 서브관리자를 추가할 수 있습니다.', 'error');
+      return;
+    }
+    openModal('modal-add-admin');
+  }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      설정 불러오기
@@ -532,6 +533,13 @@
     document.getElementById('preview-dgn').textContent    = dgn.toLocaleString('ko-KR');
     document.getElementById('preview-symbol').textContent = symbol;
   }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    ['coin-rate','coin-symbol'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateCoinPreview);
+    });
+  });
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      설정 저장
@@ -579,7 +587,7 @@
       '</tr></thead><tbody>';
 
     list.forEach(function(a) {
-      var roleHtml = a.role === 'superadmin'
+      var roleHtml = a.role.toLowerCase() === 'superadmin'
         ? '<span class="role-badge role-super">최고관리자</span>'
         : '<span class="role-badge role-sub">서브관리자</span>';
 
@@ -591,7 +599,7 @@
       var actionHtml = '';
       if (isSuperAdmin) {
         actionHtml += '<button class="btn btn-outline btn-xs" onclick="openResetPw(' + a.id + ',\'' + escHtml(a.admin_id) + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;"><i class="fas fa-key"></i> 비번</button>';
-        if (a.role !== 'superadmin') {
+        if (a.role.toLowerCase() !== 'superadmin') {
           var nextStatus = a.status === 'active' ? 'inactive' : 'active';
           var statusLabel = a.status === 'active' ? '비활성화' : '활성화';
           actionHtml += '<button class="btn btn-outline btn-xs" onclick="doToggleStatus(' + a.id + ',\'' + nextStatus + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;">' + statusLabel + '</button>';
@@ -618,17 +626,8 @@
   }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     서브관리자 생성 관련 제어
+     서브관리자 생성
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  function checkAndOpenAddAdminModal() {
-    // 버튼 클릭 시 권한을 한 번 더 검증하고 안내
-    if (!isSuperAdmin) {
-      showToast('최고관리자(superadmin)만 관리자를 추가할 수 있습니다.', 'error');
-      return;
-    }
-    openModal('modal-add-admin');
-  }
-
   function doCreateAdmin() {
     var adminId = document.getElementById('new-admin-id').value.trim();
     var name    = document.getElementById('new-admin-name').value.trim();
