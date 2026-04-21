@@ -169,60 +169,10 @@
       line-height: 1.5;
     }
 
-    /* ── Commission Structure ── */
-    .commission-flow {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0;
-      margin-top: 24px;
-      flex-wrap: wrap;
-    }
-
-    .comm-node {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 8px;
-      padding: 16px 20px;
-      background: var(--bg-primary);
-      border: 2px solid var(--border-color);
-      border-radius: var(--radius-md);
-      min-width: 110px;
-      text-align: center;
-      transition: var(--transition);
-      position: relative;
-    }
-
-    .comm-node.highlight {
-      border-color: rgba(212,160,23,0.5);
-      background: rgba(212,160,23,0.05);
-    }
-
-    .comm-node .role {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.08em;
-      color: var(--text-muted);
-    }
-
-    .comm-node .pct {
-      font-family: 'Orbitron', sans-serif;
-      font-size: 22px;
-      font-weight: 900;
-      color: var(--accent-gold);
-    }
-
-    .comm-arrow {
-      font-size: 22px;
-      color: var(--accent-gold);
-      padding: 0 4px;
-    }
-
     /* ── Quick Actions ── */
     .quick-actions {
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
+      grid-template-columns: repeat(2, 1fr);
       gap: 14px;
     }
 
@@ -270,13 +220,11 @@
       .hero-amount { font-size: 32px; }
       .hero-stats { grid-template-columns: repeat(2, 1fr); }
       .desc-section { grid-template-columns: 1fr 1fr; }
-      .quick-actions { grid-template-columns: repeat(3, 1fr); }
+      .quick-actions { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 600px) {
       .invest-hero { padding: 24px 20px; }
       .desc-section { grid-template-columns: 1fr; }
-      .commission-flow { flex-direction: column; }
-      .comm-arrow { transform: rotate(90deg); }
     }
 
     /* 폼 그룹 모달 공통 스타일 */
@@ -305,7 +253,6 @@
   <div id="toast-container" style="pointer-events: none;"></div>
 
   <div class="app-wrapper">
-    <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
       <div class="sidebar-header">
         <a class="sidebar-logo" href="index.html">
@@ -330,9 +277,6 @@
         </a>
 
         <div class="nav-section" style="margin-top:16px;">계정</div>
-        <a class="nav-item" href="#" onclick="openWithdrawModal()">
-          <span class="nav-icon"><i class="fas fa-money-bill-wave"></i></span> 출금 신청
-        </a>
         <a class="nav-item" href="#" onclick="openModal('modal-profile')">
           <span class="nav-icon"><i class="fas fa-user-circle"></i></span> 내 정보
         </a>
@@ -352,7 +296,6 @@
       </div>
     </aside>
 
-    <!-- Main Content -->
     <main class="main-content">
       <header class="topbar">
         <button id="sidebar-toggle" class="btn btn-outline btn-sm" style="display:none;">
@@ -373,7 +316,6 @@
 
       <div class="page-content">
 
-        <!-- ── Hero Investment Card ── -->
         <div class="invest-hero anim-fadeInDown">
           <div class="flex-between" style="flex-wrap:wrap;gap:16px;">
             <div style="position:relative;z-index:1;">
@@ -419,7 +361,6 @@
         </div>
 
         <div class="grid grid-3 mb-24" style="gap:16px;">
-          <!-- Quick Actions -->
           <div class="card anim-fadeInUp delay-1">
             <div class="card-header">
               <span class="card-title"><i class="fas fa-bolt icon"></i> 빠른 메뉴</span>
@@ -434,21 +375,15 @@
                   <div class="qa-icon"><i class="fas fa-sitemap"></i></div>
                   <span class="qa-label">추천트리</span>
                 </a>
-                <a class="qa-btn" href="#" onclick="openWithdrawModal()">
-                  <div class="qa-icon"><i class="fas fa-money-bill-wave"></i></div>
-                  <span class="qa-label">출금신청</span>
-                </a>
               </div>
             </div>
           </div>
 
-          <!-- Next Payout -->
           <div class="card anim-fadeInUp delay-2">
             <div class="card-header">
               <span class="card-title"><i class="fas fa-calendar-check icon"></i> 다음 지급 예정</span>
             </div>
             <div class="card-body" style="text-align:center;padding:20px;" id="next-pay-body">
-              <!-- 투자 있을 때 -->
               <div id="next-pay-has-investment" style="display:none;">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">다음 금요일 지급</div>
                 <div style="font-family:'Orbitron',sans-serif;font-size:20px;font-weight:900;color:var(--accent-gold);" id="next-pay-date">-</div>
@@ -458,13 +393,11 @@
                   <span class="badge badge-orange anim-pulse" id="next-pay-badge">-주차 지급 대기</span>
                 </div>
               </div>
-              <!-- 투자 없을 때 -->
               <div id="next-pay-no-investment" style="display:none;">
                 <i class="fas fa-info-circle" style="font-size:32px;color:var(--text-muted);margin-bottom:12px;"></i>
                 <div style="font-size:13px;color:var(--text-muted);">투자 내역이 없습니다.</div>
                 <div style="font-size:11px;color:var(--text-muted);margin-top:6px;">관리자에게 투자금 입금을 요청하세요.</div>
               </div>
-              <!-- 로딩 -->
               <div id="next-pay-loading">
                 <div class="spinner" style="margin:0 auto 8px;"></div>
                 <div style="font-size:12px;color:var(--text-muted);">불러오는 중...</div>
@@ -472,7 +405,6 @@
             </div>
           </div>
 
-          <!-- Referral Count -->
           <div class="card anim-fadeInUp delay-3">
             <div class="card-header">
               <span class="card-title"><i class="fas fa-users icon"></i> 하부 회원 현황</span>
@@ -498,7 +430,6 @@
           </div>
         </div>
 
-        <!-- 직급자 전용 소개수당 섹션 (팀장·본부장만 표시) -->
         <div class="card mb-24 anim-fadeInUp delay-1" id="commission-section" style="display:none;border:1px solid rgba(212,160,23,0.35);">
           <div class="card-header" style="background:rgba(212,160,23,0.06);">
             <span class="card-title">
@@ -508,7 +439,6 @@
             <span class="badge badge-gold" id="my-rank-badge">-</span>
           </div>
           <div class="card-body">
-            <!-- 수당 요약 통계 (4칸) -->
             <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;">
               <div style="text-align:center;padding:14px;background:rgba(231,76,60,0.07);border-radius:var(--radius-md);border:1px solid rgba(231,76,60,0.25);" id="comm-pending-box">
                 <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">⏳ 대기중 수당</div>
@@ -529,7 +459,6 @@
               </div>
             </div>
 
-            <!-- 소개수당 내역 테이블 -->
             <div style="font-size:12px;font-weight:700;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;gap:8px;">
               <i class="fas fa-list" style="color:var(--accent-gold);"></i> 소개수당 내역
               <span style="font-size:11px;color:var(--text-muted);font-weight:400;">(제공아이디 · 투자금 · 수당금액 · 지급일자 · 출금상태)</span>
@@ -554,7 +483,6 @@
           </div>
         </div>
 
-        <!-- 최근 지급내역 -->
         <div class="card mb-24 anim-fadeInUp delay-2">
           <div class="card-header">
             <span class="card-title"><i class="fas fa-history icon"></i> 최근 지급 내역 <span style="font-size:11px;color:var(--accent-green);font-weight:400;">(승인 완료만 표시)</span></span>
@@ -584,7 +512,6 @@
           </div>
         </div>
 
-        <!-- Platform Description -->
         <div class="platform-desc-card anim-fadeInUp delay-3">
           <div class="flex-between">
             <div>
@@ -630,54 +557,12 @@
             </div>
           </div>
 
-          <!-- Commission Flow Diagram -->
-          <div style="margin-top:32px;">
-            <div style="font-size:14px;font-weight:700;color:var(--text-primary);margin-bottom:16px;text-align:center;">
-              📊 직급 수당 지급 구조
-            </div>
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:20px;">
-              <div style="background:var(--bg-primary);border-radius:var(--radius-md);padding:20px;border:1px solid var(--border-color);">
-                <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-align:center;margin-bottom:12px;">CASE 1 · 팀장 없을 때</div>
-                <div class="commission-flow" style="flex-direction:row;">
-                  <div class="comm-node">
-                    <span class="role">투자자</span>
-                    <span style="font-size:18px;">💰</span>
-                  </div>
-                  <div class="comm-arrow">→</div>
-                  <div class="comm-node highlight">
-                    <span class="role">본부장</span>
-                    <span class="pct">20%</span>
-                  </div>
-                </div>
-              </div>
-              <div style="background:var(--bg-primary);border-radius:var(--radius-md);padding:20px;border:1px solid var(--border-color);">
-                <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-align:center;margin-bottom:12px;">CASE 2 · 팀장 있을 때</div>
-                <div class="commission-flow" style="flex-direction:row;">
-                  <div class="comm-node">
-                    <span class="role">투자자</span>
-                    <span style="font-size:18px;">💰</span>
-                  </div>
-                  <div class="comm-arrow">→</div>
-                  <div class="comm-node highlight">
-                    <span class="role">팀장</span>
-                    <span class="pct">10%</span>
-                  </div>
-                  <div class="comm-arrow">+</div>
-                  <div class="comm-node highlight">
-                    <span class="role">본부장</span>
-                    <span class="pct">10%</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
         </div>
 
       </div>
     </main>
   </div>
 
-  <!-- Profile Modal (display:none 속성 추가) -->
   <div class="modal-overlay" id="modal-profile" style="display:none;">
     <div class="modal">
       <div class="modal-header">
@@ -714,42 +599,6 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-profile')">닫기</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- 새로 추가된 누락된 Withdraw Modal -->
-  <div class="modal-overlay" id="modal-withdraw" style="display:none;">
-    <div class="modal">
-      <div class="modal-header">
-        <span class="modal-title"><i class="fas fa-money-bill-wave" style="color:var(--accent-gold);margin-right:8px;"></i> 출금 신청</span>
-        <button class="modal-close" onclick="closeModal('modal-withdraw')"><i class="fas fa-times"></i></button>
-      </div>
-      <div class="modal-body">
-        <div style="text-align:center;margin-bottom:20px;">
-          <div style="font-size:12px;color:var(--text-muted);">출금 가능 잔액</div>
-          <div style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:var(--accent-gold);" id="modal-withdraw-balance">0</div>
-        </div>
-        <div class="form-group">
-          <label>출금 금액</label>
-          <input type="number" id="wd-amount" class="input" placeholder="출금할 금액을 숫자로만 입력하세요">
-        </div>
-        <div class="form-group">
-          <label>은행명</label>
-          <input type="text" id="wd-bank" class="input" placeholder="예: 국민은행">
-        </div>
-        <div class="form-group">
-          <label>계좌번호</label>
-          <input type="text" id="wd-account" class="input" placeholder="계좌번호 입력">
-        </div>
-        <div class="form-group">
-          <label>예금주</label>
-          <input type="text" id="wd-holder" class="input" placeholder="예금주 성명">
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button class="btn btn-outline" onclick="closeModal('modal-withdraw')">취소</button>
-        <button class="btn btn-primary" onclick="submitWithdraw()">출금 신청</button>
       </div>
     </div>
   </div>
@@ -1013,47 +862,6 @@
       `).join('');
     }
 
-    // 출금 신청 모달 오픈 함수
-    window.openWithdrawModal = function() {
-      if (!_memberData) return;
-      const balance = _memberData.member?.available_balance || 0;
-      const member  = _memberData.member || {};
-      
-      document.getElementById('modal-withdraw-balance').textContent = typeof formatMoney === 'function' ? formatMoney(balance) : balance;
-      document.getElementById('wd-bank').value    = member.bank_name || '';
-      document.getElementById('wd-account').value = member.account_number || '';
-      document.getElementById('wd-holder').value  = member.name || '';
-      
-      if(typeof openModal === 'function') openModal('modal-withdraw');
-    };
-
-    // 출금 데이터 제출 함수
-    window.submitWithdraw = async function() {
-      const amount = parseInt(document.getElementById('wd-amount').value.replace(/,/g, '') || '0');
-      const bank   = document.getElementById('wd-bank').value;
-      const acct   = document.getElementById('wd-account').value;
-      const holder = document.getElementById('wd-holder').value;
-      
-      if (!amount || amount <= 0) { 
-        if(typeof showToast === 'function') showToast('출금 금액을 입력하세요.', 'error'); 
-        return; 
-      }
-      if (!bank || !acct || !holder) { 
-        if(typeof showToast === 'function') showToast('계좌 정보를 입력하세요.', 'error'); 
-        return; 
-      }
-
-      try {
-        if(typeof WithdrawalsAPI !== 'undefined') {
-          await WithdrawalsAPI.request({ amount, bank_name: bank, account_number: acct, account_holder: holder });
-          if(typeof showToast === 'function') showToast('출금 신청이 완료되었습니다.', 'success');
-          if(typeof closeModal === 'function') closeModal('modal-withdraw');
-          await loadMemberData();
-        }
-      } catch(err) {
-        if(typeof showToast === 'function') showToast(err.message, 'error');
-      }
-    };
   </script>
 </body>
 </html>
