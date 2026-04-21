@@ -14,6 +14,20 @@
     .search-input { min-width:220px; }
     .member-cell { display:flex; align-items:center; gap:10px; }
     .rank-select { padding:4px 8px; border-radius:6px; font-size:11px; font-weight:700; border:1px solid var(--border-color); background:var(--bg-input); color:var(--text-primary); cursor:pointer; }
+    /* 상세모달 추천인 검색 결과 포지셔닝용 */
+    .recommender-result-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border-color);
+      border-radius: 8px;
+      margin-top: 4px;
+      display: none;
+      max-height: 160px;
+      overflow-y: auto;
+      position: absolute;
+      width: 100%;
+      z-index: 99;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+    }
   </style>
 </head>
 <body>
@@ -179,7 +193,7 @@
                 <option value="">은행 선택</option>
                 <option>국민은행</option><option>신한은행</option><option>우리은행</option>
                 <option>하나은행</option><option>농협은행</option><option>기업은행</option>
-                <option>SC제일은행</option><option>카카오백크</option><option>토스뱅크</option>
+                <option>SC제일은행</option><option>카카오뱅크</option><option>토스뱅크</option>
                 <option>케이뱅크</option><option>새마을금고</option><option>수협은행</option>
                 <option>우체국</option><option>씨티은행</option><option>기타</option>
               </select>
@@ -216,7 +230,7 @@
               <input type="text" class="form-control" id="am-recommender-input" placeholder="아이디 또는 이름 검색 (2자 이상)" oninput="searchAdminRecommender()">
               <input type="hidden" id="am-recommender-id">
             </div>
-            <div id="am-recommender-result" style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:8px;margin-top:4px;display:none;max-height:160px;overflow-y:auto;"></div>
+            <div id="am-recommender-result" class="recommender-result-box" style="position:relative;"></div>
             <div id="am-recommender-selected" style="display:none;margin-top:6px;padding:8px 12px;background:rgba(212,160,23,0.1);border:1px solid rgba(212,160,23,0.3);border-radius:8px;font-size:13px;">
               ✓ <span id="am-recommender-text"></span>
               <span onclick="clearAdminRecommender()" style="cursor:pointer;margin-left:8px;color:var(--text-muted);"><i class="fas fa-times"></i></span>
@@ -234,17 +248,17 @@
     </div>
   </div>
 
-  <!-- Detail Modal -->
+  <!-- Detail / Edit Modal -->
   <div class="modal-overlay" id="modal-member-detail">
-    <div class="modal" style="max-width:580px;">
+    <div class="modal" style="max-width:680px;max-height:90vh;overflow-y:auto;">
       <div class="modal-header">
-        <span class="modal-title"><i class="fas fa-user-circle" style="color:var(--accent-gold);margin-right:8px;"></i> 회원 상세 정보</span>
+        <span class="modal-title"><i class="fas fa-user-edit" style="color:var(--accent-gold);margin-right:8px;"></i> 회원 상세 및 수정</span>
         <button class="modal-close" onclick="closeModal('modal-member-detail')"><i class="fas fa-times"></i></button>
       </div>
-      <div class="modal-body" id="member-detail-body"></div>
+      <div class="modal-body" id="member-detail-body" style="padding-bottom:10px;"></div>
       <div class="modal-footer">
         <button class="btn btn-outline" onclick="closeModal('modal-member-detail')">닫기</button>
-        <button class="btn btn-gold" onclick="saveRankChange()"><i class="fas fa-save"></i> 저장</button>
+        <button class="btn btn-gold" onclick="saveMemberDetail()"><i class="fas fa-save"></i> 정보 수정 저장</button>
       </div>
     </div>
   </div>
@@ -349,7 +363,7 @@
             </td>
             <td style="font-size:12px;">${m.bank_name||'-'}<br><span style="color:var(--text-muted);">${m.account_number||'-'}</span></td>
             <td>
-              <select class="rank-select" onchange="changeRank(${m.id}, this.value)" title="직급 변경">
+              <select class="rank-select" onchange="changeRank(${m.id}, this.value)" title="직급 퀵 변경">
                 <option ${m.rank==='일반회원'?'selected':''}>일반회원</option>
                 <option ${m.rank==='팀장'?'selected':''}>팀장</option>
                 <option ${m.rank==='본부장'?'selected':''}>본부장</option>
@@ -364,13 +378,13 @@
             <td>${statusBadge(m.status)}</td>
             <td>
               <div style="display:flex;gap:4px;flex-wrap:wrap;">
-                <button class="btn btn-outline btn-sm" style="padding:4px 8px;" onclick="viewMember(${m.id})" title="상세">
-                  <i class="fas fa-eye"></i>
+                <button class="btn btn-outline btn-sm" style="padding:4px 8px;" onclick="viewMember(${m.id})" title="상세/수정">
+                  <i class="fas fa-edit"></i>
                 </button>
-                <button class="btn btn-sm" style="padding:4px 8px;background:rgba(155,89,182,0.2);border:1px solid rgba(155,89,182,0.5);color:#9b59b6;" onclick="changePasswordModal(${m.id}, '${m.user_id}', '${m.name}')" title="비밀번호 변경">
+                <button class="btn btn-sm" style="padding:4px 8px;background:rgba(155,89,182,0.2);border:1px solid rgba(155,89,182,0.5);color:#9b59b6;" onclick="changePasswordModal(${m.id}, '${m.user_id}', '${m.name}')" title="비밀번호 퀵 변경">
                   <i class="fas fa-key"></i>
                 </button>
-                ${m.status === 'inactive' ? `
+                ${m.status !== 'active' ? `
                 <button class="btn btn-success btn-sm" style="padding:4px 8px;" onclick="activateMember(${m.id})" title="활성화">
                   <i class="fas fa-check"></i>
                 </button>` : `
@@ -394,36 +408,14 @@
         detailMemberData = m;
         const inv = (m.investments || [])[0] || {};
 
+        const banks = ['국민은행','신한은행','우리은행','하나은행','농협은행','기업은행','SC제일은행','카카오뱅크','토스뱅크','케이뱅크','새마을금고','수협은행','우체국','씨티은행','기타'];
+        const bankOptions = banks.map(b => `<option value="${b}" ${m.bank_name===b?'selected':''}>${b}</option>`).join('');
+
         document.getElementById('member-detail-body').innerHTML = `
-          <div style="display:grid;gap:10px;">
-            <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
-              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">아이디</div>
-                <div style="font-weight:700;">${m.user_id}</div>
-              </div>
-              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">이름</div>
-                <div style="font-weight:700;">${m.name}</div>
-              </div>
-              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">전화번호</div>
-                <div style="font-weight:700;">${m.phone}</div>
-              </div>
-              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">가입일</div>
-                <div style="font-weight:700;">${formatDate(m.created_at)}</div>
-              </div>
-              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">은행 / 계좌번호</div>
-                <div style="font-weight:700;">${m.bank_name||'-'} ${m.account_number||''}</div>
-              </div>
-              <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-                <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px;">상태</div>
-                ${statusBadge(m.status)}
-              </div>
-            </div>
+          <div style="display:grid;gap:16px;">
+            <!-- 투자 현황 요약 (조회 전용) -->
             <div style="padding:16px;background:rgba(212,160,23,0.05);border:1px solid rgba(212,160,23,0.2);border-radius:var(--radius-md);">
-              <div style="font-size:12px;font-weight:700;color:var(--accent-gold);margin-bottom:10px;">💰 투자 현황</div>
+              <div style="font-size:12px;font-weight:700;color:var(--accent-gold);margin-bottom:10px;">💰 투자 현황 (조회 전용)</div>
               <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;text-align:center;">
                 <div><div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;color:var(--accent-gold);">${formatMoney(m.investment_total||0)}</div><div style="font-size:11px;color:var(--text-muted);">투자금</div></div>
                 <div><div style="font-family:'Orbitron',sans-serif;font-size:16px;font-weight:900;">${inv.current_week||0}/15주</div><div style="font-size:11px;color:var(--text-muted);">진행 주차</div></div>
@@ -431,17 +423,95 @@
               </div>
               <div style="margin-top:12px;">${renderWeekProgress(inv.current_week||0, 15)}</div>
             </div>
-            <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">직급 변경</div>
-              <select class="form-control" id="detail-rank-select" style="max-width:200px;">
-                <option ${m.rank==='일반회원'?'selected':''}>일반회원</option>
-                <option ${m.rank==='팀장'?'selected':''}>팀장</option>
-                <option ${m.rank==='본부장'?'selected':''}>본부장</option>
-              </select>
+
+            <!-- 기본 정보 폼 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label class="form-label">아이디 (수정불가)</label>
+                <input type="text" class="form-control" value="${m.user_id}" readonly style="background:var(--bg-card);color:var(--text-muted);cursor:not-allowed;">
+              </div>
+              <div class="form-group">
+                <label class="form-label">이름 <span style="color:#e74c3c;">*</span></label>
+                <input type="text" class="form-control" id="detail-name" value="${m.name || ''}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">비밀번호 변경 (선택)</label>
+                <input type="password" class="form-control" id="detail-password" placeholder="변경할 경우에만 입력">
+              </div>
+              <div class="form-group">
+                <label class="form-label">전화번호 <span style="color:#e74c3c;">*</span></label>
+                <input type="tel" class="form-control" id="detail-phone" value="${m.phone || ''}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">이메일</label>
+                <input type="email" class="form-control" id="detail-email" value="${m.email || ''}">
+              </div>
+              <div class="form-group">
+                <label class="form-label">가입일 (수정불가)</label>
+                <input type="text" class="form-control" value="${formatDate(m.created_at)}" readonly style="background:var(--bg-card);color:var(--text-muted);cursor:not-allowed;">
+              </div>
             </div>
-            <div style="padding:12px;background:var(--bg-primary);border-radius:var(--radius-md);">
-              <div style="font-size:11px;color:var(--text-muted);margin-bottom:8px;">메모</div>
-              <textarea class="form-control" id="detail-memo" rows="2" style="resize:none;">${m.memo||''}</textarea>
+
+            <hr style="border:none;border-top:1px solid rgba(255,255,255,0.05);margin:0;">
+
+            <!-- 금융 및 직급/상태 정보 -->
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;">
+              <div class="form-group">
+                <label class="form-label">은행명</label>
+                <select class="form-control" id="detail-bank">
+                  <option value="">은행 선택</option>
+                  ${bankOptions}
+                </select>
+              </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label class="form-label">계좌번호 / 예금주</label>
+                <div style="display:flex;gap:8px;">
+                  <input type="text" class="form-control" id="detail-account" value="${m.account_number || ''}" placeholder="계좌번호" style="flex:2;">
+                  <input type="text" class="form-control" id="detail-holder" value="${m.account_holder || ''}" placeholder="예금주" style="flex:1;">
+                </div>
+              </div>
+              
+              <div class="form-group">
+                <label class="form-label">직급</label>
+                <select class="form-control" id="detail-rank">
+                  <option value="일반회원" ${m.rank==='일반회원'?'selected':''}>일반회원</option>
+                  <option value="팀장" ${m.rank==='팀장'?'selected':''}>팀장</option>
+                  <option value="본부장" ${m.rank==='본부장'?'selected':''}>본부장</option>
+                </select>
+              </div>
+              <div class="form-group" style="grid-column: span 2;">
+                <label class="form-label">상태</label>
+                <select class="form-control" id="detail-status">
+                  <option value="active" ${m.status==='active'?'selected':''}>활성 (정상 로그인/수당발생)</option>
+                  <option value="inactive" ${m.status==='inactive'?'selected':''}>대기 (미승인)</option>
+                  <option value="suspended" ${m.status==='suspended'?'selected':''}>정지 (로그인 차단)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- 추천인 수정 영역 -->
+            <div class="form-group" style="background:var(--bg-primary);padding:14px;border-radius:var(--radius-md);">
+              <label class="form-label" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+                <span style="font-weight:700;"><i class="fas fa-sitemap" style="color:var(--accent-gold);margin-right:4px;"></i> 추천인 변경</span>
+                <span style="font-size:11px;color:var(--text-muted);">기존 추천인: <strong style="color:var(--text-primary);">${m.recommender_user_id || '없음'}</strong></span>
+              </label>
+              <div style="position:relative;">
+                <div style="display:flex;gap:8px;">
+                  <input type="text" class="form-control" id="detail-recommender-input" placeholder="새로운 추천인 아이디/이름 검색" oninput="searchDetailRecommender()">
+                  <input type="hidden" id="detail-recommender-id" value="${m.recommender_user_id || ''}">
+                </div>
+                <div id="detail-recommender-result" class="recommender-result-box"></div>
+              </div>
+              
+              <div id="detail-recommender-selected" style="${m.recommender_user_id ? 'display:block;' : 'display:none;'} margin-top:8px;padding:10px 14px;background:rgba(39,174,96,0.1);border:1px solid rgba(39,174,96,0.3);border-radius:8px;font-size:13px;">
+                ✓ 지정된 추천인: <span id="detail-recommender-text" style="font-weight:700;color:#27ae60;">${m.recommender_user_id || ''}</span>
+                <span onclick="clearDetailRecommender()" style="cursor:pointer;margin-left:12px;color:var(--text-muted);font-weight:600;"><i class="fas fa-eraser"></i> 추천인 해제</span>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label class="form-label">관리자 메모</label>
+              <textarea class="form-control" id="detail-memo" rows="2" style="resize:none;" placeholder="특이사항 메모">${m.memo||''}</textarea>
             </div>
           </div>
         `;
@@ -451,22 +521,51 @@
       }
     }
 
-    async function saveRankChange() {
-      const sel  = document.getElementById('detail-rank-select');
-      const memo = document.getElementById('detail-memo')?.value || '';
-      if (!sel || !detailMemberId) return;
+    async function saveMemberDetail() {
+      if (!detailMemberId) return;
+      
+      const payload = {
+        name: document.getElementById('detail-name').value.trim(),
+        phone: document.getElementById('detail-phone').value.trim(),
+        email: document.getElementById('detail-email').value.trim() || undefined,
+        bank_name: document.getElementById('detail-bank').value || undefined,
+        account_number: document.getElementById('detail-account').value.trim() || undefined,
+        account_holder: document.getElementById('detail-holder').value.trim() || undefined,
+        rank: document.getElementById('detail-rank').value,
+        status: document.getElementById('detail-status').value,
+        recommender_user_id: document.getElementById('detail-recommender-id').value || null, // 빈 값이면 null (추천인 없음)
+        memo: document.getElementById('detail-memo').value || ''
+      };
+
+      const pw = document.getElementById('detail-password').value;
+      if (pw) {
+        if (pw.length < 8) {
+          showToast('비밀번호는 8자 이상이어야 합니다.', 'warning');
+          return;
+        }
+        payload.password = pw;
+      }
+
+      if (!payload.name || !payload.phone) {
+        showToast('이름과 전화번호는 필수 입력 항목입니다.', 'warning');
+        return;
+      }
+
       try {
-        await MembersAPI.update(detailMemberId, { rank: sel.value, memo });
-        showToast(`직급이 [${sel.value}]으로 변경되었습니다.`, 'success');
+        await MembersAPI.update(detailMemberId, payload);
+        showToast('✅ 회원 정보가 성공적으로 수정되었습니다.', 'success');
         closeModal('modal-member-detail');
         loadMembers();
-      } catch(err) { showToast(err.message, 'error'); }
+      } catch(err) { 
+        showToast('❌ 수정 실패: ' + err.message, 'error'); 
+      }
     }
 
     async function changeRank(id, newRank) {
       try {
         await MembersAPI.update(id, { rank: newRank });
         showToast(`직급 변경: ${newRank}`, 'success');
+        // loadMembers()를 호출하여 화면을 갱신하거나 무시(이미 셀렉트가 변함)
       } catch(err) { showToast(err.message, 'error'); }
     }
 
@@ -479,9 +578,10 @@
     }
 
     async function suspendMember(id) {
+      if(!confirm('해당 회원을 정지하시겠습니까? 로그인 및 수당 지급이 제한될 수 있습니다.')) return;
       try {
         await MembersAPI.update(id, { status: 'suspended' });
-        showToast('회원 정지 처리', 'warning');
+        showToast('회원 정지 처리 완료', 'warning');
         loadMembers();
       } catch(err) { showToast(err.message, 'error'); }
     }
@@ -531,7 +631,7 @@
             </p>
             <div style="margin-bottom:16px;">
               <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">새 비밀번호 <span style="color:#e74c3c;">*</span></label>
-              <input type="password" id="new-pw-input" placeholder="6자 이상 입력"
+              <input type="password" id="new-pw-input" placeholder="8자 이상 입력"
                 style="width:100%;padding:10px 14px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-primary);color:var(--text-primary);font-size:14px;box-sizing:border-box;" />
             </div>
             <div style="margin-bottom:20px;">
@@ -555,7 +655,7 @@
       setTimeout(() => document.getElementById('new-pw-input')?.focus(), 100);
     }
 
-    // ── 관리자 회원 추가 ─────────────────────────────────────
+    // ── 관리자 회원 추가용 추천인 검색 ─────────────────────────────────────
     let _amSearchTimer = null;
     function searchAdminRecommender() {
       const q = document.getElementById('am-recommender-input').value.trim();
@@ -565,7 +665,6 @@
       _amSearchTimer = setTimeout(async () => {
         try {
           const token = Auth.getToken();
-          // /api/auth/members/search 는 admins(SuperAdmin) + members 모두 반환
           const res = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`, {
             headers: token ? { Authorization: `Bearer ${token}` } : {}
           });
@@ -575,9 +674,7 @@
           } else {
             resultEl.innerHTML = found.map(m => {
               const isAdmin = m.type === 'admin';
-              const badge = isAdmin
-                ? `<span style="font-size:9px;padding:2px 5px;background:rgba(231,76,60,0.2);color:#e74c3c;border-radius:4px;font-weight:700;margin-left:4px;">관리자</span>`
-                : '';
+              const badge = isAdmin ? `<span style="font-size:9px;padding:2px 5px;background:rgba(231,76,60,0.2);color:#e74c3c;border-radius:4px;font-weight:700;margin-left:4px;">관리자</span>` : '';
               return `
               <div onclick="selectAdminRecommender('${m.user_id}','${m.user_id}','${m.name}','${m.rank}',${isAdmin})"
                 style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:13px;display:flex;justify-content:space-between;align-items:center;"
@@ -593,7 +690,7 @@
     }
 
     function selectAdminRecommender(recommenderKey, userId, name, rank, isAdmin) {
-      document.getElementById('am-recommender-id').value = recommenderKey; // user_id(문자열)로 API 전달
+      document.getElementById('am-recommender-id').value = recommenderKey;
       document.getElementById('am-recommender-input').value = userId;
       document.getElementById('am-recommender-result').style.display = 'none';
       const adminBadge = isAdmin ? ' 🛡관리자' : '';
@@ -606,6 +703,58 @@
       document.getElementById('am-recommender-input').value = '';
       document.getElementById('am-recommender-selected').style.display = 'none';
     }
+
+    // ── 회원 수정 모달 전용 추천인 검색 ─────────────────────────────────────
+    let _detailSearchTimer = null;
+    function searchDetailRecommender() {
+      const q = document.getElementById('detail-recommender-input').value.trim();
+      const resultEl = document.getElementById('detail-recommender-result');
+      if (!q || q.length < 2) { resultEl.style.display = 'none'; return; }
+      clearTimeout(_detailSearchTimer);
+      _detailSearchTimer = setTimeout(async () => {
+        try {
+          const token = Auth.getToken();
+          const res = await fetch(`/api/auth/members/search?q=${encodeURIComponent(q)}`, {
+            headers: token ? { Authorization: `Bearer ${token}` } : {}
+          });
+          const found = await res.json();
+          if (!Array.isArray(found) || found.length === 0) {
+            resultEl.innerHTML = `<div style="padding:10px;font-size:13px;color:var(--text-muted);">검색 결과 없음</div>`;
+          } else {
+            resultEl.innerHTML = found.map(m => {
+              const isAdmin = m.type === 'admin';
+              const badge = isAdmin ? `<span style="font-size:9px;padding:2px 5px;background:rgba(231,76,60,0.2);color:#e74c3c;border-radius:4px;font-weight:700;margin-left:4px;">관리자</span>` : '';
+              return `
+              <div onclick="selectDetailRecommender('${m.user_id}','${m.user_id}','${m.name}','${m.rank}',${isAdmin})"
+                style="padding:10px 14px;cursor:pointer;border-bottom:1px solid var(--border-color);font-size:13px;display:flex;justify-content:space-between;align-items:center;"
+                onmouseover="this.style.background='rgba(212,160,23,0.1)'" onmouseout="this.style.background=''">
+                <span style="font-weight:700;">${m.user_id}${badge}</span>
+                <span style="color:var(--text-muted);">${m.name} · ${m.rank}</span>
+              </div>
+            `}).join('');
+          }
+          resultEl.style.display = 'block';
+        } catch(err) { console.error('추천인 검색 오류:', err); resultEl.style.display = 'none'; }
+      }, 300);
+    }
+
+    function selectDetailRecommender(recommenderKey, userId, name, rank, isAdmin) {
+      document.getElementById('detail-recommender-id').value = recommenderKey;
+      document.getElementById('detail-recommender-input').value = '';
+      document.getElementById('detail-recommender-result').style.display = 'none';
+      const adminBadge = isAdmin ? ' 🛡관리자' : '';
+      document.getElementById('detail-recommender-text').textContent = `${userId} (${name}) · ${rank}${adminBadge}`;
+      document.getElementById('detail-recommender-selected').style.display = 'block';
+    }
+
+    function clearDetailRecommender() {
+      document.getElementById('detail-recommender-id').value = '';
+      document.getElementById('detail-recommender-input').value = '';
+      document.getElementById('detail-recommender-selected').style.display = 'none';
+      document.getElementById('detail-recommender-text').textContent = '';
+    }
+
+    // ─────────────────────────────────────────────────────────
 
     async function submitAddMember(e) {
       e.preventDefault();
@@ -653,12 +802,11 @@
         btn.innerHTML = '<i class="fas fa-user-plus"></i> 회원 등록';
       }
     }
-    // ─────────────────────────────────────────────────────────
 
     async function submitPasswordChange(memberId) {
       const pw  = document.getElementById('new-pw-input')?.value || '';
       const pw2 = document.getElementById('new-pw-confirm')?.value || '';
-      if (!pw || pw.length < 6) { showToast('비밀번호는 6자 이상이어야 합니다.', 'error'); return; }
+      if (!pw || pw.length < 8) { showToast('비밀번호는 8자 이상이어야 합니다.', 'error'); return; }
       if (pw !== pw2)           { showToast('비밀번호가 일치하지 않습니다.', 'error'); return; }
 
       try {

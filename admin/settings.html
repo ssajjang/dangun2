@@ -84,8 +84,13 @@
       transition: all 0.2s;
       white-space: nowrap;
     }
-    .setting-save-btn:hover { opacity: 0.85; }
-    .setting-save-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .setting-save-btn:hover:not(:disabled) { opacity: 0.85; }
+    .setting-save-btn:disabled, 
+    .btn:disabled { 
+      opacity: 0.4; 
+      cursor: not-allowed; 
+      filter: grayscale(100%);
+    }
 
     /* ── 코인 미리보기 ── */
     .coin-preview {
@@ -285,7 +290,7 @@
       <!-- superadmin 전용 안내 -->
       <div class="superadmin-only-notice" id="notice-not-super">
         <i class="fas fa-lock" style="margin-right:8px;"></i>
-        설정 변경은 <strong>최고관리자(superadmin)</strong>만 가능합니다. 조회만 가능합니다.
+        설정 변경 및 계정 관리는 <strong>최고관리자(superadmin)</strong>만 가능합니다. 현재는 조회만 가능합니다.
       </div>
 
       <!-- ① DANGUN 코인 환율 설정 -->
@@ -425,6 +430,7 @@
       <div class="setting-group">
         <div class="setting-group-title" style="justify-content:space-between;">
           <span><i class="fas fa-user-shield"></i> 관리자 계정 관리</span>
+          <!-- 모달을 띄우는 버튼 -->
           <button class="btn btn-primary btn-sm" id="btn-add-admin" onclick="openModal('modal-add-admin')" style="font-size:12px;padding:6px 16px;">
             <i class="fas fa-plus"></i> 서브관리자 추가
           </button>
@@ -448,14 +454,15 @@
      초기화
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   var currentAdmin = Auth.getAdmin();
-  var isSuperAdmin = currentAdmin && currentAdmin.role === 'superadmin';
+  // 개선: role 값을 소문자로 변환하여 비교하여 데이터베이스 불일치 에러 방지
+  var isSuperAdmin = currentAdmin && currentAdmin.role && currentAdmin.role.toLowerCase() === 'superadmin';
 
   document.addEventListener('DOMContentLoaded', function () {
     // 관리자 정보 표시
     if (currentAdmin) {
       document.getElementById('admin-name-header').textContent = currentAdmin.name || currentAdmin.admin_id;
       var roleBadge = document.getElementById('admin-role-badge');
-      if (currentAdmin.role === 'superadmin') {
+      if (isSuperAdmin) {
         roleBadge.textContent = '최고관리자';
         roleBadge.className = 'role-badge role-super';
       } else {
@@ -464,14 +471,22 @@
       }
     }
 
-    // superadmin이 아니면 안내문 표시 + 버튼 비활성화
+    // superadmin이 아니면 안내문 표시 + 모든 저장/추가 버튼 비활성화 시키는 핵심 로직
     if (!isSuperAdmin) {
       document.getElementById('notice-not-super').style.display = 'block';
+      
+      // 설정 저장 버튼 비활성화
       document.querySelectorAll('.setting-save-btn').forEach(function(b) {
         b.disabled = true;
-        b.title = '최고관리자 전용';
+        b.title = '최고관리자만 설정을 변경할 수 있습니다.';
       });
-      document.getElementById('btn-add-admin').disabled = true;
+      
+      // 서브관리자 추가 버튼 비활성화 (이 부분 때문에 클릭이 안되었습니다)
+      var addAdminBtn = document.getElementById('btn-add-admin');
+      if(addAdminBtn) {
+        addAdminBtn.disabled = true;
+        addAdminBtn.title = '최고관리자만 관리자를 추가할 수 있습니다.';
+      }
     }
 
     loadSettings();
