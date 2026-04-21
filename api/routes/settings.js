@@ -11,9 +11,13 @@ const { authAdmin, authSuperAdmin } = require('../middleware/auth');
 
 const router = express.Router();
 
+// [중요 수정] JSON 및 URL-encoded 바디 파싱 강제 적용
+// 메인 app에서 미들웨어가 누락되었을 경우 req.body가 undefined가 되어 서버가 뻗는 현상 방지
+router.use(express.json());
+router.use(express.urlencoded({ extended: true }));
+
 /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-   [추가된 방어 코드] 활동 로그 저장 시 발생하는 에러로 인한 
-   서버 다운(응답 멈춤) 방지용 헬퍼 함수
+   방어 코드 헬퍼 함수
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 const getActorId = (req) => {
   if (req.admin && req.admin.id) return req.admin.id;
@@ -80,7 +84,8 @@ router.get('/all', authAdmin, async (req, res) => {
 router.put('/:key', authSuperAdmin, async (req, res) => {
   try {
     const { key } = req.params;
-    const { value } = req.body;
+    const body = req.body || {}; // 안전한 객체 참조
+    const { value } = body;
 
     if (value === undefined || value === null)
       return res.status(400).json({ error: 'value 필드가 필요합니다.' });
@@ -133,7 +138,8 @@ router.put('/:key', authSuperAdmin, async (req, res) => {
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
 router.post('/batch', authSuperAdmin, async (req, res) => {
   try {
-    const { settings } = req.body;
+    const body = req.body || {};
+    const { settings } = body;
     if (!settings || typeof settings !== 'object')
       return res.status(400).json({ error: 'settings 객체가 필요합니다.' });
 
@@ -191,7 +197,8 @@ router.get('/admins', authSuperAdmin, async (req, res) => {
 /* POST /api/settings/admins — sub-admin 생성 */
 router.post('/admins', authSuperAdmin, async (req, res) => {
   try {
-    let { admin_id, password, name, email } = req.body;
+    const body = req.body || {}; // req.body undefined 구조분해 에러 완벽 방어
+    let { admin_id, password, name, email } = body;
     
     // 값 다듬기
     admin_id = (admin_id || '').trim();
@@ -242,7 +249,8 @@ router.post('/admins', authSuperAdmin, async (req, res) => {
 router.patch('/admins/:id/password', authSuperAdmin, async (req, res) => {
   try {
     const { id } = req.params;
-    const { new_password } = req.body;
+    const body = req.body || {};
+    const { new_password } = body;
 
     if (!new_password || new_password.length < 8)
       return res.status(400).json({ error: '새 비밀번호는 8자 이상이어야 합니다.' });
@@ -273,7 +281,8 @@ router.patch('/admins/:id/password', authSuperAdmin, async (req, res) => {
 router.patch('/admins/:id/status', authSuperAdmin, async (req, res) => {
   try {
     const { id }     = req.params;
-    const { status } = req.body;
+    const body = req.body || {};
+    const { status } = body;
 
     if (!['active', 'inactive', 'suspended'].includes(status))
       return res.status(400).json({ error: '올바르지 않은 상태 값입니다.' });
