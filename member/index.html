@@ -27,6 +27,7 @@
       width: 240px; height: 240px;
       background: radial-gradient(circle, rgba(212,160,23,0.12) 0%, transparent 70%);
       border-radius: 50%;
+      pointer-events: none; /* 오버레이 클릭 방해 방지 */
     }
 
     .invest-hero::after {
@@ -36,6 +37,7 @@
       width: 160px; height: 160px;
       background: radial-gradient(circle, rgba(90,123,255,0.1) 0%, transparent 70%);
       border-radius: 50%;
+      pointer-events: none; /* 오버레이 클릭 방해 방지 */
     }
 
     .hero-amount {
@@ -276,10 +278,31 @@
       .commission-flow { flex-direction: column; }
       .comm-arrow { transform: rotate(90deg); }
     }
+
+    /* 폼 그룹 모달 공통 스타일 */
+    .form-group {
+      margin-bottom: 16px;
+      text-align: left;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+    .form-group .input {
+      width: 100%;
+      padding: 10px 12px;
+      border: 1px solid var(--border-color);
+      border-radius: var(--radius-sm);
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      box-sizing: border-box;
+    }
   </style>
 </head>
 <body>
-  <div id="toast-container"></div>
+  <div id="toast-container" style="pointer-events: none;"></div>
 
   <div class="app-wrapper">
     <!-- Sidebar -->
@@ -307,6 +330,9 @@
         </a>
 
         <div class="nav-section" style="margin-top:16px;">계정</div>
+        <a class="nav-item" href="#" onclick="openWithdrawModal()">
+          <span class="nav-icon"><i class="fas fa-money-bill-wave"></i></span> 출금 신청
+        </a>
         <a class="nav-item" href="#" onclick="openModal('modal-profile')">
           <span class="nav-icon"><i class="fas fa-user-circle"></i></span> 내 정보
         </a>
@@ -372,7 +398,7 @@
             </div>
           </div>
 
-          <div class="hero-stats">
+          <div class="hero-stats" style="position:relative;z-index:2;">
             <div class="hero-stat">
               <div class="val" id="stat-total-payout">0</div>
               <div class="lbl">총 지급액<br>(원금+이자 150%)</div>
@@ -408,9 +434,9 @@
                   <div class="qa-icon"><i class="fas fa-sitemap"></i></div>
                   <span class="qa-label">추천트리</span>
                 </a>
-                <a class="qa-btn" href="#" onclick="openModal('modal-profile')">
-                  <div class="qa-icon"><i class="fas fa-user-edit"></i></div>
-                  <span class="qa-label">내정보</span>
+                <a class="qa-btn" href="#" onclick="openWithdrawModal()">
+                  <div class="qa-icon"><i class="fas fa-money-bill-wave"></i></div>
+                  <span class="qa-label">출금신청</span>
                 </a>
               </div>
             </div>
@@ -651,8 +677,8 @@
     </main>
   </div>
 
-  <!-- Profile Modal -->
-  <div class="modal-overlay" id="modal-profile">
+  <!-- Profile Modal (display:none 속성 추가) -->
+  <div class="modal-overlay" id="modal-profile" style="display:none;">
     <div class="modal">
       <div class="modal-header">
         <span class="modal-title"><i class="fas fa-user-circle" style="color:var(--accent-gold);margin-right:8px;"></i> 내 정보</span>
@@ -692,17 +718,55 @@
     </div>
   </div>
 
+  <!-- 새로 추가된 누락된 Withdraw Modal -->
+  <div class="modal-overlay" id="modal-withdraw" style="display:none;">
+    <div class="modal">
+      <div class="modal-header">
+        <span class="modal-title"><i class="fas fa-money-bill-wave" style="color:var(--accent-gold);margin-right:8px;"></i> 출금 신청</span>
+        <button class="modal-close" onclick="closeModal('modal-withdraw')"><i class="fas fa-times"></i></button>
+      </div>
+      <div class="modal-body">
+        <div style="text-align:center;margin-bottom:20px;">
+          <div style="font-size:12px;color:var(--text-muted);">출금 가능 잔액</div>
+          <div style="font-family:'Orbitron',sans-serif;font-size:24px;font-weight:900;color:var(--accent-gold);" id="modal-withdraw-balance">0</div>
+        </div>
+        <div class="form-group">
+          <label>출금 금액</label>
+          <input type="number" id="wd-amount" class="input" placeholder="출금할 금액을 숫자로만 입력하세요">
+        </div>
+        <div class="form-group">
+          <label>은행명</label>
+          <input type="text" id="wd-bank" class="input" placeholder="예: 국민은행">
+        </div>
+        <div class="form-group">
+          <label>계좌번호</label>
+          <input type="text" id="wd-account" class="input" placeholder="계좌번호 입력">
+        </div>
+        <div class="form-group">
+          <label>예금주</label>
+          <input type="text" id="wd-holder" class="input" placeholder="예금주 성명">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-outline" onclick="closeModal('modal-withdraw')">취소</button>
+        <button class="btn btn-primary" onclick="submitWithdraw()">출금 신청</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../js/app.js"></script>
   <script src="../js/api.js"></script>
   <script src="../js/dgn.js"></script>
   <script>
     // ── 인증 가드 ──
-    if (!requireMemberAuth()) { /* 리다이렉트됨 */ }
+    if (typeof requireMemberAuth === 'function') { 
+        if(!requireMemberAuth()) { /* 리다이렉트됨 */ }
+    }
 
     let _memberData = null;
 
     document.addEventListener('DOMContentLoaded', async () => {
-      applyTheme(getTheme());
+      if(typeof applyTheme === 'function') applyTheme(getTheme());
       setCurrentDate();
       // DGN 헬퍼 초기화 (환율 로드)
       if (window.DGN) DGN.init().catch(()=>{});
@@ -719,16 +783,18 @@
     // ── API 데이터 로드 ──
     async function loadMemberData() {
       try {
+        if(typeof DashboardAPI === 'undefined') return;
         const data = await DashboardAPI.member();
         _memberData = data;
         renderDashboard(data);
       } catch(err) {
-        showToast('데이터를 불러오는 중 오류가 발생했습니다.', 'error');
+        if(typeof showToast === 'function') showToast('데이터를 불러오는 중 오류가 발생했습니다.', 'error');
         console.error(err);
       }
     }
 
     function renderDashboard(data) {
+      if (!data) return;
       const member     = data.member    || {};
       const investment = data.investment || {};
       const payouts    = data.payouts   || [];
@@ -736,32 +802,39 @@
       const refStats   = data.referral_stats || {};
 
       // Hero
-      animateCounter(document.getElementById('hero-invest-amount'), member.total_invested || member.investment_total || 0, 1500, '₩');
+      if(typeof animateCounter === 'function') {
+          animateCounter(document.getElementById('hero-invest-amount'), member.total_invested || member.investment_total || 0, 1500, '₩');
+      }
       document.getElementById('hero-rank').textContent = member.rank || '-';
       document.getElementById('hero-invest-date').textContent = investment.investment_date ? formatDate(investment.investment_date) : '-';
       document.getElementById('hero-week').textContent = investment.current_week || 0;
-      document.getElementById('week-progress').innerHTML = renderWeekProgress(investment.current_week || 0, investment.total_weeks || 15);
+      if(typeof renderWeekProgress === 'function') {
+          document.getElementById('week-progress').innerHTML = renderWeekProgress(investment.current_week || 0, investment.total_weeks || 15);
+      }
 
       // Stats
       // 총 지급액 = 원금 * 1.5 (50% 이자)
       const totalPayout = Math.round((investment.amount || member.investment_total || 0) * 1.5);
       // 주당 지급액 = 총지급액 / 15
       const weeklyAmt   = totalPayout > 0 ? Math.round(totalPayout / 15) : (investment.weekly_profit || 0);
-      animateCounter(document.getElementById('stat-total-payout'), totalPayout, 1000, '₩');
-      animateCounter(document.getElementById('stat-weekly'), weeklyAmt, 1200, '₩');
-      animateCounter(document.getElementById('stat-paid'), investment.paid_amount || 0, 1400, '₩');
-      animateCounter(document.getElementById('stat-remain'), investment.remaining_amount || 0, 1600, '₩');
+      
+      if(typeof animateCounter === 'function') {
+          animateCounter(document.getElementById('stat-total-payout'), totalPayout, 1000, '₩');
+          animateCounter(document.getElementById('stat-weekly'), weeklyAmt, 1200, '₩');
+          animateCounter(document.getElementById('stat-paid'), investment.paid_amount || 0, 1400, '₩');
+          animateCounter(document.getElementById('stat-remain'), investment.remaining_amount || 0, 1600, '₩');
+      }
 
       // Next Payout - 로딩 숨기고 상태에 따라 표시
       document.getElementById('next-pay-loading').style.display = 'none';
       if (nextPayout && nextPayout.scheduled_date) {
         document.getElementById('next-pay-has-investment').style.display = 'block';
         document.getElementById('next-pay-no-investment').style.display  = 'none';
-        document.getElementById('next-pay-date').textContent   = formatDate(nextPayout.scheduled_date);
-        // next_payout.total_payout = 해당 주차 지급액 (원금분+이자분)
+        document.getElementById('next-pay-date').textContent   = typeof formatDate === 'function' ? formatDate(nextPayout.scheduled_date) : nextPayout.scheduled_date;
+        
         const npAmt = nextPayout.total_payout || Math.round(((investment.amount||0)*1.5)/15);
         const npAmtEl = document.getElementById('next-pay-amount');
-        if (npAmtEl) npAmtEl.innerHTML = formatMoney(npAmt) + (window.DGN ? DGN.html(npAmt) : '');
+        if (npAmtEl) npAmtEl.innerHTML = (typeof formatMoney === 'function' ? formatMoney(npAmt) : npAmt) + (window.DGN ? DGN.html(npAmt) : '');
         document.getElementById('next-pay-badge').textContent  = `${nextPayout.week_number}주차 지급 대기`;
       } else {
         document.getElementById('next-pay-has-investment').style.display = 'none';
@@ -785,7 +858,9 @@
       document.getElementById('pi-phone').textContent  = member.phone    || '-';
       document.getElementById('pi-email').textContent  = member.email    || '-';
       document.getElementById('pi-bank').textContent   = `${member.bank_name || ''} ${member.account_number || ''}`.trim() || '-';
-      document.getElementById('pi-rank').innerHTML     = rankBadge(member.rank || '일반회원');
+      if(typeof rankBadge === 'function') {
+          document.getElementById('pi-rank').innerHTML     = rankBadge(member.rank || '일반회원');
+      }
 
       // Sidebar
       document.getElementById('sidebar-name').textContent   = member.name   || '회원';
@@ -824,6 +899,7 @@
     // ── 직급자 소개수당 통계 로드 ──
     async function loadCommissionStats() {
       try {
+        if(typeof CommissionsAPI === 'undefined') return;
         const data = await CommissionsAPI.my();
         const list = Array.isArray(data) ? data : (data.data || []);
 
@@ -851,7 +927,7 @@
         const recent = list.slice(0, 10);
         const tbody  = document.getElementById('comm-list-body');
 
-        // 대기중 수당 합산 업데이트 (CommissionsAPI.my에서 재계산)
+        // 대기중 수당 합산 업데이트
         const totalPending = list
           .filter(c => (c.withdraw_status || 'pending') === 'pending')
           .reduce((s, c) => s + Number(c.commission_amount || 0), 0);
@@ -860,13 +936,11 @@
         const pendingBox   = document.getElementById('comm-pending-box');
         if (pendingEl) {
           if (totalPending > 0) {
-            // 대기중 수당이 있을 때: 금액 + "대기중" 표시
             pendingEl.innerHTML = '₩' + Math.round(totalPending).toLocaleString('ko-KR')
               + '<span style="display:block;font-size:10px;color:#e74c3c;font-family:\'Noto Sans KR\',sans-serif;font-weight:700;margin-top:3px;">대기중</span>';
             if (pendingLabel) pendingLabel.textContent = '출금 승인 대기';
             if (pendingBox) pendingBox.style.borderColor = 'rgba(231,76,60,0.5)';
           } else {
-            // 완료(또는 0) 시: 0 표시
             pendingEl.textContent = '₩0';
             if (pendingLabel) pendingLabel.textContent = '대기중 수당 없음';
             if (pendingBox) pendingBox.style.borderColor = 'rgba(39,174,96,0.3)';
@@ -895,10 +969,10 @@
                 <div style="font-weight:700;font-size:12px;">${c.investor_user_id || '-'}</div>
                 <div style="font-size:11px;color:var(--text-muted);">${c.investor_name || ''}</div>
               </td>
-              <td style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">${formatMoney(c.investment_amount)}</td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:11px;font-weight:700;color:var(--accent-blue);">${typeof formatMoney === 'function' ? formatMoney(c.investment_amount) : c.investment_amount}</td>
               <td>${rateTag(c.commission_rate)}</td>
-              <td style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--accent-gold);">+${formatMoney(c.commission_amount)}</td>
-              <td style="font-size:11px;">${formatDate(c.paid_at || c.created_at)}</td>
+              <td style="font-family:'Orbitron',sans-serif;font-size:13px;font-weight:900;color:var(--accent-gold);">+${typeof formatMoney === 'function' ? formatMoney(c.commission_amount) : c.commission_amount}</td>
+              <td style="font-size:11px;">${typeof formatDate === 'function' ? formatDate(c.paid_at || c.created_at) : (c.paid_at || c.created_at)}</td>
               <td>${withdrawBadge(c.withdraw_status)}</td>
             </tr>
           `).join('');
@@ -910,11 +984,6 @@
       }
     }
 
-    function countAllReferrals(arr) {
-      if (!arr || arr.length === 0) return 0;
-      return arr.reduce((acc, m) => acc + 1 + countAllReferrals(m.children), 0);
-    }
-
     function renderRecentPayouts(data) {
       const tbody = document.getElementById('recent-payout-tbody');
       if (!data || data.length === 0) {
@@ -924,49 +993,65 @@
         </td></tr>`;
         return;
       }
+      
+      const fDate = typeof formatDate === 'function' ? formatDate : (d) => d;
+      const fMoney = typeof formatMoney === 'function' ? formatMoney : (m) => m;
+
       tbody.innerHTML = data.map(p => `
         <tr class="payout-row">
           <td style="font-weight:700;color:var(--accent-gold);">${p.week_number}주차</td>
           <td style="font-size:12px;">
-            <div>${formatDate(p.scheduled_date)}</div>
-            ${p.paid_date ? `<div style="font-size:10px;color:var(--accent-green);">✓ ${formatDate(p.paid_date)} 승인</div>` : ''}
+            <div>${fDate(p.scheduled_date)}</div>
+            ${p.paid_date ? `<div style="font-size:10px;color:var(--accent-green);">✓ ${fDate(p.paid_date)} 승인</div>` : ''}
           </td>
-          <td style="font-size:12px;">${formatMoney(p.principal_portion)}</td>
-          <td style="color:var(--accent-green);font-size:12px;">${formatMoney(p.profit_portion)}</td>
-          <td style="font-weight:900;color:var(--text-primary);font-family:'Orbitron',sans-serif;font-size:13px;">${formatMoney(p.total_payout)}</td>
-          <td style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text-muted);">${formatMoney(p.balance_after)}</td>
+          <td style="font-size:12px;">${fMoney(p.principal_portion)}</td>
+          <td style="color:var(--accent-green);font-size:12px;">${fMoney(p.profit_portion)}</td>
+          <td style="font-weight:900;color:var(--text-primary);font-family:'Orbitron',sans-serif;font-size:13px;">${fMoney(p.total_payout)}</td>
+          <td style="font-family:'Orbitron',sans-serif;font-size:11px;color:var(--text-muted);">${fMoney(p.balance_after)}</td>
           <td><span style="padding:2px 8px;background:rgba(39,174,96,0.15);color:var(--accent-green);border-radius:6px;font-size:11px;font-weight:700;">✓ 지급완료</span></td>
         </tr>
       `).join('');
     }
 
-    // 출금 신청 모달
+    // 출금 신청 모달 오픈 함수
     window.openWithdrawModal = function() {
       if (!_memberData) return;
       const balance = _memberData.member?.available_balance || 0;
       const member  = _memberData.member || {};
-      document.getElementById('modal-withdraw-balance').textContent = formatMoney(balance);
+      
+      document.getElementById('modal-withdraw-balance').textContent = typeof formatMoney === 'function' ? formatMoney(balance) : balance;
       document.getElementById('wd-bank').value    = member.bank_name || '';
       document.getElementById('wd-account').value = member.account_number || '';
       document.getElementById('wd-holder').value  = member.name || '';
-      openModal('modal-withdraw');
+      
+      if(typeof openModal === 'function') openModal('modal-withdraw');
     };
 
+    // 출금 데이터 제출 함수
     window.submitWithdraw = async function() {
       const amount = parseInt(document.getElementById('wd-amount').value.replace(/,/g, '') || '0');
       const bank   = document.getElementById('wd-bank').value;
       const acct   = document.getElementById('wd-account').value;
       const holder = document.getElementById('wd-holder').value;
-      if (!amount || amount <= 0) { showToast('출금 금액을 입력하세요.', 'error'); return; }
-      if (!bank || !acct || !holder) { showToast('계좌 정보를 입력하세요.', 'error'); return; }
+      
+      if (!amount || amount <= 0) { 
+        if(typeof showToast === 'function') showToast('출금 금액을 입력하세요.', 'error'); 
+        return; 
+      }
+      if (!bank || !acct || !holder) { 
+        if(typeof showToast === 'function') showToast('계좌 정보를 입력하세요.', 'error'); 
+        return; 
+      }
 
       try {
-        await WithdrawalsAPI.request({ amount, bank_name: bank, account_number: acct, account_holder: holder });
-        showToast('출금 신청이 완료되었습니다.', 'success');
-        closeModal('modal-withdraw');
-        await loadMemberData();
+        if(typeof WithdrawalsAPI !== 'undefined') {
+          await WithdrawalsAPI.request({ amount, bank_name: bank, account_number: acct, account_holder: holder });
+          if(typeof showToast === 'function') showToast('출금 신청이 완료되었습니다.', 'success');
+          if(typeof closeModal === 'function') closeModal('modal-withdraw');
+          await loadMemberData();
+        }
       } catch(err) {
-        showToast(err.message, 'error');
+        if(typeof showToast === 'function') showToast(err.message, 'error');
       }
     };
   </script>
