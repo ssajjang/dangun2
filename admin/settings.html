@@ -430,8 +430,8 @@
       <div class="setting-group">
         <div class="setting-group-title" style="justify-content:space-between;">
           <span><i class="fas fa-user-shield"></i> 관리자 계정 관리</span>
-          <!-- 모달을 띄우는 버튼 -->
-          <button class="btn btn-primary btn-sm" id="btn-add-admin" onclick="openModal('modal-add-admin')" style="font-size:12px;padding:6px 16px;">
+          <!-- 수정됨: disabled 속성을 제거하고, 클릭 시 권한을 체크하는 함수로 변경 -->
+          <button class="btn btn-primary btn-sm" id="btn-add-admin" onclick="checkAndOpenAddAdminModal()" style="font-size:12px;padding:6px 16px;">
             <i class="fas fa-plus"></i> 서브관리자 추가
           </button>
         </div>
@@ -451,13 +451,19 @@
   <script src="../js/app.js"></script>
   <script>
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+     전역 변수 설정
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  var currentAdmin = null;
+  var isSuperAdmin = false;
+
+  /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      초기화
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  var currentAdmin = Auth.getAdmin();
-  // 개선: role 값을 소문자로 변환하여 비교하여 데이터베이스 불일치 에러 방지
-  var isSuperAdmin = currentAdmin && currentAdmin.role && currentAdmin.role.toLowerCase() === 'superadmin';
-
   document.addEventListener('DOMContentLoaded', function () {
+    // 개선: 권한 체크를 DOM 로드 후에 실행하여 객체 초기화 문제 방지
+    currentAdmin = Auth.getAdmin();
+    isSuperAdmin = currentAdmin && currentAdmin.role && currentAdmin.role.toLowerCase() === 'superadmin';
+
     // 관리자 정보 표시
     if (currentAdmin) {
       document.getElementById('admin-name-header').textContent = currentAdmin.name || currentAdmin.admin_id;
@@ -471,26 +477,19 @@
       }
     }
 
-    // superadmin이 아니면 안내문 표시 + 모든 저장/추가 버튼 비활성화 시키는 핵심 로직
+    // superadmin이 아니면 안내문 표시
     if (!isSuperAdmin) {
       document.getElementById('notice-not-super').style.display = 'block';
-      
-      // 설정 저장 버튼 비활성화
-      document.querySelectorAll('.setting-save-btn').forEach(function(b) {
-        b.disabled = true;
-        b.title = '최고관리자만 설정을 변경할 수 있습니다.';
-      });
-      
-      // 서브관리자 추가 버튼 비활성화 (이 부분 때문에 클릭이 안되었습니다)
-      var addAdminBtn = document.getElementById('btn-add-admin');
-      if(addAdminBtn) {
-        addAdminBtn.disabled = true;
-        addAdminBtn.title = '최고관리자만 관리자를 추가할 수 있습니다.';
-      }
     }
 
     loadSettings();
     loadAdmins();
+
+    // 코인 입력칸 실시간 미리보기 연동
+    ['coin-rate','coin-symbol'].forEach(function(id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('input', updateCoinPreview);
+    });
   });
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -533,13 +532,6 @@
     document.getElementById('preview-dgn').textContent    = dgn.toLocaleString('ko-KR');
     document.getElementById('preview-symbol').textContent = symbol;
   }
-
-  document.addEventListener('DOMContentLoaded', function() {
-    ['coin-rate','coin-symbol'].forEach(function(id) {
-      var el = document.getElementById(id);
-      if (el) el.addEventListener('input', updateCoinPreview);
-    });
-  });
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
      설정 저장
@@ -626,8 +618,17 @@
   }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     서브관리자 생성
+     서브관리자 생성 관련 제어
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
+  function checkAndOpenAddAdminModal() {
+    // 버튼 클릭 시 권한을 한 번 더 검증하고 안내
+    if (!isSuperAdmin) {
+      showToast('최고관리자(superadmin)만 관리자를 추가할 수 있습니다.', 'error');
+      return;
+    }
+    openModal('modal-add-admin');
+  }
+
   function doCreateAdmin() {
     var adminId = document.getElementById('new-admin-id').value.trim();
     var name    = document.getElementById('new-admin-name').value.trim();
