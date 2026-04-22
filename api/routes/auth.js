@@ -192,33 +192,31 @@ router.get('/members/search', async (req, res) => {
 
     const db = await getDb();
 
-    // 일반 회원 검색
+    // 일반 회원 검색 (제한 해제: LIMIT 삭제)
     const memberRows = await db.all(
       `SELECT id, user_id, name, rank, 'member' as type
        FROM members
        WHERE status != 'suspended'
          AND (user_id LIKE ? OR name LIKE ?)
-       ORDER BY created_at DESC
-       LIMIT 15`,
+       ORDER BY created_at DESC`,
       [`%${q}%`, `%${q}%`]
     );
 
-    // 관리자(SuperAdmin 포함) 검색 - 추천인으로 선택 가능
+    // 관리자(SuperAdmin 포함) 검색 - 추천인으로 선택 가능 (제한 해제: LIMIT 삭제)
     const adminRows = await db.all(
       `SELECT id, admin_id as user_id, name, role as rank, 'admin' as type
        FROM admins
        WHERE status = 'active'
          AND (admin_id LIKE ? OR name LIKE ?)
-       ORDER BY created_at DESC
-       LIMIT 5`,
+       ORDER BY created_at DESC`,
       [`%${q}%`, `%${q}%`]
     );
 
-    // 합쳐서 반환 (관리자를 앞에 배치)
+    // 합쳐서 반환 (관리자를 앞에 배치, .slice(0, 20) 개수 자르기 삭제)
     const combined = [
       ...adminRows.map(a => ({ ...a, rank: a.rank === 'superadmin' ? 'SuperAdmin' : '관리자' })),
       ...memberRows,
-    ].slice(0, 20);
+    ];
 
     return res.json(combined);
   } catch (e) {
