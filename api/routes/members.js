@@ -79,21 +79,69 @@ router.get('/:id', authAdmin, async (req, res) => {
 router.patch('/:id', authAdmin, async (req, res) => {
   try {
     const db = await getDb();
-    const member = await db.get('SELECT * FROM members WHERE id=?', [req.params.id]);
+    const targetId = req.params.id;
+    const member = await db.get('SELECT * FROM members WHERE id=?', [targetId]);
     if (!member) return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
 
+    // 기본 정보 업데이트 항목
     const allowed = ['rank','status','memo','bank_name','account_number','account_holder'];
     const updates = {};
     for (const k of allowed) { if (req.body[k] !== undefined) updates[k] = req.body[k]; }
+
+    // [중요 로직 추가] 추천인(recommender) 변경 처리
+    const recVal = req.body.recommender_id !== undefined ? req.body.recommender_id : req.body.recommender_user_id;
+    if (recVal !== undefined) {
+      if (!recVal || String(recVal).trim() === '') {
+        updates.recommender_id = null; // 추천인 해제
+      } else {
+        const rid = String(recVal).trim();
+        let recRow = await db.get('SELECT id FROM members WHERE user_id=?', [rid]);
+        if (!recRow && /^\d+$/.test(rid)) {
+          recRow = await db.get('SELECT id FROM members WHERE id=?', [parseInt(rid)]);
+        }
+
+        if (recRow) {
+          if (recRow.id === Number(targetId)) {
+            return res.status(400).json({ error: '자기 자신을 추천인으로 등록할 수 없습니다.' });
+          }
+          updates.recommender_id = recRow.id;
+        } else {
+          // 관리자(슈퍼관리자) 여부 확인
+          const adminRow = await db.get('SELECT id FROM admins WHERE admin_id=? AND status=?', [rid, 'active']);
+          if (adminRow) {
+            updates.recommender_id = null; // 최고관리자는 members에 없으므로 null 취급
+          } else {
+            return res.status(400).json({ error: '존재하지 않는 추천인 아이디입니다.' });
+          }
+        }
+      }
+    }
+
     if (!Object.keys(updates).length) return res.status(400).json({ error: '변경할 항목이 없습니다.' });
 
     const set = Object.keys(updates).map(k => `${k}=?`).join(', ');
     await db.run(`UPDATE members SET ${set}, updated_at=datetime('now','localtime') WHERE id=?`,
-      [...Object.values(updates), req.params.id]);
-    await db.run(`INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description) VALUES ('admin',?,?,?,?,?)`,
-      [req.admin.id, 'member_update', 'members', req.params.id, `회원수정: ${JSON.stringify(updates)}`]);
+      [...Object.values(updates), targetId]);
 
-    return res.json({ message: '회원 정보가 수정되었습니다.' });
+    // 추천인이 변경되었다면 referral_tree (조직도/계보) 동기화
+    if ('recommender_id' in updates) {
+      // 1. 자신의 상위 계보 끊기 (본인 하위 조망은 그대로 유지)
+      await db.run(`DELETE FROM referral_tree WHERE member_id = ? AND depth > 0`, [targetId]);
+      
+      // 2. 새로운 추천인이 있다면 상위 계보 다시 연결
+      if (updates.recommender_id) {
+        const ancestors = await db.all('SELECT ancestor_id, depth FROM referral_tree WHERE member_id=?', [updates.recommender_id]);
+        for (const a of ancestors) {
+          await db.run('INSERT OR IGNORE INTO referral_tree (member_id, ancestor_id, depth) VALUES (?,?,?)', 
+            [targetId, a.ancestor_id, a.depth + 1]);
+        }
+      }
+    }
+
+    await db.run(`INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description) VALUES ('admin',?,?,?,?,?)`,
+      [req.admin.id, 'member_update', 'members', targetId, `회원수정(추천인/정보변경): ID ${targetId}`]);
+
+    return res.json({ message: '회원 정보 및 추천인이 정상적으로 수정되었습니다.' });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
