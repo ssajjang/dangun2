@@ -86,7 +86,6 @@
     }
     .setting-save-btn:hover:not(:disabled) { opacity: 0.85; }
     
-    /* 비활성화 버튼 디자인 (하지만 더이상 기능 자체를 죽이진 않음) */
     .btn:disabled { 
       opacity: 0.4; 
       cursor: not-allowed; 
@@ -198,7 +197,7 @@
   </style>
 </head>
 <body>
-  <!-- [해결 포인트] Toast 알림이 모달(z-index: 1000) 뒤에 숨지 않도록 최상단 고정 -->
+  <!-- Toast 알림이 모달 뒤에 숨지 않도록 최상단 고정 -->
   <div id="toast-container" style="position:fixed; top:20px; right:20px; z-index:999999 !important; display:flex; flex-direction:column; gap:10px; pointer-events:none;"></div>
 
   <!-- 모달: sub-admin 추가 -->
@@ -222,8 +221,8 @@
         <input type="password" id="new-admin-pw" class="form-control" placeholder="••••••••">
       </div>
       <div class="modal-actions">
-        <button class="btn btn-outline" onclick="closeModal('modal-add-admin')">취소</button>
-        <button class="btn btn-primary" onclick="doCreateAdmin()">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-add-admin')">취소</button>
+        <button type="button" class="btn btn-primary" onclick="doCreateAdmin()">
           <i class="fas fa-plus"></i> 추가
         </button>
       </div>
@@ -241,8 +240,8 @@
         <input type="password" id="reset-pw-value" class="form-control" placeholder="••••••••">
       </div>
       <div class="modal-actions">
-        <button class="btn btn-outline" onclick="closeModal('modal-reset-pw')">취소</button>
-        <button class="btn btn-primary" onclick="doResetPassword()">
+        <button type="button" class="btn btn-outline" onclick="closeModal('modal-reset-pw')">취소</button>
+        <button type="button" class="btn btn-primary" onclick="doResetPassword()">
           <i class="fas fa-save"></i> 저장
         </button>
       </div>
@@ -308,7 +307,7 @@
           </div>
           <div class="setting-input-wrap">
             <input type="text" id="coin-symbol" class="setting-input" placeholder="DGN" maxlength="10">
-            <button class="setting-save-btn" onclick="saveSetting('dangun_coin_symbol', document.getElementById('coin-symbol').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('dangun_coin_symbol', document.getElementById('coin-symbol').value)">
               저장
             </button>
           </div>
@@ -321,7 +320,7 @@
           </div>
           <div class="setting-input-wrap">
             <input type="number" id="coin-rate" class="setting-input" step="0.01" min="0" placeholder="10.00">
-            <button class="setting-save-btn" onclick="saveSetting('dangun_coin_rate', document.getElementById('coin-rate').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('dangun_coin_rate', document.getElementById('coin-rate').value)">
               저장
             </button>
           </div>
@@ -337,7 +336,7 @@
               <option value="1">표시</option>
               <option value="0">숨김</option>
             </select>
-            <button class="setting-save-btn" onclick="saveSetting('dangun_coin_enabled', document.getElementById('coin-enabled').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('dangun_coin_enabled', document.getElementById('coin-enabled').value)">
               저장
             </button>
           </div>
@@ -366,7 +365,7 @@
           </div>
           <div class="setting-input-wrap">
             <input type="text" id="platform-name" class="setting-input" placeholder="DANGUN 금융플랫폼">
-            <button class="setting-save-btn" onclick="saveSetting('platform_name', document.getElementById('platform-name').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('platform_name', document.getElementById('platform-name').value)">
               저장
             </button>
           </div>
@@ -382,7 +381,7 @@
               <option value="0">정상 운영</option>
               <option value="1">점검 중</option>
             </select>
-            <button class="setting-save-btn" onclick="saveSetting('maintenance_mode', document.getElementById('maintenance-mode').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('maintenance_mode', document.getElementById('maintenance-mode').value)">
               저장
             </button>
           </div>
@@ -395,7 +394,7 @@
           </div>
           <div class="setting-input-wrap">
             <input type="text" id="site-notice" class="setting-input" style="width:280px;" placeholder="공지사항 내용">
-            <button class="setting-save-btn" onclick="saveSetting('site_notice', document.getElementById('site-notice').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('site_notice', document.getElementById('site-notice').value)">
               저장
             </button>
           </div>
@@ -408,7 +407,7 @@
           </div>
           <div class="setting-input-wrap">
             <input type="number" id="weekly-profit-rate" class="setting-input" step="1" min="0" max="100" placeholder="10">
-            <button class="setting-save-btn" onclick="saveSetting('weekly_profit_rate', document.getElementById('weekly-profit-rate').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('weekly_profit_rate', document.getElementById('weekly-profit-rate').value)">
               저장
             </button>
           </div>
@@ -421,7 +420,7 @@
           </div>
           <div class="setting-input-wrap">
             <input type="number" id="min-investment" class="setting-input" step="10000" min="0" placeholder="100000">
-            <button class="setting-save-btn" onclick="saveSetting('min_investment', document.getElementById('min-investment').value)">
+            <button type="button" class="setting-save-btn" onclick="saveSetting('min_investment', document.getElementById('min-investment').value)">
               저장
             </button>
           </div>
@@ -432,8 +431,8 @@
       <div class="setting-group">
         <div class="setting-group-title" style="justify-content:space-between;">
           <span><i class="fas fa-user-shield"></i> 관리자 계정 관리</span>
-          <!-- [해결 포인트] 클릭 무시 버그를 막기 위해 함수를 변경 -->
-          <button class="btn btn-primary btn-sm" id="btn-add-admin" onclick="checkSuperAdminAndOpenModal()" style="font-size:12px;padding:6px 16px;">
+          <!-- [수정됨] onclick 대상을 안전한 가드 함수로 변경하고, z-index를 올려 다른 요소에 가려지지 않게 처리 -->
+          <button type="button" class="btn btn-primary btn-sm" id="btn-add-admin" onclick="checkSuperAdminAndOpenModal()" style="font-size:12px;padding:6px 16px; position:relative; z-index:10;">
             <i class="fas fa-plus"></i> 서브관리자 추가
           </button>
         </div>
@@ -459,6 +458,8 @@
   var isSuperAdmin = currentAdmin && currentAdmin.role && currentAdmin.role.toLowerCase() === 'superadmin';
 
   document.addEventListener('DOMContentLoaded', function () {
+    console.log('[DEBUG] 페이지 초기화 시작. 현재 권한:', isSuperAdmin ? '최고관리자' : '일반/서브관리자');
+    
     // 관리자 정보 표시
     if (currentAdmin) {
       document.getElementById('admin-name-header').textContent = currentAdmin.name || currentAdmin.admin_id;
@@ -472,10 +473,10 @@
       }
     }
 
-    // [해결 포인트] 모든 버튼의 .disabled = true 속성을 제거하여, 
-    // 클릭이 무시되어 '아무런 반응이 없는' 현상을 원천 차단했습니다.
     if (!isSuperAdmin) {
       document.getElementById('notice-not-super').style.display = 'block';
+      // [중요 수정] 이제 더 이상 자바스크립트로 버튼들의 disabled 속성을 강제로 true로 만들지 않습니다.
+      // 물리적인 클릭 차단이 먹통 현상의 주원인이었기 때문에 이 로직을 완전히 삭제했습니다.
     }
 
     loadSettings();
@@ -483,13 +484,16 @@
   });
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     버튼 안전 클릭 함수 (먹통 현상 해결용)
+     버튼 안전 클릭 함수 (먹통 현상 해결 및 로그 추적용)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   function checkSuperAdminAndOpenModal() {
+    console.log('[DEBUG] "서브관리자 추가" 버튼 클릭됨');
     if (!isSuperAdmin) {
+      console.log('[DEBUG] 권한 부족으로 차단됨 (Toast 발생 예정)');
       showToast('최고관리자(superadmin)만 서브관리자를 추가할 수 있습니다.', 'error');
       return;
     }
+    console.log('[DEBUG] 정상 권한 확인 완료, 모달을 엽니다.');
     openModal('modal-add-admin');
   }
 
@@ -500,12 +504,10 @@
     SettingsAPI.getAll().then(function(data) {
       function val(key) { return data[key] ? data[key].value : ''; }
 
-      // 코인 설정
       document.getElementById('coin-symbol').value    = val('dangun_coin_symbol') || 'DGN';
       document.getElementById('coin-rate').value      = val('dangun_coin_rate')   || '10.00';
       document.getElementById('coin-enabled').value   = val('dangun_coin_enabled') || '1';
 
-      // 플랫폼 설정
       document.getElementById('platform-name').value     = val('platform_name');
       document.getElementById('maintenance-mode').value  = val('maintenance_mode') || '0';
       document.getElementById('site-notice').value       = val('site_notice');
@@ -514,7 +516,6 @@
 
       updateCoinPreview();
     }).catch(function(e) {
-      // 공개 설정으로 폴백
       SettingsAPI.getPublic().then(function(d) {
         document.getElementById('coin-symbol').value  = d.dangun_coin_symbol || 'DGN';
         document.getElementById('coin-rate').value    = d.dangun_coin_rate   || '10.00';
@@ -524,11 +525,10 @@
     });
   }
 
-  /* ── 코인 미리보기 업데이트 ── */
   function updateCoinPreview() {
     var rate   = parseFloat(document.getElementById('coin-rate').value) || 0;
     var symbol = document.getElementById('coin-symbol').value || 'DGN';
-    var sample = 1000000; // 100만 KRW 예시
+    var sample = 1000000;
     var dgn    = Math.round(sample * rate);
     document.getElementById('preview-dgn').textContent    = dgn.toLocaleString('ko-KR');
     document.getElementById('preview-symbol').textContent = symbol;
@@ -598,12 +598,12 @@
 
       var actionHtml = '';
       if (isSuperAdmin) {
-        actionHtml += '<button class="btn btn-outline btn-xs" onclick="openResetPw(' + a.id + ',\'' + escHtml(a.admin_id) + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;"><i class="fas fa-key"></i> 비번</button>';
+        actionHtml += '<button type="button" class="btn btn-outline btn-xs" onclick="openResetPw(' + a.id + ',\'' + escHtml(a.admin_id) + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;"><i class="fas fa-key"></i> 비번</button>';
         if (a.role.toLowerCase() !== 'superadmin') {
           var nextStatus = a.status === 'active' ? 'inactive' : 'active';
           var statusLabel = a.status === 'active' ? '비활성화' : '활성화';
-          actionHtml += '<button class="btn btn-outline btn-xs" onclick="doToggleStatus(' + a.id + ',\'' + nextStatus + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;">' + statusLabel + '</button>';
-          actionHtml += '<button class="btn btn-xs" onclick="doDeleteAdmin(' + a.id + ',\'' + escHtml(a.admin_id) + '\')" style="font-size:11px;padding:3px 10px;background:rgba(231,76,60,0.2);color:#e74c3c;border:1px solid rgba(231,76,60,0.4);border-radius:6px;cursor:pointer;">삭제</button>';
+          actionHtml += '<button type="button" class="btn btn-outline btn-xs" onclick="doToggleStatus(' + a.id + ',\'' + nextStatus + '\')" style="font-size:11px;padding:3px 10px;margin-right:4px;">' + statusLabel + '</button>';
+          actionHtml += '<button type="button" class="btn btn-xs" onclick="doDeleteAdmin(' + a.id + ',\'' + escHtml(a.admin_id) + '\')" style="font-size:11px;padding:3px 10px;background:rgba(231,76,60,0.2);color:#e74c3c;border:1px solid rgba(231,76,60,0.4);border-radius:6px;cursor:pointer;">삭제</button>';
         }
       } else {
         actionHtml = '<span style="color:var(--text-muted);font-size:11px;">조회만 가능</span>';
@@ -629,6 +629,7 @@
      서브관리자 생성
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
   function doCreateAdmin() {
+    console.log('[DEBUG] 모달 내부 "추가" 버튼 클릭됨. 서브관리자 생성 시작');
     var adminId = document.getElementById('new-admin-id').value.trim();
     var name    = document.getElementById('new-admin-name').value.trim();
     var email   = document.getElementById('new-admin-email').value.trim();
@@ -638,14 +639,15 @@
     if (pw.length < 8) { showToast('비밀번호는 8자 이상이어야 합니다.', 'warning'); return; }
 
     AdminAccountsAPI.create({ admin_id: adminId, name: name, email: email, password: pw }).then(function(data) {
+      console.log('[DEBUG] 생성 API 호출 성공:', data);
       showToast('✅ ' + data.message, 'success');
       closeModal('modal-add-admin');
-      // 입력 초기화
       ['new-admin-id','new-admin-name','new-admin-email','new-admin-pw'].forEach(function(id) {
         document.getElementById(id).value = '';
       });
       loadAdmins();
     }).catch(function(e) {
+      console.error('[DEBUG] 생성 API 에러 발생:', e);
       showToast('❌ ' + e.message, 'error');
     });
   }
@@ -699,18 +701,17 @@
   }
 
   /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-     모달 유틸
+     모달 유틸 (app.js 충돌 방지를 위해 명시적 제어)
   ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
-  function openModal(id)  { document.getElementById(id).classList.add('show'); }
-  function closeModal(id) { document.getElementById(id).classList.remove('show'); }
-  // 오버레이 클릭 시 닫기
+  function openModal(id)  { document.getElementById(id).classList.add('show', 'open'); }
+  function closeModal(id) { document.getElementById(id).classList.remove('show', 'open'); }
+  
   document.querySelectorAll('.modal-overlay').forEach(function(el) {
     el.addEventListener('click', function(e) {
       if (e.target === el) closeModal(el.id);
     });
   });
 
-  /* ── HTML 이스케이프 ── */
   function escHtml(s) {
     return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
