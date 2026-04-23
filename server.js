@@ -11,7 +11,7 @@ const express   = require('express');
 const cors      = require('cors');
 const helmet    = require('helmet');
 const morgan    = require('morgan');
-const rateLimit = require('express-rate-limit');
+// const rateLimit = require('express-rate-limit'); // [수정 포인트] 로그인 시도 제한 해제를 위해 주석 처리
 
 // Railway 환경에서는 process.env.PORT를 우선 사용하며, 없으면 8080을 기본값으로 설정합니다.
 const PORT = parseInt(process.env.PORT, 10) || 8080;
@@ -48,12 +48,12 @@ if (process.env.NODE_ENV !== 'test') {
   app.use(morgan('[:date[clf]] :method :url :status :response-time ms'));
 }
 
-// Rate Limiting
-const apiLimiter  = rateLimit({ windowMs: 15*60*1000, max: 300, message: { error: '요청이 너무 많습니다.' } });
-const authLimiter = rateLimit({ windowMs: 15*60*1000, max: 20,  message: { error: '로그인 시도가 너무 많습니다.' } });
-app.use('/api/', apiLimiter);
-app.use('/api/auth/login',       authLimiter);
-app.use('/api/auth/admin/login', authLimiter);
+// Rate Limiting (모든 사용자 로그인 차단 문제를 막기 위해 주석 처리하여 무제한으로 해제)
+// const apiLimiter  = rateLimit({ windowMs: 15*60*1000, max: 300, message: { error: '요청이 너무 많습니다.' } });
+// const authLimiter = rateLimit({ windowMs: 15*60*1000, max: 20,  message: { error: '로그인 시도가 너무 많습니다.' } });
+// app.use('/api/', apiLimiter);
+// app.use('/api/auth/login',       authLimiter);
+// app.use('/api/auth/admin/login', authLimiter);
 
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 // 포트 먼저 열기 (헬스체크 통과용)

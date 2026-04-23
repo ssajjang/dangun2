@@ -10,10 +10,10 @@
   <link rel="stylesheet" href="css/theme.css">
   <style>
     /* ── Auth Page Layout ── */
-    body { overflow: hidden; }
+    body { overflow: hidden; margin: 0; }
 
     .auth-container {
-      min-height: 100vh;
+      height: 100vh;
       display: grid;
       grid-template-columns: 1fr 1fr;
     }
@@ -157,11 +157,13 @@
       justify-content: center;
       padding: 40px 48px;
       overflow-y: auto;
+      height: 100%;
     }
 
     .auth-form-box {
       width: 100%;
       max-width: 420px;
+      margin: auto; /* 상하 여백 균형 */
     }
 
     .auth-tabs {
@@ -370,11 +372,31 @@
       color: var(--accent-gold);
     }
 
-    /* Responsive */
+    /* ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+       [핵심 수정] 모바일 환경 스크롤 고정 오류 완벽 해결
+    ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ */
     @media (max-width: 900px) {
-      .auth-container { grid-template-columns: 1fr; }
-      .auth-left { display: none; }
-      .auth-right { padding: 32px 24px; }
+      html, body { 
+        overflow: visible !important; /* 전체 바디 스크롤 허용 */
+        height: auto !important;
+        position: relative;
+      }
+      .auth-container { 
+        display: block !important; /* 스크롤 막힘 원인인 grid 레이아웃 완전 해제 */
+        height: auto !important; 
+        min-height: 100vh;
+      }
+      .auth-left { display: none !important; }
+      .auth-right { 
+        display: block !important; /* 상단 잘림 및 스크롤 고정 원인인 flex 레이아웃 완전 해제 */
+        padding: 40px 24px 60px 24px !important; 
+        overflow: visible !important; 
+        height: auto !important;
+        min-height: 100vh;
+      }
+      .auth-form-box {
+        margin: 0 auto !important; /* 가운데 정렬 유지 */
+      }
     }
   </style>
 </head>
