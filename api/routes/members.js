@@ -83,12 +83,17 @@ router.patch('/:id', authAdmin, async (req, res) => {
     const member = await db.get('SELECT * FROM members WHERE id=?', [targetId]);
     if (!member) return res.status(404).json({ error: '회원을 찾을 수 없습니다.' });
 
-    // 기본 정보 업데이트 항목
-    const allowed = ['rank','status','memo','bank_name','account_number','account_holder'];
+    // [수정 포인트] 기본 정보 업데이트 허용 항목에 이름(name), 전화번호(phone), 이메일(email) 추가
+    const allowed = ['name', 'phone', 'email', 'rank', 'status', 'memo', 'bank_name', 'account_number', 'account_holder'];
     const updates = {};
     for (const k of allowed) { if (req.body[k] !== undefined) updates[k] = req.body[k]; }
 
-    // [중요 로직 추가] 추천인(recommender) 변경 처리
+    // [수정 포인트] 비밀번호 변경 로직 추가 (비밀번호 입력값이 있을 경우 해싱하여 업데이트 항목에 포함)
+    if (req.body.password && req.body.password.trim() !== '') {
+      updates.password = bcrypt.hashSync(req.body.password, 10);
+    }
+
+    // 추천인(recommender) 변경 처리
     const recVal = req.body.recommender_id !== undefined ? req.body.recommender_id : req.body.recommender_user_id;
     if (recVal !== undefined) {
       if (!recVal || String(recVal).trim() === '') {
@@ -139,13 +144,13 @@ router.patch('/:id', authAdmin, async (req, res) => {
     }
 
     await db.run(`INSERT INTO activity_logs (actor_type,actor_id,action,target_type,target_id,description) VALUES ('admin',?,?,?,?,?)`,
-      [req.admin.id, 'member_update', 'members', targetId, `회원수정(추천인/정보변경): ID ${targetId}`]);
+      [req.admin.id, 'member_update', 'members', targetId, `회원수정(정보변경): ID ${targetId}`]);
 
-    return res.json({ message: '회원 정보 및 추천인이 정상적으로 수정되었습니다.' });
+    return res.json({ message: '회원 정보가 정상적으로 수정되었습니다.' });
   } catch (e) { return res.status(500).json({ error: e.message }); }
 });
 
-/* ── 비밀번호 변경 ── */
+/* ── 비밀번호 변경 (별도 호출용 API) ── */
 router.patch('/:id/password', authAdmin, async (req, res) => {
   try {
     const { new_password } = req.body;
